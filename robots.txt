@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Crawl-delay is optional and can be adjusted if needed
+# Crawl-delay: 10

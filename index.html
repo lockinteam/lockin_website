@@ -3,13 +3,273 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lockin</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Lockin.tech | Lockin to your success</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" sizes="192x192" href="static/assets/favicon.png">
 </head>
 <body>
-    <h1>Welcome</h1>
-    <p>This is a blank page.</p>
-    
+    <header class="site-header">
+        <div class="container header-content">
+            <a class="brand" href="#hero" aria-label="Lockin.tech home">
+                <img src="static/assets/lockin_full_transparent.png" alt="Lockin.tech logo" class="brand-logo">
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <button class="nav-toggle" aria-expanded="false" aria-controls="nav-menu">
+                    <span class="nav-toggle-bar"></span>
+                    <span class="nav-toggle-bar"></span>
+                    <span class="nav-toggle-bar"></span>
+                </button>
+                <ul id="nav-menu" class="nav-links">
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#curriculum">Curriculum</a></li>
+                    <li><a href="#workflow">How It Works</a></li>
+                    <li><a href="#pricing">Pricing</a></li>
+                    <li><a href="#testimonials">Testimonials</a></li>
+                    <li><a href="#faq">FAQ</a></li>
+                    <li><a class="nav-cta" href="#download">Download</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section id="hero" class="hero">
+            <div class="container hero-grid">
+                <div class="hero-copy">
+                    <p class="tagline">Pointless scrolling turned productive.</p>
+                    <h1 class="hero-title">
+                        Lockin
+                        <span class="accent">.tech</span>
+                        <span class="sub">to your success.</span>
+                    </h1>
+                    <p class="hero-description">The all-in-one study companion designed to help you master GCSEs and A-levels with AI-guided notes, podcasts, questions, and past papers tailored to your exam board.</p>
+                    <div class="hero-actions">
+                        <a class="btn btn-primary" href="#download">Download App</a>
+                        <a class="btn btn-outline" href="#features">Try Online</a>
+                    </div>
+                    <div class="platforms" aria-label="Supported platforms">
+                        <span class="platform-badge">Web</span>
+                        <span class="platform-badge">iOS</span>
+                        <span class="platform-badge">Android</span>
+                    </div>
+                </div>
+                <div class="hero-visual">
+                    <div class="hero-card">
+                        <img src="static/assets/lockin_screen.png" alt="Lockin app preview" class="hero-image">
+                        <div class="hero-floating">
+                            <div class="floating-card">
+                                <h3>Today&apos;s Focus</h3>
+                                <p>Explain DNA structure and its role in inheritance.</p>
+                            </div>
+                            <div class="floating-card">
+                                <h3>Smart Recap</h3>
+                                <p>8 key terms locked in • 92% retention</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <a class="scroll-down" href="#features" aria-label="Scroll to features"></a>
+        </section>
+
+        <section id="features" class="section features">
+            <div class="container section-header">
+                <p class="eyebrow">What&apos;s inside</p>
+                <h2>Everything you need to lock in every topic</h2>
+                <p class="section-description">Curated content, intelligent practice, and adaptive revision tools designed by educators and powered by AI.</p>
+            </div>
+            <div class="container feature-grid">
+                <article class="feature-card">
+                    <h3>AI Notes</h3>
+                    <p>Concise, exam-specific notes generated for each topic and tailored to your syllabus.</p>
+                </article>
+                <article class="feature-card">
+                    <h3>AI Podcasts</h3>
+                    <p>Listen on the go with audio lessons that summarise concepts and highlight key exam cues.</p>
+                </article>
+                <article class="feature-card">
+                    <h3>Smart Questions</h3>
+                    <p>Topic quizzes that reinforce keywords, with instant feedback and spaced repetition.</p>
+                </article>
+                <article class="feature-card">
+                    <h3>Past Papers</h3>
+                    <p>Instant access to past papers and mark schemes to mirror the real exam experience.</p>
+                </article>
+            </div>
+        </section>
+
+        <section id="curriculum" class="section curriculum">
+            <div class="container curriculum-grid">
+                <div>
+                    <p class="eyebrow">Curriculum coverage</p>
+                    <h2>GCSE and A-level mastery for every exam board</h2>
+                    <p class="section-description">Select your board, subject, and pathway to unlock a personalised study journey that mirrors your classroom and assessment objectives.</p>
+                    <ul class="curriculum-list">
+                        <li>AQA, Edexcel, OCR, WJEC, CCEA and more.</li>
+                        <li>Subject-specific glossaries and key term banks.</li>
+                        <li>Weekly revision plans built around your timetable.</li>
+                    </ul>
+                </div>
+                <div class="chip-panel" role="list" aria-label="Sample subjects">
+                    <span role="listitem" class="chip">Biology</span>
+                    <span role="listitem" class="chip">Chemistry</span>
+                    <span role="listitem" class="chip">Physics</span>
+                    <span role="listitem" class="chip">Maths</span>
+                    <span role="listitem" class="chip">Geography</span>
+                    <span role="listitem" class="chip">History</span>
+                    <span role="listitem" class="chip">CS</span>
+                    <span role="listitem" class="chip">English Lit</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="workflow" class="section workflow">
+            <div class="container section-header">
+                <p class="eyebrow">How it works</p>
+                <h2>Lock in knowledge in four streamlined steps</h2>
+            </div>
+            <div class="container workflow-steps">
+                <div class="workflow-step">
+                    <span class="step-index">1</span>
+                    <h3>Select your board</h3>
+                    <p>Choose your course and we curate content mapped to every specification point.</p>
+                </div>
+                <div class="workflow-step">
+                    <span class="step-index">2</span>
+                    <h3>Listen &amp; learn</h3>
+                    <p>Skim AI notes or plug into podcasts to absorb concepts faster than ever.</p>
+                </div>
+                <div class="workflow-step">
+                    <span class="step-index">3</span>
+                    <h3>Practice &amp; review</h3>
+                    <p>Answer adaptive questions and revisit weak spots until they stick.</p>
+                </div>
+                <div class="workflow-step">
+                    <span class="step-index">4</span>
+                    <h3>Unlock success</h3>
+                    <p>Finish with past papers, exam tips, and confidence to sit the real thing.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="pricing" class="section pricing">
+            <div class="container pricing-grid">
+                <div class="pricing-copy">
+                    <p class="eyebrow">Simple pricing</p>
+                    <h2>Unlock everything for £0.89 per exam season</h2>
+                    <p class="section-description">Enjoy unlimited access to every feature for less than the cost of a coffee. No hidden fees, no upsells.</p>
+                    <ul class="pricing-points">
+                        <li>Free tier with core notes and weekly podcasts.</li>
+                        <li>Premium unlocks unlimited subjects, past papers, and question banks.</li>
+                        <li>Pause or renew when exam season ends.</li>
+                    </ul>
+                </div>
+                <div class="pricing-card">
+                    <div class="price">
+                        <span class="price-amount">£0.89</span>
+                        <span class="price-duration">per exam season</span>
+                    </div>
+                    <p class="price-note">Complete access to every subject, every feature.</p>
+                    <a class="btn btn-primary btn-block" href="#download">Start today</a>
+                    <p class="price-compare">Competitors charge £5-£30 monthly. We invest in students, not paywalls.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="testimonials" class="section testimonials">
+            <div class="container section-header">
+                <p class="eyebrow">Student stories</p>
+                <h2>Real learners. Real results.</h2>
+            </div>
+            <div class="container testimonials-grid">
+                <article class="testimonial-card">
+                    <div class="stars" aria-hidden="true">★★★★★</div>
+                    <p class="quote">“Lockin turned my commute into revision time. The podcasts and questions helped me jump two grades in Biology.”</p>
+                    <p class="author">Amina • AQA Biology</p>
+                </article>
+                <article class="testimonial-card">
+                    <div class="stars" aria-hidden="true">★★★★★</div>
+                    <p class="quote">“Having AI notes and past papers in one place saved hours every week. I felt more prepared than ever.”</p>
+                    <p class="author">Theo • Edexcel Maths</p>
+                </article>
+                <article class="testimonial-card">
+                    <div class="stars" aria-hidden="true">★★★★★</div>
+                    <p class="quote">“The £0.89 unlock is unreal value. It made the difference in getting the grades I needed for Sixth Form.”</p>
+                    <p class="author">Priya • OCR Chemistry</p>
+                </article>
+            </div>
+        </section>
+
+        <section id="faq" class="section faq">
+            <div class="container section-header">
+                <p class="eyebrow">FAQ</p>
+                <h2>Answers before you lock in</h2>
+            </div>
+            <div class="container faq-list">
+                <details>
+                    <summary>Is Lockin.tech available on all devices?</summary>
+                    <p>Yes. Access the web app instantly or download native apps for iOS and Android. Your progress syncs everywhere.</p>
+                </details>
+                <details>
+                    <summary>How accurate are the AI-generated notes?</summary>
+                    <p>Our notes are reviewed against each exam board specification and updated as curricula change. You can report content for instant review.</p>
+                </details>
+                <details>
+                    <summary>What do I get for free?</summary>
+                    <p>Free users can explore AI notes for select topics, weekly podcast drops, and daily question streaks. Upgrade for full access anytime.</p>
+                </details>
+                <details>
+                    <summary>How does the £0.89 unlock work?</summary>
+                    <p>Pay once per exam season for full access to every subject, question bank, and past paper. No subscription or auto-renew unless you choose.</p>
+                </details>
+                <details>
+                    <summary>Can teachers or schools use Lockin.tech?</summary>
+                    <p>Yes. Educators get dashboards to track class progress and assign podcast lessons. Contact us for partnership options.</p>
+                </details>
+            </div>
+        </section>
+
+        <section id="download" class="section cta">
+            <div class="container cta-card">
+                <div>
+                    <h2>Ready to lock in your grades?</h2>
+                    <p>Join thousands of students transforming revision into a focused, enjoyable routine.</p>
+                </div>
+                <div class="cta-actions">
+                    <a class="btn btn-primary" href="#">Download for iOS</a>
+                    <a class="btn btn-primary" href="#">Download for Android</a>
+                    <a class="btn btn-outline" href="#">Open Web App</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-grid">
+            <div>
+                <img src="static/assets/lockin_full_transparent.png" alt="Lockin.tech logo" class="footer-logo">
+                <p>Lockin to your success with AI-powered study tools for every exam board.</p>
+            </div>
+            <div>
+                <h4>Explore</h4>
+                <ul>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#pricing">Pricing</a></li>
+                    <li><a href="#faq">FAQ</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4>Support</h4>
+                <ul>
+                    <li><a href="mailto:hello@lockin.tech">hello@lockin.tech</a></li>
+                    <li><a href="#">Privacy</a></li>
+                    <li><a href="#">Terms</a></li>
+                </ul>
+            </div>
+        </div>
+        <p class="footer-note">© <span id="year"></span> Lockin.tech. All rights reserved.</p>
+    </footer>
+
     <script src="script.js"></script>
 </body>
 </html>
