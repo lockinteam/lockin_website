@@ -1,0 +1,847 @@
+# Lockin.tech API Documentation
+
+## Overview
+
+This document describes the regular user API endpoints for the Lockin.tech backend.
+
+**For admin endpoints (user management, content management), see**: `backend_admin_documentation.txt`
+
+```
+backend_url = https://backend.lockin.tech
+```
+
+## Quick Endpoint Summary
+
+**Authentication**
+- `POST /auth/signup` - Register a new user account
+- `POST /auth/login` - Authenticate and receive session token
+- `POST /auth/verify_token` - Validate token and retrieve user info
+- `POST /auth/logout` - Invalidate session token
+
+**Fetch Data**
+- `POST /fetch/years` - List all available year levels
+- `POST /fetch/subjects_and_courses` - Get courses and subjects for a specific year
+- `POST /fetch/profile` - Get complete user profile with all enrollments, courses, papers, and topics
+- `POST /fetch/notes` - Get notes content for a specific topic
+- `POST /fetch/podcast` - Get podcast audio content for a specific topic
+- `POST /fetch/questions` - Get questions and answer options for a topic, paper, or course
+
+**Update User Data**
+- `POST /update/change_year` - Set/change user's year level
+- `POST /update/enroll_courses` - Update user's course enrollments
+
+**System**
+- `GET /health` - Health check endpoint
+- `GET /` - API info and version
+
+---
+
+## Authentication Endpoints
+
+### 1. User Signup
+
+**Endpoint**: `POST backend_url/auth/signup`
+
+**Request Body**:
+```json
+{
+  "username": "new_username",
+  "email": "user@example.com",
+  "password": "secure_password"
+}
+```
+
+**Password Requirements**:
+- Minimum 6 characters
+- At least one uppercase letter (A-Z)
+- At least one lowercase letter (a-z)
+- At least one digit (0-9)
+
+**Success Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Signup successful",
+  "token": "random_session_token",
+  "expires_at": "2025-10-04T18:30:40.123456",
+  "user": {
+    "id": "user_uuid",
+    "username": "new_username",
+    "email": "user@example.com",
+    "email_verified": false,
+    "role": "user"
+  }
+}
+```
+
+**Error Cases**:
+- Invalid username format (400) - Must be 3-50 characters, alphanumeric and underscores only
+- Invalid email format (400)
+- Password too weak (400) - Must meet password requirements above
+- Username already taken (409)
+- Email already registered (409)
+
+### 2. User Login
+
+**Endpoint**: `POST backend_url/auth/login`
+
+**Request Body**:
+```json
+{
+  "identifier": "username_or_email",
+  "password": "user_password"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "token": "random_session_token",
+  "expires_at": "2025-10-04T18:30:40.123456",
+  "user": {
+    "id": "user_uuid",
+    "username": "username",
+    "email": "email@example.com",
+    "email_verified": false,
+    "role": "user"
+  }
+}
+```
+
+**Error Cases**:
+- User not found (404)
+- Incorrect password (401)
+
+### 3. Verify Token
+
+**Endpoint**: `POST backend_url/auth/verify_token`
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Token is valid",
+  "user": {
+    "id": "user_uuid",
+    "username": "username",
+    "email": "email@example.com",
+    "email_verified": false,
+    "role": "user",
+    "profile_picture_url": "default"
+  },
+  "expires_at": "2025-10-04T18:30:40.123456"
+}
+```
+
+**Error Cases**:
+- Token not found or invalid (401)
+- Token expired (401)
+
+### 4. Logout
+
+**Endpoint**: `POST backend_url/auth/logout`
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+```
+
+**Error Cases**:
+- Token not found (404)
+- Token already expired (404)
+
+## Fetch Endpoints
+
+### Fetch Years
+
+**Endpoint**: `POST backend_url/fetch/years`
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Years fetched successfully",
+  "data": {
+    "years": [
+      {
+        "id": "year_uuid",
+        "name": "Year 12",
+        "sort_order": 1
+      }
+    ],
+    "count": 1
+  }
+}
+```
+
+**Error Cases**:
+- Missing token (400)
+- Token not found, invalid, or expired (401)
+- Server error (500)
+
+### Fetch Subjects and Courses
+
+**Endpoint**: `POST backend_url/fetch/subjects_and_courses`
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token",
+  "year_id": "year_uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Subjects and courses fetched successfully",
+  "data": {
+    "courses": [
+      {
+        "id": "course_uuid",
+        "year_id": "year_uuid",
+        "subject_id": "subject_uuid",
+        "title": "Mathematics Advanced",
+        "description": "Advanced mathematics with calculus",
+        "link_to_specification": "https://example.com/spec",
+        "created_at": "2025-10-01T19:33:09+00:00"
+      }
+    ],
+    "subjects": [
+      {
+        "id": "subject_uuid",
+        "name": "Mathematics",
+        "code": "MATH",
+        "created_at": "2025-10-01T19:33:09+00:00"
+      }
+    ],
+    "courses_count": 1,
+    "subjects_count": 1
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or year_id (400)
+- Invalid year_id format (400)
+- Token not found, invalid, or expired (401)
+- Year not found or inactive (404)
+- Server error (500)
+
+### Fetch User Profile (Complete Data)
+
+**Endpoint**: `POST backend_url/fetch/profile`
+
+**Description**: This is the main endpoint for fetching all user data in one request. Returns complete user information, year details, all enrolled courses with their subjects, papers, topics, and resource availability flags (notes, questions, podcasts, past papers).
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Profile fetched successfully",
+  "data": {
+    "user": {
+      "id": "user_uuid",
+      "username": "john_doe",
+      "email": "john@example.com",
+      "email_verified": false,
+      "role": "user",
+      "profile_picture_url": "default"
+    },
+    "token_expires_at": "2024-01-15T12:00:00.000000",
+    "year": {
+      "id": "year_uuid",
+      "name": "GCSE (10/11)",
+      "sort_order": 1,
+      "created_at": "2024-01-01T00:00:00.000000"
+    },
+    "courses": [
+      {
+        "id": "course_uuid",
+        "title": "AQA Biology",
+        "description": "AQA GCSE Biology course",
+        "link_to_specification": "https://...",
+        "created_at": "2024-01-01T00:00:00.000000",
+        "enrollment_date": "2024-01-08T15:30:00.000000",
+        "year_id": "year_uuid",
+        "subject": {
+          "id": "subject_uuid",
+          "name": "Biology",
+          "code": "BIO",
+          "created_at": "2024-01-01T00:00:00.000000"
+        },
+        "papers": [
+          {
+            "id": "paper_uuid",
+            "name": "Paper 1",
+            "code": "BIO-P1",
+            "percentage_of_grade": 50.00,
+            "created_at": "2024-01-01T00:00:00.000000",
+            "topics": [
+              {
+                "id": "topic_uuid",
+                "name": "Cell Biology",
+                "sort_order": 1,
+                "is_active": true,
+                "created_at": "2024-01-01T00:00:00.000000",
+                "has_notes": true,
+                "has_questions": true,
+                "has_podcast": true
+              }
+            ],
+            "past_papers": [
+              {
+                "id": "past_paper_uuid",
+                "year": 2023,
+                "url": "https://cdn.lockin.tech/past-papers/biology/bio-p1-2023.pdf",
+                "file_size": 3145728,
+                "created_at": "2024-01-01T00:00:00.000000"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "courses_count": 1
+  }
+}
+```
+
+**Special Cases**:
+- If user has no year set, `year` will be `null`
+- If user has no enrolled courses, `courses` will be `[]` and `courses_count` will be `0`
+- If a paper has no topics, `topics` will be `[]`
+- If a paper has no past papers, `past_papers` will be `[]`
+- Resource flags (`has_notes`, `has_questions`, `has_podcast`) are boolean indicators of content availability
+
+**Error Cases**:
+- Missing token (400)
+- Token not found, invalid, or expired (401)
+- Server error (500)
+
+### Fetch Notes
+
+**Endpoint**: `POST backend_url/fetch/notes`
+
+**Description**: Fetch the notes content for a specific topic. Returns a single note record associated with the topic.
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token",
+  "topic_id": "topic_uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Notes fetched successfully",
+  "data": {
+    "id": "note_uuid",
+    "topic_id": "topic_uuid",
+    "content": "Full text content of the notes for this topic...",
+    "created_at": "2024-01-01T00:00:00.000000+00:00",
+    "is_active": true
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or topic_id (400)
+- Invalid topic_id format (400)
+- Token not found, invalid, or expired (401)
+- Notes not found for this topic (404)
+- Server error (500)
+
+### Fetch Podcast
+
+**Endpoint**: `POST backend_url/fetch/podcast`
+
+**Description**: Fetch the podcast audio content for a specific topic. Returns a single podcast record associated with the topic.
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token",
+  "topic_id": "topic_uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Podcast fetched successfully",
+  "data": {
+    "id": "podcast_uuid",
+    "topic_id": "topic_uuid",
+    "name": "Introduction to Cell Biology",
+    "length_seconds": 1245,
+    "file_size": 5242880,
+    "url": "https://cdn.lockin.tech/podcasts/biology/cell-biology-intro.mp3",
+    "created_at": "2024-01-01T00:00:00.000000+00:00",
+    "is_active": true
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or topic_id (400)
+- Invalid topic_id format (400)
+- Token not found, invalid, or expired (401)
+- Podcast not found for this topic (404)
+- Server error (500)
+
+### Fetch Questions
+
+**Endpoint**: `POST backend_url/fetch/questions`
+
+**Description**: Fetch questions and their answer options for a specific topic, paper, or course. User must provide exactly ONE of: `topic_id`, `paper_id`, or `course_id`. Returns all questions with complete answer options including which answers are correct.
+
+**Request Body** (provide exactly one parameter):
+```json
+{
+  "token": "your_session_token",
+  "topic_id": "topic_uuid"  // OR paper_id OR course_id (only one)
+}
+```
+
+**Alternative Request Bodies**:
+```json
+// For all questions in a paper
+{"token": "your_session_token", "paper_id": "paper_uuid"}
+
+// For all questions in all papers of a course
+{"token": "your_session_token", "course_id": "course_uuid"}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Questions fetched successfully",
+  "data": {
+    "questions": [
+      {
+        "id": "question_uuid",
+        "topic_id": "topic_uuid",
+        "title": "What is the word equation for photosynthesis?",
+        "sort_order": 1,
+        "created_at": "2024-01-01T00:00:00.000000+00:00",
+        "is_active": true,
+        "options": [
+          {
+            "id": "option_uuid",
+            "text": "Carbon dioxide + Water → Glucose + Oxygen",
+            "is_correct": true,
+            "created_at": "2024-01-01T00:00:00.000000+00:00"
+          },
+          {
+            "id": "option_uuid_2",
+            "text": "Glucose + Oxygen → Carbon dioxide + Water",
+            "is_correct": false,
+            "created_at": "2024-01-01T00:00:00.000000+00:00"
+          }
+        ]
+      }
+    ],
+    "count": 1
+  }
+}
+```
+
+**Special Cases**:
+- If no questions found, returns empty array with count 0
+- `is_correct` field reveals the correct answer(s) for each question
+- Questions ordered by sort_order and created_at
+- When using `paper_id`, returns questions from all topics in that paper
+- When using `course_id`, returns questions from all topics in all papers of that course
+
+**Error Cases**:
+- Missing token (400)
+- No ID parameter provided (400)
+- Multiple ID parameters provided (400)
+- Token not found, invalid, or expired (401)
+- Server error (500)
+
+## Update Endpoints
+
+### Change User Year
+
+**Endpoint**: `POST backend_url/update/change_year`
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token",
+  "year_id": "year_uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Year updated successfully",
+  "data": {
+    "user_id": "user_uuid",
+    "year_id": "year_uuid",
+    "year_name": "Year 9"
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or year_id (400)
+- Invalid year_id format (400)
+- Token not found, invalid, or expired (401)
+- Year not found or inactive (404)
+- Update failed (500)
+
+### Enroll in Courses
+
+**Endpoint**: `POST backend_url/update/enroll_courses`
+
+**Description**: Updates the user's course enrollments. The user sends all course_ids they want to be enrolled in. Courses not in the list will be deactivated, new courses will be enrolled, and existing enrollments will be kept.
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token",
+  "course_ids": ["course_uuid_1", "course_uuid_2", "course_uuid_3"]
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Course enrollments updated successfully",
+  "data": {
+    "enrolled": [
+      {
+        "id": "course_uuid_1",
+        "title": "Mathematics GCSE",
+        "year_id": "year_uuid",
+        "subject_id": "subject_uuid",
+        "description": "GCSE Mathematics course"
+      },
+      {
+        "id": "course_uuid_2",
+        "title": "Physics A-Level",
+        "year_id": "year_uuid",
+        "subject_id": "subject_uuid",
+        "description": "A-Level Physics course"
+      }
+    ],
+    "deactivated_count": 1,
+    "created_count": 2,
+    "kept_count": 1
+  }
+}
+```
+
+**Special Case - Empty Array** (200 OK):
+Passing an empty array `[]` will deactivate all current enrollments:
+```json
+{
+  "success": true,
+  "message": "All course enrollments deactivated",
+  "data": {
+    "enrolled": [],
+    "deactivated_count": 3,
+    "created_count": 0,
+    "kept_count": 0
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or course_ids (400)
+- course_ids not a list (400)
+- Token not found, invalid, or expired (401)
+- One or more course_ids invalid or inactive (404)
+- Update failed (500)
+
+## General Endpoints
+
+### Health Check
+
+**Endpoint**: `GET backend_url/health`
+
+**Response** (200 OK):
+```json
+{
+  "status": "healthy",
+  "message": "Service is running",
+  "database": "connected"
+}
+```
+
+### API Info
+
+**Endpoint**: `GET backend_url/`
+
+**Response** (200 OK):
+```json
+{
+  "message": "Lockin Backend API",
+  "version": "1.0"
+}
+```
+
+## Authentication Flow
+
+1. **Register**: Sign up to create an account and receive a session token
+2. **Login**: Authenticate with username/email and password to receive a session token
+3. **Use Token**: Include token in requests to authenticate
+4. **Verify Token**: Check if a token is valid and get associated user information
+5. **Logout**: Invalidate a token when done
+
+## Usage Examples
+
+### JavaScript
+
+```javascript
+// Signup example
+async function signup(username, email, password) {
+  const response = await fetch(`${backend_url}/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, email, password })
+  });
+  return await response.json();
+}
+
+// Login example
+async function login(identifier, password) {
+  const response = await fetch(`${backend_url}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identifier, password })
+  });
+  return await response.json();
+}
+
+// Verify token example
+async function verifyToken(token) {
+  const response = await fetch(`${backend_url}/auth/verify_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  });
+  return await response.json();
+}
+
+// Logout example
+async function logout(token) {
+  const response = await fetch(`${backend_url}/auth/logout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  });
+  return await response.json();
+}
+
+// Fetch years example
+async function fetchYears(token) {
+  const response = await fetch(`${backend_url}/fetch/years`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  });
+  return await response.json();
+}
+
+// Fetch subjects and courses example
+async function fetchSubjectsAndCourses(token, yearId) {
+  const response = await fetch(`${backend_url}/fetch/subjects_and_courses`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, year_id: yearId })
+  });
+  return await response.json();
+}
+
+// Fetch complete user profile example
+async function fetchProfile(token) {
+  const response = await fetch(`${backend_url}/fetch/profile`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  });
+  return await response.json();
+}
+
+// Fetch notes for a topic example
+async function fetchNotes(token, topicId) {
+  const response = await fetch(`${backend_url}/fetch/notes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, topic_id: topicId })
+  });
+  return await response.json();
+}
+
+// Fetch podcast for a topic example
+async function fetchPodcast(token, topicId) {
+  const response = await fetch(`${backend_url}/fetch/podcast`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, topic_id: topicId })
+  });
+  return await response.json();
+}
+
+// Fetch questions for a topic, paper, or course example
+async function fetchQuestions(token, params) {
+  // params should be an object with exactly one of: topic_id, paper_id, or course_id
+  const response = await fetch(`${backend_url}/fetch/questions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, ...params })
+  });
+  return await response.json();
+}
+
+// Change user year example
+async function changeYear(token, yearId) {
+  const response = await fetch(`${backend_url}/update/change_year`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, year_id: yearId })
+  });
+  return await response.json();
+}
+
+// Enroll in courses example
+async function enrollCourses(token, courseIds) {
+  const response = await fetch(`${backend_url}/update/enroll_courses`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, course_ids: courseIds })
+  });
+  return await response.json();
+}
+```
+
+### cURL
+
+```bash
+# Signup
+curl -X POST ${backend_url}/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"username": "john_doe", "email": "john@example.com", "password": "securePassword123"}'
+
+# Login
+curl -X POST ${backend_url}/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"identifier": "john@example.com", "password": "securePassword123"}'
+
+# Verify Token
+curl -X POST ${backend_url}/auth/verify_token \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here"}'
+
+# Logout
+curl -X POST ${backend_url}/auth/logout \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here"}'
+
+# Fetch Years
+curl -X POST ${backend_url}/fetch/years \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here"}'
+
+# Fetch Subjects and Courses
+curl -X POST ${backend_url}/fetch/subjects_and_courses \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here", "year_id": "year_uuid_here"}'
+
+# Fetch Complete User Profile
+curl -X POST ${backend_url}/fetch/profile \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here"}'
+
+# Fetch Notes for a Topic
+curl -X POST ${backend_url}/fetch/notes \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here", "topic_id": "topic_uuid_here"}'
+
+# Fetch Podcast for a Topic
+curl -X POST ${backend_url}/fetch/podcast \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here", "topic_id": "topic_uuid_here"}'
+
+# Fetch Questions for a Topic
+curl -X POST ${backend_url}/fetch/questions \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here", "topic_id": "topic_uuid_here"}'
+
+# Fetch Questions for a Paper (all topics in that paper)
+curl -X POST ${backend_url}/fetch/questions \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here", "paper_id": "paper_uuid_here"}'
+
+# Fetch Questions for a Course (all topics in all papers)
+curl -X POST ${backend_url}/fetch/questions \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here", "course_id": "course_uuid_here"}'
+
+# Change User Year
+curl -X POST ${backend_url}/update/change_year \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here", "year_id": "year_uuid_here"}'
+
+# Enroll in Courses
+curl -X POST ${backend_url}/update/enroll_courses \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here", "course_ids": ["course_uuid_1", "course_uuid_2"]}'
+```
+
+## Security Features
+
+- **Password Security**: 
+  - Hashed with argon2id (memory-hard algorithm)
+  - Minimum 8 characters required
+  - Must contain uppercase, lowercase, and digit
+- **Session Management**: Tokens expire after 7 days
+- **Input Validation**: Username, email, and password format validation
+- **Input Sanitization**: All user inputs sanitized before database operations
+- **SQL Injection Protection**: Parameterized queries throughout

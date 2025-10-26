@@ -1,0 +1,826 @@
+# Lockin.tech Admin API Documentation
+
+## Overview
+
+This document describes the admin endpoints for the Lockin.tech backend. These endpoints are restricted to users with admin or owner roles and provide full control over user management and content.
+
+**For regular user endpoints, see**: `backend_documentation.txt`
+
+```
+backend_url = https://backend.lockin.tech
+```
+
+---
+
+## Role System
+
+### User (default)
+- Access to all `/fetch/*` and `/update/*` endpoints
+- Can view and manage their own profile
+- No admin access
+
+### Admin
+- Access to all `/admin/*` content management endpoints
+- Can view all users and update basic user fields (year, email_verified)
+- Can reset user passwords
+- Can delete regular user accounts
+- **CANNOT** change user roles (no promotion/demotion)
+- **CANNOT** manage other admins or owners
+
+### Owner
+- All admin permissions
+- **CAN** promote users to admin
+- **CAN** demote admins to user
+- **CAN** reset any user's password including admins
+- **CANNOT** be demoted (role is permanent)
+- **CANNOT** change other owners' roles
+
+---
+
+## Authentication
+
+All admin endpoints require a valid session token from a user with admin or owner role.
+
+**Token Verification**:
+- Tokens are validated using the same session system as regular endpoints
+- Additional role check ensures user has `role='admin'` or `role='owner'`
+- Returns 403 Forbidden if user lacks required permissions
+
+**Owner-Only Endpoints**:
+- `/admin/users/promote` - Promote user to admin
+- `/admin/users/demote` - Demote admin to user
+
+---
+
+## Admin User Management Endpoints
+
+### 1. List All Users
+
+**Endpoint**: `POST /admin/users`
+
+**Auth**: Admin or Owner
+
+**Description**: List all users with optional filters and pagination. Includes user statistics like enrollment counts.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "role": "user|admin|owner",  // Optional: filter by role
+  "year_id": "uuid",            // Optional: filter by year
+  "search": "search_term",      // Optional: search username/email (case-insensitive)
+  "limit": 50,                  // Optional: results per page (default 50, max 200)
+  "offset": 0                   // Optional: pagination offset (default 0)
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Users fetched successfully",
+  "data": {
+    "users": [
+      {
+        "id": "uuid",
+        "username": "john_doe",
+        "email": "john@example.com",
+        "email_verified": false,
+        "role": "user",
+        "year_id": "uuid",
+        "year_name": "GCSE (10/11)",
+        "profile_picture_url": "default",
+        "created_at": "2025-10-01T12:00:00.000000",
+        "enrolled_courses_count": 3
+      }
+    ],
+    "count": 50,
+    "limit": 50,
+    "offset": 0,
+    "total": 152
+  }
+}
+```
+
+**Error Cases**:
+- Missing token (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// List first 50 users
+const response = await fetch(`${backend_url}/admin/users`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: adminToken })
+});
+
+// Filter by role
+const admins = await fetch(`${backend_url}/admin/users`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    role: 'admin'
+  })
+});
+
+// Search users
+const searchResults = await fetch(`${backend_url}/admin/users`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    search: 'john',
+    limit: 20
+  })
+});
+
+// Pagination
+const page2 = await fetch(`${backend_url}/admin/users`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    limit: 50,
+    offset: 50
+  })
+});
+```
+
+```bash
+# cURL: List all users
+curl -X POST ${backend_url}/admin/users \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token"}'
+
+# Filter by role
+curl -X POST ${backend_url}/admin/users \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "role": "user"}'
+
+# Search and pagination
+curl -X POST ${backend_url}/admin/users \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "search": "john", "limit": 20, "offset": 0}'
+```
+
+---
+
+### 2. Get Single User Details
+
+**Endpoint**: `POST /admin/users/get`
+
+**Auth**: Admin or Owner
+
+**Description**: Get detailed information about a specific user, including their profile, year, and enrolled courses.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "user_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "User profile fetched successfully",
+  "data": {
+    "user": {
+      "id": "uuid",
+      "username": "john_doe",
+      "email": "john@example.com",
+      "email_verified": false,
+      "role": "user",
+      "profile_picture_url": "default",
+      "created_at": "2025-10-01T12:00:00.000000"
+    },
+    "year": {
+      "id": "uuid",
+      "name": "GCSE (10/11)",
+      "sort_order": 1,
+      "created_at": "2025-01-01T00:00:00.000000"
+    },
+    "courses": [
+      {
+        "id": "uuid",
+        "title": "AQA Biology",
+        "description": "GCSE Biology course",
+        "link_to_specification": "https://...",
+        "created_at": "2025-01-01T00:00:00.000000",
+        "enrollment_date": "2025-10-01T12:30:00.000000",
+        "year_id": "uuid",
+        "subject": {
+          "id": "uuid",
+          "name": "Biology",
+          "code": "BIO",
+          "created_at": "2025-01-01T00:00:00.000000"
+        }
+      }
+    ],
+    "courses_count": 1
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or user_id (400)
+- Invalid user_id format (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- User not found (404)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// Get user details
+const response = await fetch(`${backend_url}/admin/users/get`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    user_id: 'user-uuid-here'
+  })
+});
+```
+
+```bash
+# cURL
+curl -X POST ${backend_url}/admin/users/get \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "user_id": "user-uuid"}'
+```
+
+---
+
+### 3. Update User Details
+
+**Endpoint**: `PUT /admin/users/update`
+
+**Auth**: Admin or Owner (with restrictions)
+
+**Description**: Update user's year or email verification status. Cannot update username, email, password, or role through this endpoint.
+
+**Restrictions**:
+- Admins can only update regular users
+- Owners can update anyone except other owners
+- Cannot update roles (use promote/demote endpoints)
+- Cannot update username/email/password
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "user_id": "uuid",
+  "year_id": "uuid",           // Optional
+  "email_verified": true       // Optional
+}
+```
+
+**Note**: At least one field to update must be provided.
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "User updated successfully",
+  "data": {
+    "user": {
+      "id": "uuid",
+      "username": "john_doe",
+      "email": "john@example.com",
+      "email_verified": true,
+      "role": "user",
+      "year_id": "uuid",
+      "year_name": "A-Level (12/13)",
+      "profile_picture_url": "default",
+      "created_at": "2025-10-01T12:00:00.000000"
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or user_id (400)
+- No fields to update provided (400)
+- Invalid user_id or year_id format (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Admin trying to update admin/owner (403)
+- Owner trying to update another owner (403)
+- User not found (404)
+- Year not found or inactive (404)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// Update user's year
+const response = await fetch(`${backend_url}/admin/users/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    user_id: 'user-uuid',
+    year_id: 'new-year-uuid'
+  })
+});
+
+// Verify user's email
+const verifyEmail = await fetch(`${backend_url}/admin/users/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    user_id: 'user-uuid',
+    email_verified: true
+  })
+});
+
+// Update both year and email verification
+const updateBoth = await fetch(`${backend_url}/admin/users/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    user_id: 'user-uuid',
+    year_id: 'year-uuid',
+    email_verified: true
+  })
+});
+```
+
+```bash
+# cURL: Update year
+curl -X PUT ${backend_url}/admin/users/update \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "user_id": "user-uuid", "year_id": "year-uuid"}'
+
+# Verify email
+curl -X PUT ${backend_url}/admin/users/update \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "user_id": "user-uuid", "email_verified": true}'
+```
+
+---
+
+### 4. Promote User to Admin
+
+**Endpoint**: `PUT /admin/users/promote`
+
+**Auth**: Owner ONLY
+
+**Description**: Promote a regular user to admin role. Only owners can promote users.
+
+**Restrictions**:
+- User must have role='user'
+- Cannot promote admin (already admin)
+- Cannot promote owner
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "user_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "User 'john_doe' promoted to admin successfully",
+  "data": {
+    "user": {
+      "id": "uuid",
+      "username": "john_doe",
+      "email": "john@example.com",
+      "role": "admin",
+      "created_at": "2025-10-01T12:00:00.000000"
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or user_id (400)
+- Invalid user_id format (400)
+- User already admin or owner (400)
+- Invalid/expired token (401)
+- Not owner (403)
+- User not found (404)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// Promote user to admin
+const response = await fetch(`${backend_url}/admin/users/promote`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: ownerToken,
+    user_id: 'user-uuid'
+  })
+});
+```
+
+```bash
+# cURL
+curl -X PUT ${backend_url}/admin/users/promote \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_owner_token", "user_id": "user-uuid"}'
+```
+
+---
+
+### 5. Demote Admin to User
+
+**Endpoint**: `PUT /admin/users/demote`
+
+**Auth**: Owner ONLY
+
+**Description**: Demote an admin to regular user role. Only owners can demote admins.
+
+**Restrictions**:
+- User must have role='admin'
+- Cannot demote owner (owners are permanent)
+- Cannot demote regular user (already user)
+- Cannot demote yourself
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "user_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Admin 'john_doe' demoted to user successfully",
+  "data": {
+    "user": {
+      "id": "uuid",
+      "username": "john_doe",
+      "email": "john@example.com",
+      "role": "user",
+      "created_at": "2025-10-01T12:00:00.000000"
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or user_id (400)
+- Invalid user_id format (400)
+- User is not admin (400)
+- Trying to demote owner (400)
+- Trying to demote yourself (400)
+- Invalid/expired token (401)
+- Not owner (403)
+- User not found (404)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// Demote admin to user
+const response = await fetch(`${backend_url}/admin/users/demote`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: ownerToken,
+    user_id: 'admin-uuid'
+  })
+});
+```
+
+```bash
+# cURL
+curl -X PUT ${backend_url}/admin/users/demote \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_owner_token", "user_id": "admin-uuid"}'
+```
+
+---
+
+### 6. Reset User Password
+
+**Endpoint**: `PUT /admin/users/reset_password`
+
+**Auth**: Admin or Owner
+
+**Description**: Reset a user's password to a secure temporary password. All existing sessions for the user are invalidated.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "user_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Password reset successfully for user 'john_doe'",
+  "data": {
+    "user_id": "uuid",
+    "username": "john_doe",
+    "email": "john@example.com",
+    "temporary_password": "aB3$xY9#mP2Q",
+    "note": "This password should be securely sent to the user. All existing sessions have been invalidated."
+  }
+}
+```
+
+**Temporary Password**:
+- 12 characters long
+- Contains uppercase letters, lowercase letters, digits, and special characters
+- Meets all password complexity requirements
+- Secure random generation using `secrets` module
+
+**Security Notes**:
+- All existing sessions for the user are immediately invalidated
+- User must login with temporary password
+- Temporary password should be sent to user through secure channel
+- User should change password after logging in
+
+**Error Cases**:
+- Missing token or user_id (400)
+- Invalid user_id format (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- User not found (404)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// Reset user password
+const response = await fetch(`${backend_url}/admin/users/reset_password`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    user_id: 'user-uuid'
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  const tempPassword = data.data.temporary_password;
+  // Send tempPassword to user via email or other secure method
+  console.log(`Send this password to user: ${tempPassword}`);
+}
+```
+
+```bash
+# cURL
+curl -X PUT ${backend_url}/admin/users/reset_password \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "user_id": "user-uuid"}'
+```
+
+---
+
+### 7. Deactivate User Account
+
+**Endpoint**: `DELETE /admin/users/delete`
+
+**Auth**: Admin or Owner (with restrictions)
+
+**Description**: Deactivate a user account by invalidating all their sessions. The user record is kept in the database for data integrity.
+
+**Restrictions**:
+- Admins can only delete regular users
+- Owners can delete users and admins, but not other owners
+- Cannot delete yourself
+- Cannot delete owners (role is permanent)
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "user_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "User 'john_doe' deactivated successfully",
+  "data": {
+    "user_id": "uuid",
+    "username": "john_doe",
+    "sessions_invalidated": 2,
+    "note": "User account has been deactivated. All sessions invalidated."
+  }
+}
+```
+
+**Implementation Notes**:
+- User record remains in database
+- All active sessions are invalidated
+- User cannot login until reactivated
+- Preserves data integrity and audit trails
+- Course enrollments and created content remain
+
+**Error Cases**:
+- Missing token or user_id (400)
+- Invalid user_id format (400)
+- Trying to delete yourself (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Admin trying to delete admin/owner (403)
+- Trying to delete owner (403)
+- User not found (404)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// Deactivate user account
+const response = await fetch(`${backend_url}/admin/users/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    user_id: 'user-uuid'
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  console.log(`User deactivated. ${data.data.sessions_invalidated} sessions invalidated.`);
+}
+```
+
+```bash
+# cURL
+curl -X DELETE ${backend_url}/admin/users/delete \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "user_id": "user-uuid"}'
+```
+
+---
+
+## Common Response Formats
+
+### Success Response
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": { /* endpoint-specific data */ }
+}
+```
+
+### Error Response
+```json
+{
+  "success": false,
+  "message": "Error description"
+}
+```
+
+### HTTP Status Codes
+
+- **200 OK**: Request successful
+- **400 Bad Request**: Missing required fields, invalid input, or validation error
+- **401 Unauthorized**: Invalid or expired token
+- **403 Forbidden**: Valid token but insufficient permissions (not admin/owner)
+- **404 Not Found**: Resource not found (user, year, etc.)
+- **500 Internal Server Error**: Server-side error
+
+---
+
+## Security Features
+
+### Role-Based Access Control
+- All endpoints verify admin or owner role
+- Owner-only endpoints (promote/demote) have additional checks
+- Permission hierarchies strictly enforced
+
+### Permission Restrictions
+- Admins cannot modify other admins or owners
+- Owners cannot modify other owners
+- Self-modification protections (cannot delete/demote yourself)
+- Owner role is permanent and cannot be changed
+
+### Audit Trail
+- All operations track which admin performed them
+- User creation/modification timestamps maintained
+- Session invalidation logged
+
+### Data Validation
+- All inputs sanitized before processing
+- UUID format validation
+- Role validation (only valid roles accepted)
+- Year existence and active status verified
+
+### Session Security
+- Password resets invalidate all existing sessions
+- User deletion invalidates all sessions
+- Token expiration enforced (7 days)
+
+---
+
+## Implementation Notes
+
+### Pagination
+- Default limit: 50 users per page
+- Maximum limit: 200 users per page
+- Use `offset` for page navigation
+- Total count provided for UI pagination
+
+### Search Functionality
+- Searches across username and email fields
+- Case-insensitive ILIKE search
+- Partial matching supported
+- Can combine with role and year filters
+
+### Role Management
+- Promote: user → admin (owner only)
+- Demote: admin → user (owner only)
+- Owner role cannot be assigned or removed via API
+- Role changes are immediate (no confirmation required)
+
+### Password Reset
+- Generates cryptographically secure 12-character password
+- Meets all complexity requirements automatically
+- Invalidates all sessions immediately
+- Returns password in response (send to user securely)
+
+### User Deletion
+- Soft delete (sessions invalidated, user record preserved)
+- Maintains referential integrity
+- Preserves audit trail and created content
+- Can be reversed by owner if needed
+
+---
+
+## Testing
+
+A comprehensive test suite is available at `/tests/test_admin_users.py`.
+
+**Test Coverage**:
+- ✅ Role-based access control (user, admin, owner)
+- ✅ All 7 user management endpoints
+- ✅ Permission restrictions and validations
+- ✅ Error handling and edge cases
+- ✅ Session invalidation on password reset/delete
+- ✅ Pagination and filtering
+- ✅ Search functionality
+- ✅ Self-protection (cannot delete/demote yourself)
+
+**Run Tests**:
+```bash
+# Ensure Flask server is running on localhost:5000
+python3 tests/test_admin_users.py
+```
+
+---
+
+## Future Admin Endpoints
+
+The following admin endpoints are planned for future implementation:
+
+### Content Management
+- Years (4 endpoints)
+- Subjects (4 endpoints)
+- Courses (5 endpoints)
+- Papers (5 endpoints)
+- Topics (5 endpoints)
+- Notes (4 endpoints)
+- Questions (5 endpoints)
+- Podcasts (4 endpoints)
+- Past Papers (4 endpoints)
+
+### Analytics
+- Stats Overview (dashboard metrics)
+- Content Statistics (by course/subject)
+
+See `ADMIN_API_PLAN.md` for complete implementation plan.
+
+---
+
+## Support
+
+For issues or questions regarding admin endpoints:
+1. Check this documentation
+2. Review test suite examples
+3. Consult `ADMIN_API_PLAN.md` for implementation details
+4. Check regular user docs in `backend_documentation.txt`

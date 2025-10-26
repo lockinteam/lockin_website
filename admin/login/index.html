@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - Lockin.tech</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="../../static/assets/favicon.png">
+    <link rel="stylesheet" href="../../styles.css">
+    <link rel="stylesheet" href="../admin.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <img src="../../static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="login-logo">
+            <h1>Admin Login</h1>
+            
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <input type="text" id="username" name="username" placeholder="Username" required autocomplete="username">
+                </div>
+                
+                <div class="form-group">
+                    <input type="password" id="password" name="password" placeholder="Password" required autocomplete="current-password">
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">Login</button>
+                
+                <div id="errorMessage" class="error-message" style="display: none;"></div>
+            </form>
+
+            <a href="/" class="back-link">Back to main site</a>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://backend.lockin.tech';
+
+        // Check if already logged in
+        const token = sessionStorage.getItem('admin_token');
+        if (token) {
+            // Verify token is still valid and has admin/owner role
+            verifyExistingToken(token);
+        }
+
+        async function verifyExistingToken(token) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/auth/verify_token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token })
+                });
+
+                const data = await response.json();
+                
+                if (data.success && (data.user.role === 'admin' || data.user.role === 'owner')) {
+                    // Valid admin/owner token, redirect to dashboard
+                    window.location.href = '/admin/';
+                } else {
+                    // Token invalid or insufficient permissions, clear it
+                    sessionStorage.removeItem('admin_token');
+                }
+            } catch (error) {
+                // Error verifying, clear token
+                sessionStorage.removeItem('admin_token');
+            }
+        }
+
+        const loginForm = document.getElementById('loginForm');
+        const errorMessage = document.getElementById('errorMessage');
+        const submitButton = loginForm.querySelector('button[type="submit"]');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const identifier = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            // Hide previous error and disable button
+            errorMessage.style.display = 'none';
+            submitButton.disabled = true;
+            submitButton.textContent = 'Logging in...';
+            
+            try {
+                // Call backend login endpoint
+                const response = await fetch(`${BACKEND_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier, password })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Check if user has admin or owner role
+                    if (data.user.role === 'admin' || data.user.role === 'owner') {
+                        // Store token and user info
+                        sessionStorage.setItem('admin_token', data.token);
+                        sessionStorage.setItem('admin_user', JSON.stringify(data.user));
+                        
+                        // Redirect to admin dashboard
+                        window.location.href = '/admin/';
+                    } else {
+                        // User doesn't have sufficient permissions
+                        errorMessage.textContent = 'Insufficient permissions. Admin or Owner role required.';
+                        errorMessage.style.display = 'block';
+                        
+                        // Log them out from the backend
+                        await fetch(`${BACKEND_URL}/auth/logout`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ token: data.token })
+                        });
+                    }
+                } else {
+                    // Login failed
+                    errorMessage.textContent = data.message || 'Invalid username/email or password';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                // Network or server error
+                errorMessage.textContent = 'Connection error. Please try again.';
+                errorMessage.style.display = 'block';
+                console.error('Login error:', error);
+            } finally {
+                // Re-enable button
+                submitButton.disabled = false;
+                submitButton.textContent = 'Login';
+            }
+        });
+    </script>
+</body>
+</html>
