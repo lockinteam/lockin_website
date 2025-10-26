@@ -2,8 +2,45 @@
 
 .admin-container {
     min-height: 100vh;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    padding: 2rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    background: linear-gradient(to bottom right, #d4e4fc 0%, #b8d4f1 50%, #8db4e2 100%);
+    padding: 0;
+    position: relative;
+}
+
+.admin-header-minimal {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    z-index: 100;
+}
+
+.logout-btn {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(54, 120, 174, 0.2);
+    color: var(--color-deep-blue);
+    padding: 0.7rem 1.5rem;
+    border-radius: 50px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.logout-btn:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    border-color: var(--color-primary-blue);
+}
+
+.logout-btn svg {
+    opacity: 0.8;
 }
 
 .admin-header {
@@ -27,10 +64,27 @@
 }
 
 .admin-content {
-    background: var(--color-white);
-    padding: 2rem;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 6rem 2rem 3rem;
+}
+
+.admin-footer {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+}
+
+.footer-logo {
+    height: 50px;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.footer-logo:hover {
+    opacity: 0.85;
 }
 
 .loading {
@@ -39,45 +93,52 @@
     color: var(--color-grey-text);
 }
 
+.dashboard-title-section {
+    text-align: center;
+    margin-bottom: 4rem;
+}
+
+.admin-title {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--color-deep-blue);
+    margin: 0 0 1rem 0;
+    letter-spacing: -0.5px;
+}
+
+.admin-subtitle {
+    font-size: 1.1rem;
+    color: var(--color-grey-text);
+    margin: 0;
+    font-weight: 400;
+}
+
 .dashboard h2 {
     color: var(--color-deep-blue);
     margin-bottom: 0.5rem;
 }
 
-.dashboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 3rem;
-    padding-bottom: 2rem;
-    border-bottom: 2px solid #f0f0f0;
-}
-
-.user-role {
-    font-weight: bold;
-    margin: 0.5rem 0 0 0;
-    font-size: 0.95rem;
-}
-
 .management-options {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
+    gap: 2.5rem;
     margin-top: 2rem;
 }
 
 .management-card {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    border: 2px solid #e8e8e8;
-    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 20px;
     padding: 3rem 2rem;
     text-align: center;
     text-decoration: none;
     color: inherit;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
 }
 
 .management-card::before {
@@ -89,26 +150,19 @@
     bottom: 0;
     background: linear-gradient(135deg, var(--color-primary-blue), var(--color-accent-teal));
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.4s ease;
     z-index: 0;
 }
 
 .management-card:hover::before {
-    opacity: 1;
+    opacity: 0.05;
 }
 
 .management-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 15px 35px rgba(54, 120, 174, 0.2);
-    border-color: var(--color-primary-blue);
-}
-
-.management-card:hover .management-icon,
-.management-card:hover h3,
-.management-card:hover p {
-    color: var(--color-white);
-    position: relative;
-    z-index: 1;
+    transform: translateY(-10px) scale(1.02);
+    box-shadow: 0 20px 60px rgba(54, 120, 174, 0.15);
+    border-color: rgba(54, 120, 174, 0.3);
+    background: rgba(255, 255, 255, 1);
 }
 
 .management-icon {
@@ -116,9 +170,14 @@
     height: 80px;
     margin: 0 auto 1.5rem;
     color: var(--color-primary-blue);
-    transition: color 0.3s ease;
+    transition: all 0.3s ease;
     position: relative;
     z-index: 1;
+}
+
+.management-card:hover .management-icon {
+    color: var(--color-primary-blue);
+    transform: scale(1.1);
 }
 
 .management-icon svg {
@@ -130,6 +189,7 @@
     font-size: 1.5rem;
     color: var(--color-deep-blue);
     margin: 0 0 1rem 0;
+    font-weight: 600;
     transition: color 0.3s ease;
     position: relative;
     z-index: 1;
@@ -152,34 +212,30 @@
 /* Login Page Styles */
 .login-container {
     min-height: 100vh;
-    background: linear-gradient(135deg, var(--color-primary-blue), var(--color-deep-blue));
+    background: linear-gradient(to bottom right, #d4e4fc 0%, #b8d4f1 50%, #8db4e2 100%);
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 2rem;
+    padding: 3rem 2rem 5rem;
+    gap: 2rem;
 }
 
-.login-box {
-    background: var(--color-white);
-    padding: 3rem;
-    border-radius: 15px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-    max-width: 400px;
-    width: 100%;
-}
-
-.login-logo {
-    height: 50px;
-    margin: 0 auto 2rem;
-}
-
-.login-box h1 {
+.login-content {
+    width: min(420px, 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
-    color: var(--color-deep-blue);
-    margin-bottom: 2rem;
+    gap: 2rem;
+}
+
+.login-content .dashboard-title-section {
+    margin-bottom: 1.5rem;
 }
 
 .login-form {
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
@@ -193,18 +249,18 @@
 .form-group input[type="text"],
 .form-group input[type="password"] {
     padding: 1rem 1.25rem;
-    border: 1px solid #e0e0e0;
-    border-radius: 10px;
+    border: 1px solid rgba(224, 224, 224, 0.5);
+    border-radius: 12px;
     font-size: 1rem;
     transition: all 0.3s ease;
-    background: #fafafa;
+    background: rgba(255, 255, 255, 0.7);
 }
 
 .form-group input[type="text"]:focus,
 .form-group input[type="password"]:focus {
     outline: none;
     border-color: var(--color-primary-blue);
-    background: var(--color-white);
+    background: rgba(255, 255, 255, 0.9);
     box-shadow: 0 0 0 3px rgba(54, 120, 174, 0.1);
 }
 
@@ -215,17 +271,20 @@
 
 .btn-block {
     width: 100%;
+    max-width: 280px;
     padding: 1rem;
     font-size: 1.1rem;
     border: none;
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(54, 120, 174, 0.2);
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 12px;
+    margin: 0 auto;
 }
 
 .btn-block:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(54, 120, 174, 0.3);
+    box-shadow: 0 6px 20px rgba(54, 120, 174, 0.3);
 }
 
 .btn-block:active {
@@ -241,20 +300,45 @@
     text-align: center;
 }
 
-.back-link {
-    display: block;
-    text-align: center;
-    margin-top: 2rem;
-    color: var(--color-grey-text);
+.back-button {
+    display: inline-block;
+    margin-top: 1.5rem;
+    color: rgba(255, 255, 255, 0.9);
     text-decoration: none;
-    font-size: 0.95rem;
-    transition: all 0.3s ease;
-    padding: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 0.65rem 1.25rem;
+    border-radius: 10px;
+    background: rgba(240, 227, 227, 0.15);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.back-link:hover {
-    color: var(--color-primary-blue);
-    transform: translateX(-4px);
+.back-button:hover {
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.25);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+.login-footer {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.login-footer .footer-logo {
+    height: 50px;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.login-footer .footer-logo:hover {
+    opacity: 0.85;
 }
 
 /* Responsive Design */

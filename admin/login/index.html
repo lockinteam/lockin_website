@@ -10,10 +10,12 @@
 </head>
 <body>
     <div class="login-container">
-        <div class="login-box">
-            <img src="../../static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="login-logo">
-            <h1>Admin Login</h1>
-            
+        <div class="login-content">
+            <div class="dashboard-title-section">
+                <h1 class="admin-title">Admin Portal</h1>
+                <p class="admin-subtitle">Welcome back to <span style="color: var(--color-primary-blue);">Lockin.tech</span></p>
+            </div>
+
             <form id="loginForm" class="login-form">
                 <div class="form-group">
                     <input type="text" id="username" name="username" placeholder="Username" required autocomplete="username">
@@ -28,7 +30,11 @@
                 <div id="errorMessage" class="error-message" style="display: none;"></div>
             </form>
 
-            <a href="/" class="back-link">Back to main site</a>
+            <a href="/" class="back-button">Back to main site</a>
+        </div>
+        
+        <div class="login-footer">
+            <img src="../../static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="footer-logo">
         </div>
     </div>
 
