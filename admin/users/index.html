@@ -520,11 +520,14 @@
                 user_id: user.id
             };
 
+            const currentYearId = user.year_id ?? null;
             const selectedYear = yearSelect.value;
             const emailVerified = emailVerifiedToggle.checked;
 
-            if (selectedYear) {
-                payload.year_id = selectedYear;
+            const desiredYearId = selectedYear === '' ? null : selectedYear;
+
+            if (desiredYearId !== currentYearId) {
+                payload.year_id = desiredYearId;
             }
 
             payload.email_verified = emailVerified;
