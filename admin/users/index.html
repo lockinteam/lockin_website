@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - Lockin.tech Admin</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="../../static/assets/favicon.png">
+    <link rel="stylesheet" href="../../styles.css">
+    <link rel="stylesheet" href="../admin.css">
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header-minimal">
+            <button class="logout-btn" id="backToDashboardBtn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                    <line x1="19" y1="12" x2="9" y2="12"></line>
+                </svg>
+                Dashboard
+            </button>
+            <button class="logout-btn" id="logoutBtn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                    <polyline points="16 17 21 12 16 7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                Logout
+            </button>
+        </div>
+
+        <div class="admin-content user-management-page">
+            <div class="dashboard-title-section user-management-title">
+                <h1 class="admin-title">User Management</h1>
+                <p class="admin-subtitle">Manage roles, access, and account status across the Lockin platform</p>
+            </div>
+
+            <div class="user-management-controls">
+                <div class="search-field">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="Search by username or email...">
+                </div>
+                <button class="refresh-btn" id="refreshBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"></path>
+                        <path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"></path>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+
+            <div class="user-stats" id="userStats">
+                <div class="user-stat-card">
+                    <p class="label">Total Users</p>
+                    <p class="value" id="totalUsers">-</p>
+                </div>
+                <div class="user-stat-card">
+                    <p class="label">Owners</p>
+                    <p class="value" id="ownerCount">-</p>
+                </div>
+                <div class="user-stat-card">
+                    <p class="label">Admins</p>
+                    <p class="value" id="adminCount">-</p>
+                </div>
+                <div class="user-stat-card">
+                    <p class="label">Users</p>
+                    <p class="value" id="regularCount">-</p>
+                </div>
+            </div>
+
+            <div class="user-list" id="userList">
+                <div class="user-list-empty loading">
+                    <div class="spinner"></div>
+                    <p>Fetching users...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-footer">
+            <img src="../../static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="footer-logo">
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay" hidden>
+        <div class="modal" role="dialog" aria-modal="true">
+            <button class="modal-close" id="modalCloseBtn" aria-label="Close modal">&times;</button>
+            <div class="modal-content" id="modalContent"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+
+    <script>
+        const BACKEND_URL = 'https://backend.lockin.tech';
+        const USERS_PER_REQUEST = 500;
+
+        const roleOrder = { owner: 0, admin: 1, user: 2 };
+        const roleLabels = {
+            owner: 'Owner',
+            admin: 'Admin',
+            user: 'User'
+        };
+
+        const state = {
+            token: null,
+            currentUser: null,
+            users: [],
+            filteredUsers: [],
+            years: [],
+            secondarySort: 'created_desc',
+            isFetching: false,
+            searchTerm: ''
+        };
+
+        const elements = {
+            userList: document.getElementById('userList'),
+            searchInput: document.getElementById('searchInput'),
+            refreshBtn: document.getElementById('refreshBtn'),
+            totalUsers: document.getElementById('totalUsers'),
+            ownerCount: document.getElementById('ownerCount'),
+            adminCount: document.getElementById('adminCount'),
+            regularCount: document.getElementById('regularCount'),
+            modalOverlay: document.getElementById('modalOverlay'),
+            modalContent: document.getElementById('modalContent'),
+            modalCloseBtn: document.getElementById('modalCloseBtn'),
+            toast: document.getElementById('toast'),
+            logoutBtn: document.getElementById('logoutBtn'),
+            backToDashboardBtn: document.getElementById('backToDashboardBtn')
+        };
+
+        init();
+
+        async function init() {
+            state.token = sessionStorage.getItem('admin_token');
+            if (!state.token) {
+                redirectToLogin();
+                return;
+            }
+
+            const storedUser = sessionStorage.getItem('admin_user');
+            if (storedUser) {
+                state.currentUser = JSON.parse(storedUser);
+            }
+
+            try {
+                await verifyCurrentUser();
+                await loadYears();
+                await fetchUsers();
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showToast('Unable to initialize user management. Please try again.', 'error');
+            }
+
+            attachEventListeners();
+        }
+
+        function attachEventListeners() {
+            elements.searchInput.addEventListener('input', debounce(onSearchInput, 300));
+            elements.refreshBtn.addEventListener('click', () => fetchUsers(state.searchTerm));
+            elements.modalCloseBtn.addEventListener('click', closeModal);
+            elements.modalOverlay.addEventListener('click', (event) => {
+                if (event.target === elements.modalOverlay) {
+                    closeModal();
+                }
+            });
+            elements.logoutBtn.addEventListener('click', logout);
+            elements.backToDashboardBtn.addEventListener('click', () => {
+                window.location.href = '/admin/';
+            });
+        }
+
+        async function verifyCurrentUser() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/auth/verify_token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: state.token })
+                });
+
+                const data = await response.json();
+
+                if (!data.success || !(data.user.role === 'admin' || data.user.role === 'owner')) {
+                    throw new Error('Insufficient permissions');
+                }
+
+                state.currentUser = data.user;
+                sessionStorage.setItem('admin_user', JSON.stringify(data.user));
+            } catch (error) {
+                console.error('verifyCurrentUser error:', error);
+                showToast('Session expired or insufficient permissions.', 'error');
+                redirectToLogin();
+                throw error;
+            }
+        }
+
+        async function loadYears() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/fetch/years`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: state.token })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    const years = Array.isArray(data.data?.years) ? data.data.years : [];
+                    state.years = years.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+                }
+            } catch (error) {
+                console.error('Failed to load years:', error);
+                showToast('Could not load year options.', 'warning');
+            }
+        }
+
+        async function fetchUsers(searchTerm = '') {
+            state.isFetching = true;
+            state.searchTerm = searchTerm;
+            renderLoadingState();
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/admin/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token: state.token,
+                        limit: USERS_PER_REQUEST,
+                        search: searchTerm || undefined
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to load users');
+                }
+
+                state.users = data.data.users || [];
+                updateStats(data.data);
+                applySortingAndRender();
+            } catch (error) {
+                console.error('fetchUsers error:', error);
+                elements.userList.innerHTML = `
+                    <div class="user-list-empty error">
+                        <p>Unable to load users.<br>Please try again.</p>
+                        <button class="refresh-btn retry-fetch">Retry</button>
+                    </div>
+                `;
+                const retryBtn = elements.userList.querySelector('.retry-fetch');
+                if (retryBtn) {
+                    retryBtn.addEventListener('click', () => fetchUsers(searchTerm));
+                }
+                showToast(error.message, 'error');
+            } finally {
+                state.isFetching = false;
+            }
+        }
+
+        function updateStats(data) {
+            elements.totalUsers.textContent = data.total ?? state.users.length;
+            const ownerCount = state.users.filter(user => user.role === 'owner').length;
+            const adminCount = state.users.filter(user => user.role === 'admin').length;
+            const regularCount = state.users.filter(user => user.role === 'user').length;
+
+            elements.ownerCount.textContent = ownerCount;
+            elements.adminCount.textContent = adminCount;
+            elements.regularCount.textContent = regularCount;
+        }
+
+        function applySortingAndRender() {
+            const sorted = [...state.users].sort((a, b) => {
+                const roleDiff = (roleOrder[a.role] ?? 99) - (roleOrder[b.role] ?? 99);
+                if (roleDiff !== 0) return roleDiff;
+
+                const createdA = Date.parse(a.created_at || '') || 0;
+                const createdB = Date.parse(b.created_at || '') || 0;
+
+                if (state.secondarySort === 'created_desc') {
+                    const diff = createdB - createdA;
+                    if (diff !== 0) return diff;
+                } else if (state.secondarySort === 'created_asc') {
+                    const diff = createdA - createdB;
+                    if (diff !== 0) return diff;
+                }
+
+                return a.username.localeCompare(b.username);
+            });
+
+            state.filteredUsers = sorted;
+            renderUserCards();
+        }
+
+        function renderLoadingState() {
+            elements.userList.innerHTML = `
+                <div class="user-list-empty loading">
+                    <div class="spinner"></div>
+                    <p>${state.searchTerm ? 'Searching users...' : 'Fetching users...'}</p>
+                </div>
+            `;
+        }
+
+        function renderUserCards() {
+            if (!state.filteredUsers.length) {
+                elements.userList.innerHTML = `
+                    <div class="user-list-empty">
+                        <p>${state.searchTerm ? 'No users match your search.' : 'No users found.'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const listFragment = document.createDocumentFragment();
+
+            state.filteredUsers.forEach((user) => {
+                const card = document.createElement('div');
+                card.className = 'user-card';
+                card.dataset.role = user.role;
+                card.innerHTML = createUserCardMarkup(user);
+                attachUserCardEvents(card, user);
+                listFragment.appendChild(card);
+            });
+
+            elements.userList.innerHTML = '';
+            elements.userList.appendChild(listFragment);
+        }
+
+        function createUserCardMarkup(user) {
+            const isCurrentUser = user.id === state.currentUser.id;
+            const roleBadgeClass = `role-badge role-${user.role}`;
+            const emailStatusClass = user.email_verified ? 'status-pill status-verified' : 'status-pill status-pending';
+            const emailStatusLabel = user.email_verified ? 'Verified' : 'Pending';
+            const yearLabel = user.year_name || 'Not set';
+            const joinedDate = user.created_at ? new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown';
+            const coursesCount = user.enrolled_courses_count ?? '—';
+
+            const canEdit = canEditUser(user);
+            const canResetPassword = canResetUserPassword(user);
+            const canPromote = canPromoteUser(user);
+            const canDemote = canDemoteUser(user);
+            const canDelete = canDeleteUser(user);
+
+            const roleActionButton = (() => {
+                if (canPromote) {
+                    return `<button class="user-action" data-action="promote" data-user-id="${user.id}">Promote</button>`;
+                }
+                if (canDemote) {
+                    return `<button class="user-action" data-action="demote" data-user-id="${user.id}">Demote</button>`;
+                }
+                const lockedLabel = user.role === 'owner' ? 'Owner Role' : 'Role Locked';
+                const lockedTitle = user.role === 'owner'
+                    ? 'Owners cannot be reassigned from this view.'
+                    : 'You do not have permission to change this role.';
+                return `<button class="user-action" data-action="roleLocked" data-user-id="${user.id}" disabled title="${lockedTitle}">${lockedLabel}</button>`;
+            })();
+
+            return `
+                <div class="user-card-header">
+                    <div class="user-identifiers">
+                        <h3>${user.username}${isCurrentUser ? ' <span class="current-user-badge">(You)</span>' : ''}</h3>
+                        <p>${user.email}</p>
+                    </div>
+                    <span class="${roleBadgeClass}">${roleLabels[user.role] || user.role}</span>
+                </div>
+                <div class="user-card-body">
+                    <div class="user-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Year</span>
+                            <span class="meta-value">${yearLabel}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Email Status</span>
+                            <span class="meta-value ${emailStatusClass}">${emailStatusLabel}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Enrolled Courses</span>
+                            <span class="meta-value">${coursesCount}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Joined</span>
+                            <span class="meta-value">${joinedDate}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="user-card-actions">
+                    <button class="user-action" data-action="edit" data-user-id="${user.id}" ${!canEdit ? 'disabled' : ''}>Edit</button>
+                    <button class="user-action" data-action="resetPassword" data-user-id="${user.id}" ${!canResetPassword ? 'disabled' : ''}>Reset Password</button>
+                    ${roleActionButton}
+                    <button class="user-action destructive" data-action="delete" data-user-id="${user.id}" ${!canDelete ? 'disabled' : ''}>Delete</button>
+                </div>
+            `;
+        }
+
+        function attachUserCardEvents(card, user) {
+            card.querySelectorAll('.user-action').forEach((button) => {
+                const action = button.dataset.action;
+                if (!action || button.disabled) return;
+
+                button.addEventListener('click', () => {
+                    switch (action) {
+                        case 'edit':
+                            openEditModal(user);
+                            break;
+                        case 'resetPassword':
+                            handleResetPassword(user);
+                            break;
+                        case 'promote':
+                            handlePromote(user);
+                            break;
+                        case 'demote':
+                            handleDemote(user);
+                            break;
+                        case 'delete':
+                            handleDelete(user);
+                            break;
+                        default:
+                            break;
+                    }
+                });
+            });
+        }
+
+        function canEditUser(user) {
+            if (user.id === state.currentUser.id) return true;
+            if (state.currentUser.role === 'owner') {
+                return user.role !== 'owner';
+            }
+            if (state.currentUser.role === 'admin') {
+                return user.role === 'user';
+            }
+            return false;
+        }
+
+        function canResetUserPassword(user) {
+            if (user.id === state.currentUser.id) return true;
+            if (state.currentUser.role === 'owner') {
+                return user.role !== 'owner';
+            }
+            if (state.currentUser.role === 'admin') {
+                return user.role === 'user';
+            }
+            return false;
+        }
+
+        function canPromoteUser(user) {
+            if (state.currentUser.role !== 'owner') return false;
+            if (user.role !== 'user') return false;
+            return true;
+        }
+
+        function canDemoteUser(user) {
+            if (state.currentUser.role !== 'owner') return false;
+            if (user.role !== 'admin') return false;
+            if (user.id === state.currentUser.id) return false;
+            return true;
+        }
+
+        function canDeleteUser(user) {
+            if (user.id === state.currentUser.id) return false;
+            if (state.currentUser.role === 'owner') {
+                return user.role !== 'owner';
+            }
+            if (state.currentUser.role === 'admin') {
+                return user.role === 'user';
+            }
+            return false;
+        }
+
+        function onSearchInput(event) {
+            const value = event.target.value.trim();
+            fetchUsers(value);
+        }
+
+        function openEditModal(user) {
+            const yearOptions = state.years.map((year) => `
+                <option value="${year.id}" ${user.year_id === year.id ? 'selected' : ''}>${year.name}</option>
+            `).join('');
+
+            const modalMarkup = `
+                <h2>Edit ${user.username}</h2>
+                <form id="editUserForm" class="modal-form">
+                    <div class="form-row">
+                        <label for="yearSelect">Year</label>
+                        <select id="yearSelect" name="year">
+                            <option value="">Not set</option>
+                            ${yearOptions}
+                        </select>
+                    </div>
+                    <div class="form-row checkbox-row">
+                        <label for="emailVerifiedToggle">Email Verified</label>
+                        <label class="switch">
+                            <input type="checkbox" id="emailVerifiedToggle" ${user.email_verified ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="ghost-btn" id="cancelEditBtn">Cancel</button>
+                        <button type="submit" class="primary-btn">Save Changes</button>
+                    </div>
+                </form>
+            `;
+
+            elements.modalContent.innerHTML = modalMarkup;
+            elements.modalOverlay.hidden = false;
+
+            document.getElementById('cancelEditBtn').addEventListener('click', closeModal);
+            document.getElementById('editUserForm').addEventListener('submit', async (event) => {
+                event.preventDefault();
+                await submitUserUpdate(user);
+            });
+        }
+
+        async function submitUserUpdate(user) {
+            const yearSelect = document.getElementById('yearSelect');
+            const emailVerifiedToggle = document.getElementById('emailVerifiedToggle');
+
+            const payload = {
+                token: state.token,
+                user_id: user.id
+            };
+
+            const selectedYear = yearSelect.value;
+            const emailVerified = emailVerifiedToggle.checked;
+
+            if (selectedYear) {
+                payload.year_id = selectedYear;
+            }
+
+            payload.email_verified = emailVerified;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/admin/users/update`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to update user');
+                }
+
+                const updatedUser = data.data.user;
+                state.users = state.users.map((existing) => (
+                    existing.id === updatedUser.id ? { ...existing, ...updatedUser } : existing
+                ));
+
+                applySortingAndRender();
+                closeModal();
+                showToast(`Updated ${updatedUser.username}.`, 'success');
+            } catch (error) {
+                console.error('submitUserUpdate error:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        async function handleResetPassword(user) {
+            if (!confirm(`Reset password for ${user.username}? This will invalidate all sessions.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/admin/users/reset_password`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token: state.token,
+                        user_id: user.id
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to reset password');
+                }
+
+                const tempPassword = data.data.temporary_password;
+
+                elements.modalContent.innerHTML = `
+                    <h2>Temporary Password Generated</h2>
+                    <p class="modal-info">
+                        Share this password securely with <strong>${user.username}</strong> and remind them to change it after signing in.
+                    </p>
+                    <div class="password-display" id="passwordDisplay">
+                        <code>${tempPassword}</code>
+                        <button class="copy-btn" id="copyPasswordBtn">Copy</button>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="primary-btn" id="closePasswordModal">Close</button>
+                    </div>
+                `;
+
+                elements.modalOverlay.hidden = false;
+
+                document.getElementById('copyPasswordBtn').addEventListener('click', () => copyToClipboard(tempPassword));
+                document.getElementById('closePasswordModal').addEventListener('click', closeModal);
+
+                showToast('Temporary password generated.', 'success');
+            } catch (error) {
+                console.error('handleResetPassword error:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        async function handlePromote(user) {
+            if (!confirm(`Promote ${user.username} to admin?`)) return;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/admin/users/promote`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: state.token, user_id: user.id })
+                });
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to promote user');
+                }
+
+                state.users = state.users.map((existing) => (
+                    existing.id === user.id ? { ...existing, role: 'admin' } : existing
+                ));
+
+                applySortingAndRender();
+                updateStats({ total: state.users.length });
+                showToast(`${user.username} is now an admin.`, 'success');
+            } catch (error) {
+                console.error('handlePromote error:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        async function handleDemote(user) {
+            if (!confirm(`Demote ${user.username} to regular user?`)) return;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/admin/users/demote`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: state.token, user_id: user.id })
+                });
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to demote user');
+                }
+
+                state.users = state.users.map((existing) => (
+                    existing.id === user.id ? { ...existing, role: 'user' } : existing
+                ));
+
+                applySortingAndRender();
+                updateStats({ total: state.users.length });
+                showToast(`${user.username} is now a regular user.`, 'success');
+            } catch (error) {
+                console.error('handleDemote error:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        async function handleDelete(user) {
+            const confirmation = confirm(`Delete ${user.username}? This will permanently remove their account, sessions, and enrollments. This cannot be undone.`);
+            if (!confirmation) return;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/admin/users/delete`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: state.token, user_id: user.id })
+                });
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to delete user');
+                }
+
+                state.users = state.users.filter((existing) => existing.id !== user.id);
+                applySortingAndRender();
+                updateStats({ total: state.users.length });
+                showToast(`${user.username} has been deleted.`, 'success');
+            } catch (error) {
+                console.error('handleDelete error:', error);
+                showToast(error.message, 'error');
+            }
+        }
+
+        function closeModal() {
+            elements.modalOverlay.hidden = true;
+            elements.modalContent.innerHTML = '';
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied to clipboard.', 'success');
+            }).catch(() => {
+                showToast('Unable to copy. Please copy manually.', 'warning');
+            });
+        }
+
+        function debounce(fn, delay = 300) {
+            let timeoutId;
+            return (...args) => {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => fn.apply(null, args), delay);
+            };
+        }
+
+        function showToast(message, type = 'info') {
+            elements.toast.textContent = message;
+            elements.toast.className = `toast toast-${type}`;
+            elements.toast.hidden = false;
+
+            setTimeout(() => {
+                elements.toast.hidden = true;
+            }, 3000);
+        }
+
+        async function logout() {
+            if (state.token) {
+                try {
+                    await fetch(`${BACKEND_URL}/auth/logout`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: state.token })
+                    });
+                } catch (error) {
+                    console.error('Logout error:', error);
+                }
+            }
+
+            sessionStorage.removeItem('admin_token');
+            sessionStorage.removeItem('admin_user');
+            redirectToLogin();
+        }
+
+        function redirectToLogin() {
+            window.location.href = '/admin/login/';
+        }
+    </script>
+</body>
+</html>

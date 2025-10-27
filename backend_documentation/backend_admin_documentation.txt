@@ -595,13 +595,13 @@ curl -X PUT ${backend_url}/admin/users/reset_password \
 
 ---
 
-### 7. Deactivate User Account
+### 7. Delete User Account
 
 **Endpoint**: `DELETE /admin/users/delete`
 
 **Auth**: Admin or Owner (with restrictions)
 
-**Description**: Deactivate a user account by invalidating all their sessions. The user record is kept in the database for data integrity.
+**Description**: Permanently delete a user account from the database. This action cascades to related records.
 
 **Restrictions**:
 - Admins can only delete regular users
@@ -621,22 +621,21 @@ curl -X PUT ${backend_url}/admin/users/reset_password \
 ```json
 {
   "success": true,
-  "message": "User 'john_doe' deactivated successfully",
+  "message": "User 'john_doe' deleted successfully",
   "data": {
     "user_id": "uuid",
     "username": "john_doe",
-    "sessions_invalidated": 2,
-    "note": "User account has been deactivated. All sessions invalidated."
+    "note": "User account has been permanently deleted. Sessions and enrollments were also removed."
   }
 }
 ```
 
 **Implementation Notes**:
-- User record remains in database
-- All active sessions are invalidated
-- User cannot login until reactivated
-- Preserves data integrity and audit trails
-- Course enrollments and created content remain
+- **Permanently deletes** user record from database
+- **Automatically deleted** (CASCADE): sessions, course_enrollments
+- **Creator references nullified** (SET NULL): Any content they created (courses, notes, questions, podcasts, papers, topics, past_papers) will have `added_by_user_id` set to NULL
+- Content they created remains in the system but loses creator attribution
+- This is a **permanent** action and cannot be easily reversed
 
 **Error Cases**:
 - Missing token or user_id (400)
@@ -652,7 +651,7 @@ curl -X PUT ${backend_url}/admin/users/reset_password \
 **Usage Examples**:
 
 ```javascript
-// Deactivate user account
+// Delete user account
 const response = await fetch(`${backend_url}/admin/users/delete`, {
   method: 'DELETE',
   headers: { 'Content-Type': 'application/json' },
@@ -664,7 +663,7 @@ const response = await fetch(`${backend_url}/admin/users/delete`, {
 
 const data = await response.json();
 if (data.success) {
-  console.log(`User deactivated. ${data.data.sessions_invalidated} sessions invalidated.`);
+  console.log(`User permanently deleted from database.`);
 }
 ```
 
@@ -765,10 +764,10 @@ curl -X DELETE ${backend_url}/admin/users/delete \
 - Returns password in response (send to user securely)
 
 ### User Deletion
-- Soft delete (sessions invalidated, user record preserved)
-- Maintains referential integrity
-- Preserves audit trail and created content
-- Can be reversed by owner if needed
+- Permanent deletion (user record removed from database)
+- Automatically cascades to sessions and course enrollments
+- Content creator references are nullified (content preserved)
+- Cannot be reversed - this is a permanent action
 
 ---
 
