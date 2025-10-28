@@ -46,7 +46,7 @@ const UI = {
         const actionHTML = actionBtn ? `
             <button class="action-btn" onclick="${actionBtn.onClick}">
                 ${actionBtn.icon || ''}
-                ${actionBtn.text}
+                <span>${actionBtn.text}</span>
             </button>
         ` : '';
         
