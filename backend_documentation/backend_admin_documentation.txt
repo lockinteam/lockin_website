@@ -279,12 +279,12 @@ curl -X POST ${backend_url}/admin/users/get \
 {
   "token": "session_token",
   "user_id": "uuid",
-  "year_id": "uuid",           // Optional
+  "year_id": "uuid",           // Optional: set to null to unset the year
   "email_verified": true       // Optional
 }
 ```
 
-**Note**: At least one field to update must be provided.
+**Note**: At least one field to update must be provided. Set `year_id` to `null` to remove the user's year assignment.
 
 **Success Response** (200 OK):
 ```json
@@ -355,6 +355,17 @@ const updateBoth = await fetch(`${backend_url}/admin/users/update`, {
     email_verified: true
   })
 });
+
+// Unset user's year (set to null)
+const unsetYear = await fetch(`${backend_url}/admin/users/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    user_id: 'user-uuid',
+    year_id: null
+  })
+});
 ```
 
 ```bash
@@ -367,6 +378,11 @@ curl -X PUT ${backend_url}/admin/users/update \
 curl -X PUT ${backend_url}/admin/users/update \
   -H "Content-Type: application/json" \
   -d '{"token": "your_admin_token", "user_id": "user-uuid", "email_verified": true}'
+
+# Unset user's year
+curl -X PUT ${backend_url}/admin/users/update \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "user_id": "user-uuid", "year_id": null}'
 ```
 
 ---
@@ -676,6 +692,321 @@ curl -X DELETE ${backend_url}/admin/users/delete \
 
 ---
 
+## Admin Years Management Endpoints
+
+### 1. List All Years
+
+**Endpoint**: `POST /admin/years`
+
+**Auth**: Admin or Owner
+
+**Description**: List all years with full details, including inactive years. This is the admin version that shows all years regardless of status.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "include_inactive": true  // Optional: default true, set false to show only active years
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Years fetched successfully",
+  "data": {
+    "years": [
+      {
+        "id": "uuid",
+        "name": "GCSE (10/11)",
+        "sort_order": 1,
+        "is_active": true,
+        "created_at": "2025-01-01T00:00:00.000000"
+      }
+    ],
+    "count": 2
+  }
+}
+```
+
+**Error Cases**:
+- Missing token (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// List all years (including inactive)
+const response = await fetch(`${backend_url}/admin/years`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: adminToken })
+});
+
+// List only active years
+const activeYears = await fetch(`${backend_url}/admin/years`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    include_inactive: false
+  })
+});
+```
+
+```bash
+# cURL: List all years
+curl -X POST ${backend_url}/admin/years \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token"}'
+
+# List only active years
+curl -X POST ${backend_url}/admin/years \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "include_inactive": false}'
+```
+
+---
+
+### 2. Create Year
+
+**Endpoint**: `POST /admin/years/create`
+
+**Auth**: Admin or Owner
+
+**Description**: Create a new year. The year will be active by default.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "name": "GCSE (10/11)",
+  "sort_order": 1  // Optional: default 0
+}
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Year 'GCSE (10/11)' created successfully",
+  "data": {
+    "year": {
+      "id": "uuid",
+      "name": "GCSE (10/11)",
+      "sort_order": 1,
+      "is_active": true,
+      "created_at": "2025-10-28T10:00:00.000000"
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or name (400)
+- Invalid name format (400)
+- Invalid sort_order (must be integer) (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Year name already exists (409)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// Create new year
+const response = await fetch(`${backend_url}/admin/years/create`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    name: 'A-Level (12/13)',
+    sort_order: 2
+  })
+});
+```
+
+```bash
+# cURL
+curl -X POST ${backend_url}/admin/years/create \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "name": "A-Level (12/13)", "sort_order": 2}'
+```
+
+---
+
+### 3. Update Year
+
+**Endpoint**: `PUT /admin/years/update`
+
+**Auth**: Admin or Owner
+
+**Description**: Update year details. Can update name, sort_order, and/or is_active status.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "year_id": "uuid",
+  "name": "Updated Name",      // Optional
+  "sort_order": 5,             // Optional
+  "is_active": false           // Optional
+}
+```
+
+**Note**: At least one field to update must be provided.
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Year updated successfully",
+  "data": {
+    "year": {
+      "id": "uuid",
+      "name": "Updated Name",
+      "sort_order": 5,
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00.000000"
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or year_id (400)
+- No fields to update provided (400)
+- Invalid year_id format (400)
+- Invalid sort_order (must be integer) (400)
+- Invalid is_active (must be boolean) (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Year not found (404)
+- Year name already exists (409)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// Update year name
+const response = await fetch(`${backend_url}/admin/years/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid',
+    name: 'New Year Name'
+  })
+});
+
+// Update sort order
+const updateSort = await fetch(`${backend_url}/admin/years/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid',
+    sort_order: 10
+  })
+});
+
+// Reactivate inactive year
+const reactivate = await fetch(`${backend_url}/admin/years/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid',
+    is_active: true
+  })
+});
+```
+
+```bash
+# cURL: Update name
+curl -X PUT ${backend_url}/admin/years/update \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "year_id": "year-uuid", "name": "New Name"}'
+
+# Update multiple fields
+curl -X PUT ${backend_url}/admin/years/update \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "year_id": "year-uuid", "name": "New Name", "sort_order": 15}'
+```
+
+---
+
+### 4. Delete Year
+
+**Endpoint**: `DELETE /admin/years/delete`
+
+**Auth**: Admin or Owner
+
+**Description**: Soft delete a year by setting is_active = false. The year record remains in the database but won't appear in active year lists.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "year_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Year 'GCSE (10/11)' deleted successfully",
+  "data": {
+    "year_id": "uuid",
+    "name": "GCSE (10/11)",
+    "note": "Year has been soft deleted (is_active set to false). It will no longer appear in active year lists."
+  }
+}
+```
+
+**Implementation Notes**:
+- **Soft delete only** - year record remains in database
+- Users with this year_id retain their assignment
+- Year won't appear in `/fetch/years` (only active years)
+- Year still appears in admin list when `include_inactive: true`
+- Can be reactivated using the update endpoint
+
+**Error Cases**:
+- Missing token or year_id (400)
+- Invalid year_id format (400)
+- Year already inactive (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Year not found (404)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// Delete year (soft delete)
+const response = await fetch(`${backend_url}/admin/years/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid'
+  })
+});
+```
+
+```bash
+# cURL
+curl -X DELETE ${backend_url}/admin/years/delete \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "year_id": "year-uuid"}'
+```
+
+---
+
 ## Common Response Formats
 
 ### Success Response
@@ -771,8 +1102,827 @@ curl -X DELETE ${backend_url}/admin/users/delete \
 
 ---
 
+## Admin Subjects Management Endpoints
+
+### 1. List All Subjects
+
+**Endpoint**: `POST /admin/subjects`
+
+**Auth**: Admin or Owner
+
+**Description**: List all subjects in the system. By default, only active subjects are returned. Subjects are sorted alphabetically by name.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "include_inactive": false  // Optional: include inactive subjects (default false)
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Subjects fetched successfully",
+  "data": {
+    "subjects": [
+      {
+        "id": "uuid",
+        "name": "Mathematics",
+        "code": "MATH",
+        "is_active": true,
+        "created_at": "2025-01-01T00:00:00.000000"
+      },
+      {
+        "id": "uuid",
+        "name": "Physics",
+        "code": null,
+        "is_active": true,
+        "created_at": "2025-01-02T00:00:00.000000"
+      }
+    ],
+    "count": 2
+  }
+}
+```
+
+**Error Cases**:
+- Missing token (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Server error (500)
+
+**Database Optimization**: Single query with optional WHERE clause (1 DB trip)
+
+**Usage Examples**:
+
+```javascript
+// List active subjects
+const response = await fetch(`${backend_url}/admin/subjects`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: adminToken })
+});
+
+// List all subjects including inactive
+const allSubjects = await fetch(`${backend_url}/admin/subjects`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    include_inactive: true
+  })
+});
+```
+
+```bash
+# cURL - list active subjects
+curl -X POST ${backend_url}/admin/subjects \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token"}'
+
+# cURL - list all subjects
+curl -X POST ${backend_url}/admin/subjects \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "include_inactive": true}'
+```
+
+---
+
+### 2. Create Subject
+
+**Endpoint**: `POST /admin/subjects/create`
+
+**Auth**: Admin or Owner
+
+**Description**: Create a new subject. Subject name is required and must be unique. Code is optional.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "name": "Biology",
+  "code": "BIO"  // Optional
+}
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Subject 'Biology' created successfully",
+  "data": {
+    "subject": {
+      "id": "uuid",
+      "name": "Biology",
+      "code": "BIO",
+      "is_active": true,
+      "created_at": "2025-10-28T10:00:00.000000"
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or name (400)
+- Invalid name format (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Subject name already exists (409)
+- Server error (500)
+
+**Database Optimization**: Duplicate check + insert with RETURNING (2 DB trips)
+
+**Usage Examples**:
+
+```javascript
+// Create subject with code
+const response = await fetch(`${backend_url}/admin/subjects/create`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    name: 'Chemistry',
+    code: 'CHEM'
+  })
+});
+
+// Create subject without code
+const simple = await fetch(`${backend_url}/admin/subjects/create`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    name: 'Computer Science'
+  })
+});
+```
+
+```bash
+# cURL - with code
+curl -X POST ${backend_url}/admin/subjects/create \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "name": "Chemistry", "code": "CHEM"}'
+
+# cURL - without code
+curl -X POST ${backend_url}/admin/subjects/create \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "name": "Computer Science"}'
+```
+
+---
+
+### 3. Update Subject
+
+**Endpoint**: `PUT /admin/subjects/update`
+
+**Auth**: Admin or Owner
+
+**Description**: Update subject details. Can update name, code, and/or is_active status. Set code to null to remove it.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "subject_id": "uuid",
+  "name": "Updated Name",      // Optional
+  "code": "NEW",               // Optional (set to null to remove)
+  "is_active": false           // Optional
+}
+```
+
+**Note**: At least one field to update must be provided.
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Subject updated successfully",
+  "data": {
+    "subject": {
+      "id": "uuid",
+      "name": "Updated Name",
+      "code": "NEW",
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00.000000"
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or subject_id (400)
+- No fields to update provided (400)
+- Invalid subject_id format (400)
+- Invalid is_active (must be boolean) (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Subject not found (404)
+- Subject name already exists (409)
+- Server error (500)
+
+**Database Optimization**: Combined validation query + UPDATE...RETURNING (2 DB trips)
+
+**Usage Examples**:
+
+```javascript
+// Update subject name
+const response = await fetch(`${backend_url}/admin/subjects/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    subject_id: 'subject-uuid',
+    name: 'New Subject Name'
+  })
+});
+
+// Update code
+const updateCode = await fetch(`${backend_url}/admin/subjects/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    subject_id: 'subject-uuid',
+    code: 'NEWSUB'
+  })
+});
+
+// Remove code (set to null)
+const removeCode = await fetch(`${backend_url}/admin/subjects/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    subject_id: 'subject-uuid',
+    code: null
+  })
+});
+
+// Reactivate inactive subject
+const reactivate = await fetch(`${backend_url}/admin/subjects/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    subject_id: 'subject-uuid',
+    is_active: true
+  })
+});
+```
+
+```bash
+# cURL - update name
+curl -X PUT ${backend_url}/admin/subjects/update \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "subject_id": "uuid", "name": "New Name"}'
+
+# cURL - remove code
+curl -X PUT ${backend_url}/admin/subjects/update \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "subject_id": "uuid", "code": null}'
+```
+
+---
+
+### 4. Delete Subject
+
+**Endpoint**: `DELETE /admin/subjects/delete`
+
+**Auth**: Admin or Owner
+
+**Description**: Soft delete a subject (sets is_active to false). Can be reactivated later using update endpoint.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "subject_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Subject 'Biology' deleted successfully",
+  "data": {
+    "subject": {
+      "id": "uuid",
+      "name": "Biology",
+      "is_active": false
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or subject_id (400)
+- Subject already inactive (400)
+- Invalid subject_id format (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Subject not found (404)
+- Server error (500)
+
+**Database Optimization**: Single UPDATE...WHERE with RETURNING and fallback check (1 DB trip in happy path)
+
+**Usage Examples**:
+
+```javascript
+// Delete subject
+const response = await fetch(`${backend_url}/admin/subjects/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    subject_id: 'subject-uuid'
+  })
+});
+```
+
+```bash
+# cURL
+curl -X DELETE ${backend_url}/admin/subjects/delete \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "subject_id": "uuid"}'
+```
+
+---
+
+## Admin Courses Management Endpoints
+
+### 1. List All Courses
+
+**Endpoint**: `POST /admin/courses`
+
+**Auth**: Admin or Owner
+
+**Description**: List all courses with optional filters (year, subject, include_inactive). Courses include year and subject information.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "year_id": "uuid",  // Optional: filter by year
+  "subject_id": "uuid",  // Optional: filter by subject
+  "include_inactive": false  // Optional: include inactive courses (default false)
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Courses fetched successfully",
+  "data": {
+    "courses": [
+      {
+        "id": "uuid",
+        "year_id": "uuid",
+        "year_name": "GCSE (10/11)",
+        "subject_id": "uuid",
+        "subject_name": "Mathematics",
+        "subject_code": "MATH",
+        "title": "GCSE Mathematics Higher Tier",
+        "description": "Higher tier mathematics course",
+        "link_to_specification": "https://example.com/spec",
+        "is_active": true,
+        "created_at": "2025-01-01T00:00:00.000000",
+        "created_by_user_id": "uuid"
+      }
+    ],
+    "count": 1
+  }
+}
+```
+
+**Error Cases**:
+- Missing token (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Server error (500)
+
+**Database Optimization**: Single query with LEFT JOINs and dynamic WHERE clause (1 DB trip)
+
+**Usage Examples**:
+
+```javascript
+// List all active courses
+const response = await fetch(`${backend_url}/admin/courses`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: adminToken })
+});
+
+// List courses for specific year
+const yearCourses = await fetch(`${backend_url}/admin/courses`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid'
+  })
+});
+
+// List courses for specific subject
+const subjectCourses = await fetch(`${backend_url}/admin/courses`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    subject_id: 'subject-uuid'
+  })
+});
+
+// List all courses including inactive
+const allCourses = await fetch(`${backend_url}/admin/courses`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    include_inactive: true
+  })
+});
+```
+
+```bash
+# cURL - list active courses
+curl -X POST ${backend_url}/admin/courses \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token"}'
+
+# cURL - filter by year
+curl -X POST ${backend_url}/admin/courses \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "year_id": "year-uuid"}'
+```
+
+---
+
+### 2. Get Single Course
+
+**Endpoint**: `POST /admin/courses/get`
+
+**Auth**: Admin or Owner
+
+**Description**: Get detailed information for a single course including statistics (papers count, topics count, enrollments count).
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "course_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Course fetched successfully",
+  "data": {
+    "course": {
+      "id": "uuid",
+      "year_id": "uuid",
+      "year_name": "GCSE (10/11)",
+      "year_sort_order": 1,
+      "subject_id": "uuid",
+      "subject_name": "Mathematics",
+      "subject_code": "MATH",
+      "title": "GCSE Mathematics Higher Tier",
+      "description": "Higher tier mathematics course",
+      "link_to_specification": "https://example.com/spec",
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00.000000",
+      "created_by_user_id": "uuid",
+      "stats": {
+        "papers_count": 3,
+        "topics_count": 25,
+        "enrollments_count": 150
+      }
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or course_id (400)
+- Invalid course_id format (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Course not found (404)
+- Server error (500)
+
+**Database Optimization**: Single query with JOINs and GROUP BY for aggregations (1 DB trip)
+
+**Usage Examples**:
+
+```javascript
+// Get course details
+const response = await fetch(`${backend_url}/admin/courses/get`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: 'course-uuid'
+  })
+});
+```
+
+```bash
+# cURL
+curl -X POST ${backend_url}/admin/courses/get \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "course_id": "uuid"}'
+```
+
+---
+
+### 3. Create Course
+
+**Endpoint**: `POST /admin/courses/create`
+
+**Auth**: Admin or Owner
+
+**Description**: Create a new course. Requires both year_id and subject_id. Course title must be unique within the same year and subject combination.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "year_id": "uuid",
+  "subject_id": "uuid",
+  "title": "GCSE Mathematics Higher Tier",
+  "description": "Higher tier mathematics course",  // Optional
+  "link_to_specification": "https://example.com/spec"  // Optional
+}
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Course 'GCSE Mathematics Higher Tier' created successfully",
+  "data": {
+    "course": {
+      "id": "uuid",
+      "year_id": "uuid",
+      "subject_id": "uuid",
+      "title": "GCSE Mathematics Higher Tier",
+      "description": "Higher tier mathematics course",
+      "link_to_specification": "https://example.com/spec",
+      "is_active": true,
+      "created_at": "2025-10-28T10:00:00.000000",
+      "created_by_user_id": "uuid"
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing token, year_id, subject_id, or title (400)
+- Invalid format for year_id, subject_id, or title (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Year not found or inactive (404)
+- Subject not found or inactive (404)
+- Course title already exists for this year/subject (409)
+- Server error (500)
+
+**Database Optimization**: Combined validation query + insert with RETURNING (2 DB trips)
+- Trip 1: Single query checks year exists, subject exists, and no duplicate
+- Trip 2: INSERT...RETURNING
+
+**Usage Examples**:
+
+```javascript
+// Create course with full details
+const response = await fetch(`${backend_url}/admin/courses/create`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid',
+    subject_id: 'subject-uuid',
+    title: 'GCSE Mathematics Higher Tier',
+    description: 'Higher tier mathematics course',
+    link_to_specification: 'https://example.com/spec'
+  })
+});
+
+// Create minimal course (without optional fields)
+const minimal = await fetch(`${backend_url}/admin/courses/create`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid',
+    subject_id: 'subject-uuid',
+    title: 'Basic Chemistry'
+  })
+});
+```
+
+```bash
+# cURL - full details
+curl -X POST ${backend_url}/admin/courses/create \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "year_id": "year-uuid", "subject_id": "subject-uuid", "title": "GCSE Mathematics", "description": "Math course", "link_to_specification": "https://example.com/spec"}'
+
+# cURL - minimal
+curl -X POST ${backend_url}/admin/courses/create \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "year_id": "year-uuid", "subject_id": "subject-uuid", "title": "Basic Chemistry"}'
+```
+
+---
+
+### 4. Update Course
+
+**Endpoint**: `PUT /admin/courses/update`
+
+**Auth**: Admin or Owner
+
+**Description**: Update course details (title, description, link_to_specification, or is_active status). At least one field must be provided.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "course_id": "uuid",
+  "title": "New Title",  // Optional
+  "description": "New description",  // Optional
+  "link_to_specification": "https://...",  // Optional (set to null to unset)
+  "is_active": true  // Optional
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Course updated successfully",
+  "data": {
+    "course": {
+      "id": "uuid",
+      "year_id": "uuid",
+      "subject_id": "uuid",
+      "title": "New Title",
+      "description": "New description",
+      "link_to_specification": "https://...",
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00.000000",
+      "created_by_user_id": "uuid"
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or course_id (400)
+- No fields to update provided (400)
+- Invalid course_id format (400)
+- Invalid is_active (must be boolean) (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Course not found (404)
+- Course title already exists for this year/subject (409)
+- Server error (500)
+
+**Database Optimization**: Combined validation + UPDATE...RETURNING (2 DB trips)
+- Trip 1: Check course exists and if updating title, check for duplicates
+- Trip 2: UPDATE...RETURNING
+
+**Usage Examples**:
+
+```javascript
+// Update title
+const response = await fetch(`${backend_url}/admin/courses/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: 'course-uuid',
+    title: 'Updated Course Title'
+  })
+});
+
+// Update description
+const updateDesc = await fetch(`${backend_url}/admin/courses/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: 'course-uuid',
+    description: 'Updated description'
+  })
+});
+
+// Unset link_to_specification
+const removeLink = await fetch(`${backend_url}/admin/courses/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: 'course-uuid',
+    link_to_specification: null
+  })
+});
+
+// Reactivate inactive course
+const reactivate = await fetch(`${backend_url}/admin/courses/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: 'course-uuid',
+    is_active: true
+  })
+});
+```
+
+```bash
+# cURL - update title
+curl -X PUT ${backend_url}/admin/courses/update \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "course_id": "uuid", "title": "New Title"}'
+
+# cURL - unset link
+curl -X PUT ${backend_url}/admin/courses/update \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "course_id": "uuid", "link_to_specification": null}'
+```
+
+---
+
+### 5. Delete Course
+
+**Endpoint**: `DELETE /admin/courses/delete`
+
+**Auth**: Admin or Owner
+
+**Description**: Soft delete a course (sets is_active to false). Can be reactivated later using update endpoint. Papers and topics remain linked.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "course_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Course 'GCSE Mathematics Higher Tier' deleted successfully",
+  "data": {
+    "course_id": "uuid",
+    "title": "GCSE Mathematics Higher Tier",
+    "note": "Course has been soft deleted (is_active set to false). It will no longer appear in active course lists."
+  }
+}
+```
+
+**Error Cases**:
+- Missing token or course_id (400)
+- Course already inactive (400)
+- Invalid course_id format (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Course not found (404)
+- Server error (500)
+
+**Database Optimization**: Single UPDATE with conditional WHERE and RETURNING (1 DB trip in happy path)
+
+**Usage Examples**:
+
+```javascript
+// Delete course
+const response = await fetch(`${backend_url}/admin/courses/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: 'course-uuid'
+  })
+});
+```
+
+```bash
+# cURL
+curl -X DELETE ${backend_url}/admin/courses/delete \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "course_id": "uuid"}'
+```
+
+---
+
 ## Testing
 
+### User Management Tests
 A comprehensive test suite is available at `/tests/test_admin_users.py`.
 
 **Test Coverage**:
@@ -791,6 +1941,801 @@ A comprehensive test suite is available at `/tests/test_admin_users.py`.
 python3 tests/test_admin_users.py
 ```
 
+### Years Management Tests
+A comprehensive test suite is available at `/tests/test_admin_years.py`.
+
+**Test Coverage**:
+- ✅ Role-based access control (user, admin, owner)
+- ✅ All 4 years management endpoints
+- ✅ CRUD operations and validations
+- ✅ Error handling and edge cases
+- ✅ Soft delete and reactivation
+- ✅ Active/inactive filtering
+- ✅ Duplicate name prevention
+
+**Run Tests**:
+```bash
+python3 tests/test_admin_years.py
+```
+
+### Subjects Management Tests
+A comprehensive test suite is available at `/tests/test_admin_subjects.py`.
+
+**Test Coverage**:
+- ✅ Role-based access control (user, admin, owner)
+- ✅ All 4 subjects management endpoints
+- ✅ CRUD operations with optional code field
+- ✅ Error handling and edge cases
+- ✅ Soft delete and reactivation
+- ✅ Active/inactive filtering
+- ✅ Duplicate name prevention
+- ✅ Code field nullable (can set to null)
+
+**Run Tests**:
+```bash
+python3 tests/test_admin_subjects.py
+```
+
+### Courses Management Tests
+A comprehensive test suite is available at `/tests/test_admin_courses.py`.
+
+**Test Coverage**:
+- ✅ Role-based access control (user, admin, owner)
+- ✅ All 5 courses management endpoints
+- ✅ CRUD operations with year and subject dependencies
+- ✅ Filtering (by year, subject, include_inactive)
+- ✅ Error handling and edge cases
+- ✅ Soft delete and reactivation
+- ✅ Active/inactive filtering
+- ✅ Duplicate title prevention within year/subject
+- ✅ Detailed course statistics (papers, topics, enrollments)
+
+**Run Tests**:
+```bash
+python3 tests/test_admin_courses.py
+```
+
+---
+
+## Admin Papers Management Endpoints
+
+Papers are components of courses that organize topics. Each paper belongs to one course and can contain multiple topics. Papers have optional code and percentage_of_grade fields.
+
+**Important**: Papers use HARD DELETE with CASCADE - deleting a paper will permanently delete all associated topics.
+
+### 1. List Papers by Course
+
+**Endpoint**: `POST /admin/papers`
+
+List all papers for a specific course with topic counts.
+
+**Request**:
+```json
+{
+  "token": "admin_session_token",
+  "course_id": "uuid-of-course"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Retrieved 3 papers for course 'Introduction to Computer Science'",
+  "data": {
+    "course": {
+      "id": "uuid",
+      "title": "Introduction to Computer Science",
+      "code": "CS101",
+      "year_name": "Year 1",
+      "subject_name": "Computer Science"
+    },
+    "papers": [
+      {
+        "id": "uuid",
+        "course_id": "uuid",
+        "name": "Paper 1",
+        "code": "P1",
+        "percentage_of_grade": 50.0,
+        "topics_count": 12,
+        "created_at": "2024-01-15T10:30:00",
+        "added_by_user_id": "uuid"
+      },
+      {
+        "id": "uuid",
+        "course_id": "uuid",
+        "name": "Paper 2",
+        "code": "P2",
+        "percentage_of_grade": 50.0,
+        "topics_count": 10,
+        "created_at": "2024-01-15T10:31:00",
+        "added_by_user_id": "uuid"
+      }
+    ]
+  }
+}
+```
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${baseUrl}/admin/papers`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    course_id: courseId
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  console.log(`Course: ${data.data.course.title}`);
+  console.log(`Papers: ${data.data.papers.length}`);
+  data.data.papers.forEach(paper => {
+    console.log(`- ${paper.name} (${paper.topics_count} topics)`);
+  });
+}
+```
+
+**Database Optimization**: 2 trips
+- Trip 1: Verify course exists and get course/year/subject info
+- Trip 2: Get all papers with LEFT JOIN to topics for COUNT aggregation
+
+---
+
+### 2. Get Single Paper
+
+**Endpoint**: `POST /admin/papers/get`
+
+Get detailed information about a specific paper including all topics.
+
+**Request**:
+```json
+{
+  "token": "admin_session_token",
+  "paper_id": "uuid-of-paper"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Paper retrieved successfully",
+  "data": {
+    "paper": {
+      "id": "uuid",
+      "course_id": "uuid",
+      "name": "Paper 1",
+      "code": "P1",
+      "percentage_of_grade": 50.0,
+      "created_at": "2024-01-15T10:30:00",
+      "added_by_user_id": "uuid",
+      "course_title": "Introduction to Computer Science",
+      "course_code": "CS101",
+      "year_name": "Year 1",
+      "subject_name": "Computer Science",
+      "topics": [
+        {
+          "id": "uuid",
+          "paper_id": "uuid",
+          "name": "Introduction to Programming",
+          "sort_order": 1,
+          "is_active": true,
+          "created_at": "2024-01-15T11:00:00"
+        },
+        {
+          "id": "uuid",
+          "paper_id": "uuid",
+          "name": "Variables and Data Types",
+          "sort_order": 2,
+          "is_active": true,
+          "created_at": "2024-01-15T11:05:00"
+        }
+      ]
+    }
+  }
+}
+```
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${baseUrl}/admin/papers/get`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    paper_id: paperId
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  const paper = data.data.paper;
+  console.log(`Paper: ${paper.name} (${paper.code})`);
+  console.log(`Course: ${paper.course_title}`);
+  console.log(`Topics: ${paper.topics.length}`);
+}
+```
+
+**Database Optimization**: 2 trips
+- Trip 1: Get paper details with LEFT JOINs to courses/years/subjects
+- Trip 2: Get all topics for the paper (ordered by sort_order, name)
+
+---
+
+### 3. Create Paper
+
+**Endpoint**: `POST /admin/papers/create`
+
+Create a new paper for a course.
+
+**Request**:
+```json
+{
+  "token": "admin_session_token",
+  "course_id": "uuid-of-course",
+  "name": "Paper 1",
+  "code": "P1",
+  "percentage_of_grade": 50.0
+}
+```
+
+**Required Fields**:
+- `course_id`: UUID of the parent course
+- `name`: Paper name (unique within course)
+
+**Optional Fields**:
+- `code`: Short code for the paper
+- `percentage_of_grade`: Numeric value between 0 and 100
+
+**Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Paper 'Paper 1' created successfully",
+  "data": {
+    "paper": {
+      "id": "uuid",
+      "course_id": "uuid",
+      "name": "Paper 1",
+      "code": "P1",
+      "percentage_of_grade": 50.0,
+      "created_at": "2024-01-15T10:30:00",
+      "added_by_user_id": "uuid"
+    }
+  }
+}
+```
+
+**Validation Rules**:
+- Course must exist and be active
+- Paper name must be unique within course
+- percentage_of_grade must be between 0 and 100 (if provided)
+- Sets added_by_user_id to admin's user ID
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${baseUrl}/admin/papers/create`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    course_id: courseId,
+    name: "Paper 1",
+    code: "P1",
+    percentage_of_grade: 50.0
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  console.log(`Created paper: ${data.data.paper.name}`);
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST http://localhost:5000/admin/papers/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your-admin-token",
+    "course_id": "course-uuid",
+    "name": "Paper 1",
+    "code": "P1",
+    "percentage_of_grade": 50.0
+  }'
+```
+
+**Database Optimization**: 3 trips
+- Trip 1: Verify course exists and is active
+- Trip 2: Check for duplicate paper name within course
+- Trip 3: INSERT new paper with RETURNING
+
+**Potential Optimization**: Could combine trips 1 and 2 into single validation query using EXISTS.
+
+---
+
+### 4. Update Paper
+
+**Endpoint**: `PUT /admin/papers/update`
+
+Update an existing paper's details.
+
+**Request**:
+```json
+{
+  "token": "admin_session_token",
+  "paper_id": "uuid-of-paper",
+  "name": "Updated Paper Name",
+  "code": "UP1",
+  "percentage_of_grade": 60.0
+}
+```
+
+**Required Fields**:
+- `paper_id`: UUID of paper to update
+- At least one field to update (`name`, `code`, or `percentage_of_grade`)
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Paper updated successfully",
+  "data": {
+    "paper": {
+      "id": "uuid",
+      "course_id": "uuid",
+      "name": "Updated Paper Name",
+      "code": "UP1",
+      "percentage_of_grade": 60.0,
+      "created_at": "2024-01-15T10:30:00",
+      "added_by_user_id": "uuid"
+    }
+  }
+}
+```
+
+**Validation Rules**:
+- Paper must exist
+- If updating name, new name must not duplicate existing paper in same course
+- percentage_of_grade must be between 0 and 100 (if provided)
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${baseUrl}/admin/papers/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    paper_id: paperId,
+    name: "Updated Name"
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  console.log(`Updated paper: ${data.data.paper.name}`);
+}
+```
+
+**Database Optimization**: 3 trips
+- Trip 1: Verify paper exists and get current course_id
+- Trip 2: Check for duplicate name (only if name is being changed)
+- Trip 3: UPDATE paper with RETURNING
+
+**Potential Optimization**: Could skip trip 2 if name hasn't changed, or combine trips 1-2.
+
+---
+
+### 5. Delete Paper (HARD DELETE)
+
+**Endpoint**: `DELETE /admin/papers/delete`
+
+**WARNING**: This is a HARD DELETE with CASCADE - it will permanently delete the paper and ALL associated topics. This action cannot be undone.
+
+**Request**:
+```json
+{
+  "token": "admin_session_token",
+  "paper_id": "uuid-of-paper"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Paper 'Paper 1' permanently deleted",
+  "warning": "All topics associated with this paper were also deleted (CASCADE)",
+  "data": {
+    "deleted_paper_id": "uuid",
+    "deleted_paper_name": "Paper 1"
+  }
+}
+```
+
+**CASCADE Behavior**:
+- Deletes the paper record
+- CASCADE deletes all topics belonging to this paper
+- This is a permanent deletion - no soft delete
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${baseUrl}/admin/papers/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    paper_id: paperId
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  console.log(`Deleted: ${data.data.deleted_paper_name}`);
+  console.warn(data.warning); // CASCADE warning
+}
+```
+
+**Database Optimization**: 1 trip
+- Single DELETE...RETURNING query (CASCADE handled by database)
+
+---
+
+### Papers Management Tests
+
+**Test Coverage** (12/12 passing):
+- ✅ Authentication & authorization
+- ✅ Create paper with required fields only
+- ✅ Create paper with all optional fields
+- ✅ Duplicate name prevention within course
+- ✅ Percentage validation (0-100 range)
+- ✅ List papers with topic counts
+- ✅ Get paper with full details and topics
+- ✅ Update paper name
+- ✅ Update all paper fields
+- ✅ Duplicate name prevention on update
+- ✅ Hard delete with CASCADE warning
+- ✅ CASCADE deletion of topics verified
+
+**Run Tests**:
+```bash
+python3 tests/test_admin_papers.py
+```
+
+---
+
+## Topics Management
+
+Topics are subject areas within papers. Unlike papers (hard delete), topics use **soft delete** (can be reactivated).
+
+### 1. List Topics
+
+**Endpoint**: `POST /admin/topics`
+
+**Auth**: Admin or Owner
+
+**Description**: List all topics for a specific paper with resource counts.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "paper_id": "uuid",
+  "include_inactive": false  // Optional: include soft-deleted topics
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Retrieved 5 topics for paper 'Paper 1'",
+  "data": {
+    "paper": {
+      "id": "uuid",
+      "name": "Paper 1",
+      "code": "P1",
+      "course_title": "Mathematics",
+      "year_name": "A-Level (12/13)",
+      "subject_name": "Mathematics"
+    },
+    "topics": [
+      {
+        "id": "uuid",
+        "paper_id": "uuid",
+        "name": "Algebra",
+        "sort_order": 1,
+        "is_active": true,
+        "created_at": "2025-10-01T12:00:00.000000",
+        "added_by_user_id": "uuid",
+        "notes_count": 5,
+        "questions_count": 12,
+        "podcasts_count": 2,
+        "has_notes": true,
+        "has_questions": true,
+        "has_podcast": true
+      }
+    ],
+    "count": 5
+  }
+}
+```
+
+**Database Optimization**: 2 trips
+- Verify paper exists (1 query with LEFT JOINs)
+- Get topics with resource counts (1 query with LEFT JOINs + GROUP BY)
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${backend_url}/admin/topics`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    paper_id: paperId,
+    include_inactive: false
+  })
+});
+const data = await response.json();
+```
+
+---
+
+### 2. Get Single Topic
+
+**Endpoint**: `POST /admin/topics/get`
+
+**Auth**: Admin or Owner
+
+**Description**: Get a single topic with all related content (notes, questions, podcasts).
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "topic_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Topic retrieved successfully",
+  "data": {
+    "topic": {
+      "id": "uuid",
+      "paper_id": "uuid",
+      "name": "Algebra",
+      "sort_order": 1,
+      "is_active": true,
+      "created_at": "2025-10-01T12:00:00.000000",
+      "added_by_user_id": "uuid",
+      "paper_name": "Paper 1",
+      "paper_code": "P1",
+      "course_id": "uuid",
+      "course_title": "Mathematics",
+      "year_name": "A-Level (12/13)",
+      "subject_name": "Mathematics",
+      "notes": [
+        {
+          "id": "uuid",
+          "content": "Algebraic expressions...",
+          "is_active": true,
+          "created_at": "2025-10-01T12:00:00.000000",
+          "added_by_user_id": "uuid"
+        }
+      ],
+      "questions": [
+        {
+          "id": "uuid",
+          "question": "Solve: 2x + 5 = 15",
+          "is_active": true,
+          "created_at": "2025-10-01T12:00:00.000000",
+          "added_by_user_id": "uuid",
+          "options_count": 4
+        }
+      ],
+      "podcasts": [
+        {
+          "id": "uuid",
+          "name": "Introduction to Algebra",
+          "url": "https://...",
+          "length_seconds": 600,
+          "file_size": 1048576,
+          "is_active": true,
+          "created_at": "2025-10-01T12:00:00.000000",
+          "added_by_user_id": "uuid"
+        }
+      ],
+      "content_summary": {
+        "notes_count": 5,
+        "questions_count": 12,
+        "podcasts_count": 2,
+        "has_notes": true,
+        "has_questions": true,
+        "has_podcast": true
+      }
+    }
+  }
+}
+```
+
+**Database Optimization**: 4 trips
+- Get topic with paper/course/year/subject context (1 query)
+- Get all notes for topic (1 query)
+- Get all questions with options_count (1 query)
+- Get all podcasts for topic (1 query)
+
+---
+
+### 3. Create Topic
+
+**Endpoint**: `POST /admin/topics/create`
+
+**Auth**: Admin or Owner
+
+**Description**: Create a new topic within a paper.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "paper_id": "uuid",
+  "name": "Algebra",
+  "sort_order": 1  // Optional: defaults to 0
+}
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Topic 'Algebra' created successfully",
+  "data": {
+    "topic": {
+      "id": "uuid",
+      "paper_id": "uuid",
+      "name": "Algebra",
+      "sort_order": 1,
+      "is_active": true,
+      "created_at": "2025-10-01T12:00:00.000000",
+      "added_by_user_id": "uuid"
+    }
+  }
+}
+```
+
+**Validation**:
+- Paper must exist
+- Topic name must be unique within the paper
+- sort_order must be an integer if provided
+
+**Database Optimization**: 3 trips
+- Verify paper exists (1 query)
+- Check for duplicate name (1 query)
+- Insert topic with RETURNING (1 query)
+
+---
+
+### 4. Update Topic
+
+**Endpoint**: `PUT /admin/topics/update`
+
+**Auth**: Admin or Owner
+
+**Description**: Update topic name, sort_order, and/or active status. Can reactivate soft-deleted topics.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "topic_id": "uuid",
+  "name": "Advanced Algebra",        // Optional
+  "sort_order": 2,                   // Optional
+  "is_active": true                  // Optional: reactivate topic
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Topic updated successfully",
+  "data": {
+    "topic": {
+      "id": "uuid",
+      "paper_id": "uuid",
+      "name": "Advanced Algebra",
+      "sort_order": 2,
+      "is_active": true,
+      "created_at": "2025-10-01T12:00:00.000000",
+      "added_by_user_id": "uuid"
+    }
+  }
+}
+```
+
+**Validation**:
+- Topic must exist
+- If changing name, new name must be unique within the paper
+- At least one field must be provided to update
+
+**Database Optimization**: 3 trips
+- Verify topic exists and get paper_id (1 query)
+- Check for duplicate name if name is changing (1 query)
+- Update topic with RETURNING (1 query)
+
+---
+
+### 5. Delete Topic (Soft Delete)
+
+**Endpoint**: `DELETE /admin/topics/delete`
+
+**Auth**: Admin or Owner
+
+**Description**: Soft delete a topic (sets is_active = false). Can be reactivated using update endpoint.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "topic_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Topic deleted successfully",
+  "note": "This is a soft delete. The topic can be reactivated using the update endpoint.",
+  "data": {
+    "topic": {
+      "id": "uuid",
+      "paper_id": "uuid",
+      "name": "Algebra",
+      "sort_order": 1,
+      "is_active": false,
+      "created_at": "2025-10-01T12:00:00.000000",
+      "added_by_user_id": "uuid"
+    }
+  }
+}
+```
+
+**Note**: This is a **soft delete** (reversible), unlike papers which use hard delete. To permanently remove a topic, use direct database access.
+
+**Database Optimization**: 1 trip
+- Single UPDATE...RETURNING query with WHERE is_active = true
+
+---
+
+### Topics Management Tests
+
+**Test Coverage** (14/14 passing):
+- ✅ Authentication & authorization
+- ✅ Create topic with required fields
+- ✅ Create topic with sort_order
+- ✅ Duplicate name prevention within paper
+- ✅ Invalid sort_order validation
+- ✅ List multiple topics with resource counts
+- ✅ List with include_inactive parameter
+- ✅ Get single topic with all content
+- ✅ Update topic name
+- ✅ Update topic sort_order
+- ✅ Duplicate name prevention on update
+- ✅ Soft delete topic
+- ✅ Reactivate deactivated topic
+- ✅ Prevent double deletion
+
+**Run Tests**:
+```bash
+python3 tests/test_admin_topics.py
+```
+
 ---
 
 ## Future Admin Endpoints
@@ -798,11 +2743,11 @@ python3 tests/test_admin_users.py
 The following admin endpoints are planned for future implementation:
 
 ### Content Management
-- Years (4 endpoints)
-- Subjects (4 endpoints)
-- Courses (5 endpoints)
-- Papers (5 endpoints)
-- Topics (5 endpoints)
+- ✅ Years (4 endpoints) - COMPLETE
+- ✅ Subjects (4 endpoints) - COMPLETE
+- ✅ Courses (5 endpoints) - COMPLETE
+- ✅ Papers (5 endpoints) - COMPLETE
+- ✅ Topics (5 endpoints) - COMPLETE
 - Notes (4 endpoints)
 - Questions (5 endpoints)
 - Podcasts (4 endpoints)
