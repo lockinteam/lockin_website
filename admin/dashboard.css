@@ -1,0 +1,92 @@
+/* Dashboard-specific styles */
+
+.management-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2.5rem;
+    margin-top: 2rem;
+}
+
+.management-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 20px;
+    padding: 3rem 2rem;
+    text-align: center;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+}
+
+.management-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, var(--color-primary-blue), var(--color-accent-teal));
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 0;
+}
+
+.management-card:hover::before {
+    opacity: 0.05;
+}
+
+.management-card:hover {
+    transform: translateY(-10px) scale(1.02);
+    box-shadow: 0 20px 60px rgba(54, 120, 174, 0.15);
+    border-color: rgba(54, 120, 174, 0.3);
+    background: rgba(255, 255, 255, 1);
+}
+
+.management-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    color: var(--color-primary-blue);
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
+}
+
+.management-card:hover .management-icon {
+    color: var(--color-primary-blue);
+    transform: scale(1.1);
+}
+
+.management-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.management-card h3 {
+    font-size: 1.5rem;
+    color: var(--color-deep-blue);
+    margin: 0 0 1rem 0;
+    font-weight: 600;
+    transition: color 0.3s ease;
+    position: relative;
+    z-index: 1;
+}
+
+.management-card p {
+    color: var(--color-grey-text);
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.5;
+    transition: color 0.3s ease;
+    position: relative;
+    z-index: 1;
+}
+
+.admin-actions {
+    margin-bottom: 0;
+}
