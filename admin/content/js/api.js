@@ -111,8 +111,8 @@ const API = {
     },
     
     // Papers
-    async getPapers(courseId) {
-        return this.request('/admin/papers', 'POST', { course_id: courseId });
+    async getPapers(courseId, includeInactive = false) {
+        return this.request('/admin/papers', 'POST', { course_id: courseId, include_inactive: includeInactive });
     },
     
     async getPaper(paperId) {

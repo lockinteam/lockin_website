@@ -945,7 +945,7 @@ curl -X PUT ${backend_url}/admin/years/update \
 
 **Auth**: Admin or Owner
 
-**Description**: Soft delete a year by setting is_active = false. The year record remains in the database but won't appear in active year lists.
+**Description**: Two-stage delete process for years. First call deactivates (soft delete), second call permanently removes from database.
 
 **Request Body**:
 ```json
@@ -955,30 +955,45 @@ curl -X PUT ${backend_url}/admin/years/update \
 }
 ```
 
-**Success Response** (200 OK):
+**First Call Response** (200 OK - Soft Delete):
 ```json
 {
   "success": true,
-  "message": "Year 'GCSE (10/11)' deleted successfully",
+  "message": "Year 'GCSE (10/11)' deactivated successfully",
   "data": {
     "year_id": "uuid",
     "name": "GCSE (10/11)",
-    "note": "Year has been soft deleted (is_active set to false). It will no longer appear in active year lists."
+    "is_active": false,
+    "note": "Call delete again to permanently remove from database. To reactivate, use the update endpoint with is_active: true."
+  }
+}
+```
+
+**Second Call Response** (200 OK - Permanent Delete):
+```json
+{
+  "success": true,
+  "message": "Year 'GCSE (10/11)' permanently removed from database",
+  "data": {
+    "year_id": "uuid",
+    "name": "GCSE (10/11)",
+    "note": "Year has been permanently deleted from the database. This action cannot be reversed."
   }
 }
 ```
 
 **Implementation Notes**:
-- **Soft delete only** - year record remains in database
-- Users with this year_id retain their assignment
-- Year won't appear in `/fetch/years` (only active years)
-- Year still appears in admin list when `include_inactive: true`
-- Can be reactivated using the update endpoint
+- **Two-stage delete** - requires two explicit calls
+- **First call**: Sets `is_active = false` (soft delete)
+- **Second call**: Permanently deletes record from database
+- Users with this year_id retain their assignment after soft delete
+- Can be reactivated after soft delete using update endpoint
+- After permanent delete, year no longer exists in database
 
 **Error Cases**:
 - Missing token or year_id (400)
 - Invalid year_id format (400)
-- Year already inactive (400)
+- Year already inactive (400) - first call only
 - Invalid/expired token (401)
 - Not admin or owner (403)
 - Year not found (404)
@@ -987,8 +1002,8 @@ curl -X PUT ${backend_url}/admin/years/update \
 **Usage Examples**:
 
 ```javascript
-// Delete year (soft delete)
-const response = await fetch(`${backend_url}/admin/years/delete`, {
+// First call - Soft delete (deactivate)
+const response1 = await fetch(`${backend_url}/admin/years/delete`, {
   method: 'DELETE',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ 
@@ -996,10 +1011,38 @@ const response = await fetch(`${backend_url}/admin/years/delete`, {
     year_id: 'year-uuid'
   })
 });
+// Returns: is_active = false, with note to call again
+
+// Second call - Permanent delete
+const response2 = await fetch(`${backend_url}/admin/years/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid'
+  })
+});
+// Returns: confirmation of permanent deletion
+
+// Recovery (before second call)
+const recover = await fetch(`${backend_url}/admin/years/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid',
+    is_active: true
+  })
+});
 ```
 
 ```bash
-# cURL
+# cURL - First delete (soft)
+curl -X DELETE ${backend_url}/admin/years/delete \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "year_id": "year-uuid"}'
+
+# cURL - Second delete (permanent)
 curl -X DELETE ${backend_url}/admin/years/delete \
   -H "Content-Type: application/json" \
   -d '{"token": "your_admin_token", "year_id": "year-uuid"}'
@@ -1065,6 +1108,134 @@ curl -X DELETE ${backend_url}/admin/years/delete \
 - Password resets invalidate all existing sessions
 - User deletion invalidates all sessions
 - Token expiration enforced (7 days)
+
+---
+
+## Two-Stage Delete Behavior
+
+### Overview
+
+All content management endpoints with `is_active` fields implement a **two-stage delete process** to prevent accidental permanent data loss. This safety mechanism requires two explicit delete calls to permanently remove data.
+
+### How It Works
+
+**Stage 1: Soft Delete (First Delete Call)**
+- Sets `is_active = false` in the database
+- Record remains in the database and can be recovered
+- Returns the updated record with `is_active: false`
+- Includes a note: "Call delete again to permanently remove from database"
+- Can be reversed by calling the update endpoint with `is_active: true`
+
+**Stage 2: Permanent Delete (Second Delete Call)**
+- Only works if `is_active = false` (must be deactivated first)
+- Permanently removes the record using `DELETE FROM table`
+- Returns success message indicating permanent removal
+- Cannot be reversed - data is gone forever
+- May cascade to related records depending on foreign key constraints
+
+**Stage 3: Subsequent Calls**
+- Return 404 Not Found (record no longer exists in database)
+
+### Example Flow
+
+```javascript
+// First delete call - Soft delete
+const response1 = await fetch(`${backend_url}/admin/years/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid'
+  })
+});
+// Response: { success: true, data: { is_active: false, note: "Call delete again..." } }
+
+// Second delete call - Permanent delete
+const response2 = await fetch(`${backend_url}/admin/years/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid'
+  })
+});
+// Response: { success: true, message: "...permanently removed from database" }
+
+// Third delete call - Not found
+const response3 = await fetch(`${backend_url}/admin/years/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid'
+  })
+});
+// Response: { success: false, message: "Year not found" } (404)
+```
+
+### Applicable Endpoints
+
+Two-stage delete applies to these endpoints:
+
+✅ **Years** - `/admin/years/delete`
+✅ **Subjects** - `/admin/subjects/delete`
+✅ **Courses** - `/admin/courses/delete` (cascades to papers/topics on permanent delete)
+✅ **Topics** - `/admin/topics/delete` (cascades to notes/questions/podcasts on permanent delete)
+✅ **Notes** - `/admin/notes/delete`
+✅ **Podcasts** - `/admin/podcasts/delete`
+✅ **Past Papers** - `/admin/past_papers/delete`
+
+### Excluded Endpoints
+
+❌ **Papers** (`/admin/papers/delete`):
+- No `is_active` field in database schema
+- Implements hard delete only (single call)
+- Cascades to topics (ON DELETE CASCADE)
+
+❌ **Users** (`/admin/users/delete`):
+- Different permission model (role-based)
+- Permanent delete only (single call)
+- Role-based restrictions apply
+
+### Recovery Process
+
+If a record is soft-deleted (Stage 1) but not permanently deleted:
+
+```javascript
+// Recover a soft-deleted record using update endpoint
+const response = await fetch(`${backend_url}/admin/years/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    year_id: 'year-uuid',
+    is_active: true  // Reactivate
+  })
+});
+```
+
+### Testing
+
+**Comprehensive Test Suite**: `/tests/test_admin_two_stage_delete.py`
+
+**Coverage**:
+- Tests all 7 applicable endpoints
+- Verifies soft delete → permanent delete → 404 flow
+- Validates correct messages and response formats
+- All 25 tests passing ✓
+
+**Run Tests**:
+```bash
+python3 tests/test_admin_two_stage_delete.py
+```
+
+### Benefits
+
+1. **Prevents Accidental Deletion**: Requires explicit confirmation via second call
+2. **Reversible First Stage**: Soft-deleted records can be recovered
+3. **Clear Feedback**: Messages guide admin through the process
+4. **Consistent Pattern**: Same behavior across all content endpoints
+5. **Safety Net**: Reduces risk of data loss from misclicks or errors
 
 ---
 
@@ -1392,7 +1563,7 @@ curl -X PUT ${backend_url}/admin/subjects/update \
 
 **Auth**: Admin or Owner
 
-**Description**: Soft delete a subject (sets is_active to false). Can be reactivated later using update endpoint.
+**Description**: Two-stage delete process for subjects. First call deactivates (soft delete), second call permanently removes from database.
 
 **Request Body**:
 ```json
@@ -1402,37 +1573,64 @@ curl -X PUT ${backend_url}/admin/subjects/update \
 }
 ```
 
-**Success Response** (200 OK):
+**First Call Response** (200 OK - Soft Delete):
 ```json
 {
   "success": true,
-  "message": "Subject 'Biology' deleted successfully",
+  "message": "Subject 'Biology' deactivated successfully",
   "data": {
-    "subject": {
-      "id": "uuid",
-      "name": "Biology",
-      "is_active": false
-    }
+    "subject_id": "uuid",
+    "name": "Biology",
+    "is_active": false,
+    "note": "Call delete again to permanently remove from database. To reactivate, use the update endpoint with is_active: true."
+  }
+}
+```
+
+**Second Call Response** (200 OK - Permanent Delete):
+```json
+{
+  "success": true,
+  "message": "Subject 'Biology' permanently removed from database",
+  "data": {
+    "subject_id": "uuid",
+    "name": "Biology",
+    "note": "Subject has been permanently deleted from the database. This action cannot be reversed."
   }
 }
 ```
 
 **Error Cases**:
 - Missing token or subject_id (400)
-- Subject already inactive (400)
+- Subject already inactive (400) - first call only
 - Invalid subject_id format (400)
 - Invalid/expired token (401)
 - Not admin or owner (403)
 - Subject not found (404)
 - Server error (500)
 
-**Database Optimization**: Single UPDATE...WHERE with RETURNING and fallback check (1 DB trip in happy path)
+**Implementation Notes**:
+- **Two-stage delete** - requires two explicit calls
+- **First call**: Sets `is_active = false` (soft delete)
+- **Second call**: Permanently deletes record from database
+- Can be reactivated after soft delete using update endpoint
+- After permanent delete, subject no longer exists in database
 
 **Usage Examples**:
 
 ```javascript
-// Delete subject
-const response = await fetch(`${backend_url}/admin/subjects/delete`, {
+// First call - Soft delete
+const response1 = await fetch(`${backend_url}/admin/subjects/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    subject_id: 'subject-uuid'
+  })
+});
+
+// Second call - Permanent delete
+const response2 = await fetch(`${backend_url}/admin/subjects/delete`, {
   method: 'DELETE',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ 
@@ -1443,7 +1641,12 @@ const response = await fetch(`${backend_url}/admin/subjects/delete`, {
 ```
 
 ```bash
-# cURL
+# cURL - First delete
+curl -X DELETE ${backend_url}/admin/subjects/delete \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "subject_id": "uuid"}'
+
+# cURL - Second delete
 curl -X DELETE ${backend_url}/admin/subjects/delete \
   -H "Content-Type: application/json" \
   -d '{"token": "your_admin_token", "subject_id": "uuid"}'
@@ -1863,7 +2066,7 @@ curl -X PUT ${backend_url}/admin/courses/update \
 
 **Auth**: Admin or Owner
 
-**Description**: Soft delete a course (sets is_active to false). Can be reactivated later using update endpoint. Papers and topics remain linked.
+**Description**: Two-stage delete process for courses. First call deactivates (soft delete), second call permanently removes from database (cascades to papers/topics).
 
 **Request Body**:
 ```json
@@ -1873,35 +2076,64 @@ curl -X PUT ${backend_url}/admin/courses/update \
 }
 ```
 
-**Success Response** (200 OK):
+**First Call Response** (200 OK - Soft Delete):
 ```json
 {
   "success": true,
-  "message": "Course 'GCSE Mathematics Higher Tier' deleted successfully",
+  "message": "Course 'GCSE Mathematics Higher Tier' deactivated successfully",
   "data": {
     "course_id": "uuid",
     "title": "GCSE Mathematics Higher Tier",
-    "note": "Course has been soft deleted (is_active set to false). It will no longer appear in active course lists."
+    "is_active": false,
+    "note": "Call delete again to permanently remove from database. Warning: This will CASCADE to papers and topics. To reactivate, use the update endpoint with is_active: true."
+  }
+}
+```
+
+**Second Call Response** (200 OK - Permanent Delete):
+```json
+{
+  "success": true,
+  "message": "Course 'GCSE Mathematics Higher Tier' permanently removed from database",
+  "data": {
+    "course_id": "uuid",
+    "title": "GCSE Mathematics Higher Tier",
+    "note": "Course has been permanently deleted from the database. This action cannot be reversed. Papers and topics were also removed (CASCADE)."
   }
 }
 ```
 
 **Error Cases**:
 - Missing token or course_id (400)
-- Course already inactive (400)
+- Course already inactive (400) - first call only
 - Invalid course_id format (400)
 - Invalid/expired token (401)
 - Not admin or owner (403)
 - Course not found (404)
 - Server error (500)
 
-**Database Optimization**: Single UPDATE with conditional WHERE and RETURNING (1 DB trip in happy path)
+**Implementation Notes**:
+- **Two-stage delete** - requires two explicit calls
+- **First call**: Sets `is_active = false` (soft delete)
+- **Second call**: Permanently deletes record from database
+- **⚠️ CASCADE WARNING**: Permanent delete cascades to papers and topics
+- Can be reactivated after soft delete using update endpoint
 
 **Usage Examples**:
 
 ```javascript
-// Delete course
-const response = await fetch(`${backend_url}/admin/courses/delete`, {
+// First call - Soft delete
+const response1 = await fetch(`${backend_url}/admin/courses/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: 'course-uuid'
+  })
+});
+
+// Second call - Permanent delete (CASCADE WARNING)
+const response2 = await fetch(`${backend_url}/admin/courses/delete`, {
   method: 'DELETE',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ 
@@ -1912,7 +2144,12 @@ const response = await fetch(`${backend_url}/admin/courses/delete`, {
 ```
 
 ```bash
-# cURL
+# cURL - First delete
+curl -X DELETE ${backend_url}/admin/courses/delete \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "course_id": "uuid"}'
+
+# cURL - Second delete (CASCADE)
 curl -X DELETE ${backend_url}/admin/courses/delete \
   -H "Content-Type: application/json" \
   -d '{"token": "your_admin_token", "course_id": "uuid"}'
@@ -2328,11 +2565,13 @@ if (data.success) {
 
 ---
 
-### 5. Delete Paper (HARD DELETE)
+### 5. Delete Paper (Two-Stage Delete)
 
 **Endpoint**: `DELETE /admin/papers/delete`
 
-**WARNING**: This is a HARD DELETE with CASCADE - it will permanently delete the paper and ALL associated topics. This action cannot be undone.
+**Description**: Papers use a **two-stage delete pattern** like topics:
+1. **First DELETE call**: Soft delete (sets `is_active = false`)
+2. **Second DELETE call**: Permanent delete (CASCADE removes all topics)
 
 **Request**:
 ```json
@@ -2342,27 +2581,50 @@ if (data.success) {
 }
 ```
 
-**Response** (200 OK):
+**Response - First Call** (200 OK - Soft Delete):
 ```json
 {
   "success": true,
-  "message": "Paper 'Paper 1' permanently deleted",
-  "warning": "All topics associated with this paper were also deleted (CASCADE)",
+  "message": "Paper 'Paper 1' deactivated successfully",
   "data": {
-    "deleted_paper_id": "uuid",
-    "deleted_paper_name": "Paper 1"
+    "paper_id": "uuid",
+    "name": "Paper 1",
+    "is_active": false,
+    "note": "Call delete again to permanently remove from database. Warning: This will CASCADE to all topics. To reactivate, use the update endpoint with is_active: true."
   }
 }
 ```
 
-**CASCADE Behavior**:
-- Deletes the paper record
-- CASCADE deletes all topics belonging to this paper
-- This is a permanent deletion - no soft delete
+**Response - Second Call** (200 OK - Permanent Delete):
+```json
+{
+  "success": true,
+  "message": "Paper 'Paper 1' permanently removed from database",
+  "data": {
+    "paper_id": "uuid",
+    "name": "Paper 1",
+    "note": "Paper has been permanently deleted from the database. This action cannot be reversed. Associated topics were also removed (CASCADE)."
+  }
+}
+```
+
+**Response - Third Call** (404 Not Found):
+```json
+{
+  "success": false,
+  "message": "Paper not found"
+}
+```
+
+**Two-Stage Delete Behavior**:
+- **Stage 1 (Soft Delete)**: Sets `is_active = false`, paper and topics no longer appear in list endpoints
+- **Stage 2 (Permanent Delete)**: Physically removes paper from database, CASCADE deletes all topics
+- **Reactivation**: Before permanent delete, use update endpoint with `is_active: true`
 
 **JavaScript Example**:
 ```javascript
-const response = await fetch(`${baseUrl}/admin/papers/delete`, {
+// First call - soft delete
+const response1 = await fetch(`${baseUrl}/admin/papers/delete`, {
   method: 'DELETE',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -2371,15 +2633,26 @@ const response = await fetch(`${baseUrl}/admin/papers/delete`, {
   })
 });
 
-const data = await response.json();
-if (data.success) {
-  console.log(`Deleted: ${data.data.deleted_paper_name}`);
-  console.warn(data.warning); // CASCADE warning
-}
+const data1 = await response1.json();
+console.log(data1.message); // "Paper deactivated successfully"
+
+// Second call - permanent delete
+const response2 = await fetch(`${baseUrl}/admin/papers/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    paper_id: paperId
+  })
+});
+
+const data2 = await response2.json();
+console.log(data2.message); // "Paper permanently removed from database"
 ```
 
-**Database Optimization**: 1 trip
-- Single DELETE...RETURNING query (CASCADE handled by database)
+**Database Optimization**: 1 trip per call
+- First call: Single UPDATE query
+- Second call: Single DELETE...RETURNING query (CASCADE handled by database)
 
 ---
 
@@ -2391,12 +2664,13 @@ if (data.success) {
 - ✅ Create paper with all optional fields
 - ✅ Duplicate name prevention within course
 - ✅ Percentage validation (0-100 range)
-- ✅ List papers with topic counts
-- ✅ Get paper with full details and topics
+- ✅ is_active field included in responses
+- ✅ List papers filters by is_active=true
+- ✅ Get paper includes is_active field
 - ✅ Update paper name
-- ✅ Update all paper fields
+- ✅ Update all paper fields including is_active
 - ✅ Duplicate name prevention on update
-- ✅ Hard delete with CASCADE warning
+- ✅ Two-stage delete (soft then permanent with CASCADE)
 - ✅ CASCADE deletion of topics verified
 
 **Run Tests**:
@@ -2408,7 +2682,7 @@ python3 tests/test_admin_papers.py
 
 ## Topics Management
 
-Topics are subject areas within papers. Unlike papers (hard delete), topics use **soft delete** (can be reactivated).
+Topics are subject areas within papers. Topics use **soft delete** (can be reactivated).
 
 ### 1. List Topics
 
@@ -2670,13 +2944,13 @@ const data = await response.json();
 
 ---
 
-### 5. Delete Topic (Soft Delete)
+### 5. Delete Topic
 
 **Endpoint**: `DELETE /admin/topics/delete`
 
 **Auth**: Admin or Owner
 
-**Description**: Soft delete a topic (sets is_active = false). Can be reactivated using update endpoint.
+**Description**: Two-stage delete process for topics. First call deactivates (soft delete), second call permanently removes from database (cascades to notes/questions/podcasts).
 
 **Request Body**:
 ```json
@@ -2686,30 +2960,42 @@ const data = await response.json();
 }
 ```
 
-**Success Response** (200 OK):
+**First Call Response** (200 OK - Soft Delete):
 ```json
 {
   "success": true,
-  "message": "Topic deleted successfully",
-  "note": "This is a soft delete. The topic can be reactivated using the update endpoint.",
+  "message": "Topic 'Algebra' deactivated successfully",
   "data": {
-    "topic": {
-      "id": "uuid",
-      "paper_id": "uuid",
-      "name": "Algebra",
-      "sort_order": 1,
-      "is_active": false,
-      "created_at": "2025-10-01T12:00:00.000000",
-      "added_by_user_id": "uuid"
-    }
+    "topic_id": "uuid",
+    "name": "Algebra",
+    "is_active": false,
+    "note": "Call delete again to permanently remove from database. Warning: This will CASCADE to notes, questions, and podcasts. To reactivate, use the update endpoint with is_active: true."
   }
 }
 ```
 
-**Note**: This is a **soft delete** (reversible), unlike papers which use hard delete. To permanently remove a topic, use direct database access.
+**Second Call Response** (200 OK - Permanent Delete):
+```json
+{
+  "success": true,
+  "message": "Topic 'Algebra' permanently removed from database",
+  "data": {
+    "topic_id": "uuid",
+    "name": "Algebra",
+    "note": "Topic has been permanently deleted from the database. This action cannot be reversed. Associated notes, questions, and podcasts were also removed (CASCADE)."
+  }
+}
+```
 
-**Database Optimization**: 1 trip
-- Single UPDATE...RETURNING query with WHERE is_active = true
+**Implementation Notes**:
+- **Two-stage delete** - requires two explicit calls
+- **First call**: Sets `is_active = false` (soft delete)
+- **Second call**: Permanently deletes record from database
+- **⚠️ CASCADE WARNING**: Permanent delete cascades to notes, questions, and podcasts
+- Can be reactivated after soft delete using update endpoint
+
+**Database Optimization**: 1 trip per call
+- Single UPDATE...RETURNING query with WHERE clause
 
 ---
 
@@ -2738,6 +3024,998 @@ python3 tests/test_admin_topics.py
 
 ---
 
+## Notes Management
+
+Admin endpoints for managing notes content within topics. Notes contain the primary text content for learning materials.
+
+### 1. Get Notes for Topic
+
+**Endpoint**: `POST /admin/notes`
+
+**Auth**: Admin or Owner
+
+**Description**: Retrieve all notes for a specific topic, including inactive notes (unlike regular users who only see active notes).
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "topic_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Notes fetched successfully for topic 'Topic Name'",
+  "data": {
+    "topic": {
+      "id": "uuid",
+      "name": "Cell Structure",
+      "is_active": true,
+      "paper_id": "uuid",
+      "paper_name": "Paper 1",
+      "course_id": "uuid",
+      "course_title": "GCSE Biology"
+    },
+    "notes": [
+      {
+        "id": "uuid",
+        "topic_id": "uuid",
+        "content": "Comprehensive notes content...",
+        "is_active": true,
+        "created_at": "2025-10-01T12:00:00.000000",
+        "added_by_user_id": "uuid"
+      }
+    ],
+    "notes_count": 2,
+    "active_notes_count": 1
+  }
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: Missing required fields
+- `403 Forbidden`: Admin access required
+- `404 Not Found`: Topic not found
+- `500 Internal Server Error`: Database error
+
+**Database Optimization**: 2 trips
+- Query 1: Get topic with course/paper context
+- Query 2: Get all notes for topic (ordered by created_at DESC)
+
+---
+
+### 2. Create Notes for Topic
+
+**Endpoint**: `POST /admin/notes/create`
+
+**Auth**: Admin or Owner
+
+**Description**: Create notes for a topic. Multiple notes can exist for a topic (e.g., different versions), but typically only one should be active at a time.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "topic_id": "uuid",
+  "content": "Detailed notes content with multiple paragraphs...\n\nSupports markdown and formatting."
+}
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Notes created successfully for topic 'Topic Name'",
+  "data": {
+    "notes": {
+      "id": "uuid",
+      "topic_id": "uuid",
+      "content": "Detailed notes content...",
+      "is_active": true,
+      "created_at": "2025-10-01T12:00:00.000000",
+      "added_by_user_id": "uuid"
+    }
+  }
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: Missing fields or empty content
+- `403 Forbidden`: Admin access required
+- `404 Not Found`: Topic not found
+- `409 Conflict`: (Not applicable - multiple notes allowed)
+- `500 Internal Server Error`: Database error
+
+**Validation**:
+- `topic_id` is required and must be valid UUID
+- `content` is required and cannot be empty (after trim)
+- Content length: No strict limit (supports very long notes ~50KB+)
+- Special characters, emojis, HTML/Markdown all supported
+
+**Auto-set Fields**:
+- `added_by_user_id`: Set to the admin's user ID from token
+- `is_active`: Set to true by default
+- `created_at`: Automatically timestamped
+
+**Database Optimization**: 2 trips
+- Query 1: Verify topic exists
+- Query 2: INSERT...RETURNING new notes
+
+---
+
+### 3. Update Notes
+
+**Endpoint**: `PUT /admin/notes/update`
+
+**Auth**: Admin or Owner
+
+**Description**: Update notes content and/or activation status. Can be used to reactivate soft-deleted notes.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "notes_id": "uuid",
+  "content": "Updated notes content...",  // Optional
+  "is_active": true                      // Optional
+}
+```
+
+**Note**: At least one field (`content` or `is_active`) must be provided.
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Notes updated successfully for topic 'Topic Name'",
+  "data": {
+    "notes": {
+      "id": "uuid",
+      "topic_id": "uuid",
+      "content": "Updated notes content...",
+      "is_active": true,
+      "created_at": "2025-10-01T12:00:00.000000",
+      "added_by_user_id": "uuid"
+    }
+  }
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: Missing fields, no update fields provided, or empty content
+- `403 Forbidden`: Admin access required
+- `404 Not Found`: Notes not found
+- `500 Internal Server Error`: Database error
+
+**Validation**:
+- At least one field to update must be provided
+- `content` cannot be empty if provided (after trim)
+- `is_active` must be boolean if provided
+
+**Use Cases**:
+- Update content only: `{"notes_id": "uuid", "content": "new content"}`
+- Deactivate: `{"notes_id": "uuid", "is_active": false}`
+- Reactivate: `{"notes_id": "uuid", "is_active": true}`
+- Both: `{"notes_id": "uuid", "content": "new", "is_active": true}`
+
+**Database Optimization**: 2 trips
+- Query 1: Verify notes exist (with topic name for response)
+- Query 2: Dynamic UPDATE...RETURNING based on provided fields
+
+---
+
+### 4. Delete Notes
+
+**Endpoint**: `DELETE /admin/notes/delete`
+
+**Auth**: Admin or Owner
+
+**Description**: Two-stage delete process for notes. First call deactivates (soft delete), second call permanently removes from database.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "notes_id": "uuid"
+}
+```
+
+**First Call Response** (200 OK - Soft Delete):
+```json
+{
+  "success": true,
+  "message": "Notes deactivated successfully",
+  "data": {
+    "notes_id": "uuid",
+    "topic_id": "uuid",
+    "is_active": false,
+    "note": "Call delete again to permanently remove from database. To reactivate, use the update endpoint with is_active: true."
+  }
+}
+```
+
+**Second Call Response** (200 OK - Permanent Delete):
+```json
+{
+  "success": true,
+  "message": "Notes permanently removed from database",
+  "data": {
+    "notes_id": "uuid",
+    "note": "Notes have been permanently deleted from the database. This action cannot be reversed."
+  }
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: Missing required fields or already inactive (first call)
+- `403 Forbidden`: Admin access required
+- `404 Not Found`: Notes not found
+- `500 Internal Server Error`: Database error
+
+**Implementation Notes**:
+- **Two-stage delete** - requires two explicit calls
+- **First call**: Sets `is_active = false` (soft delete)
+- **Second call**: Permanently deletes record from database
+- Can be reactivated after soft delete using update endpoint
+
+**Database Optimization**: 1 trip per call
+- Single UPDATE...RETURNING or DELETE...RETURNING query
+
+---
+
+### Notes Management Tests
+
+**Test Coverage** (31/31 passing):
+- ✅ Authentication & authorization (regular blocked, admin/owner allowed)
+- ✅ Create notes with valid data
+- ✅ Create second notes for same topic (multiple allowed)
+- ✅ Missing/empty content validation
+- ✅ Invalid topic_id handling
+- ✅ Get notes for valid topic
+- ✅ Get notes for invalid topic
+- ✅ Notes array structure verification
+- ✅ Update content only
+- ✅ Update is_active only (deactivate)
+- ✅ Reactivate soft-deleted notes
+- ✅ Update both content and status
+- ✅ Validation: no fields to update
+- ✅ Validation: empty content on update
+- ✅ Update non-existent notes
+- ✅ Soft delete notes
+- ✅ Verify soft-deleted notes reversible
+- ✅ Delete non-existent notes
+- ✅ Edge case: very long content (50KB+)
+- ✅ Edge case: special characters and emojis
+- ✅ Edge case: HTML/Markdown content
+
+**Run Tests**:
+```bash
+python3 tests/test_admin_notes.py
+```
+
+**Test Features**:
+- Comprehensive role-based access control testing
+- Full CRUD operation validation
+- Edge cases for content types and sizes
+- Soft delete and reactivation verification
+- All error cases and validation rules
+
+---
+
+## Podcasts Management
+
+### 1. Get Podcasts for Topic
+
+**Endpoint**: `POST /admin/podcasts`
+
+**Auth**: Admin or Owner
+
+**Description**: Get all podcasts (active and inactive) for a specific topic, including topic context information.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "topic_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Podcasts fetched successfully",
+  "data": {
+    "topic": {
+      "id": "uuid",
+      "paper_id": "uuid",
+      "name": "Cell Biology",
+      "sort_order": 1,
+      "is_active": true
+    },
+    "podcasts": [
+      {
+        "id": "uuid",
+        "topic_id": "uuid",
+        "name": "Cell Structure Overview",
+        "url": "https://storage.lockin.tech/podcasts/cell-structure.mp3",
+        "length_seconds": 600,
+        "file_size": 15728640,
+        "is_active": true,
+        "added_by_user_id": "uuid",
+        "created_at": "2025-01-01T12:00:00.000000"
+      }
+    ],
+    "podcasts_count": 5,
+    "active_podcasts_count": 4
+  }
+}
+```
+
+**Error Response** (404 Not Found):
+```json
+{
+  "success": false,
+  "message": "Topic not found"
+}
+```
+
+**Database Queries**: 2
+1. Verify topic exists + get context
+2. Fetch all podcasts for topic (with LEFT JOIN for added_by user info)
+
+---
+
+### 2. Create Podcast
+
+**Endpoint**: `POST /admin/podcasts/create`
+
+**Auth**: Admin or Owner
+
+**Description**: Create a new podcast for a topic. Automatically records the admin who created it.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "topic_id": "uuid",
+  "name": "Cell Structure Overview",
+  "url": "https://storage.lockin.tech/podcasts/cell-structure.mp3",
+  "length_seconds": 600,          // Optional: duration in seconds
+  "file_size": 15728640           // Optional: file size in bytes
+}
+```
+
+**Validation**:
+- `topic_id`: Required, must be valid UUID of existing active topic
+- `name`: Required, non-empty string
+- `url`: Required, non-empty string (URL to podcast file)
+- `length_seconds`: Optional, must be >= 0 if provided
+- `file_size`: Optional, must be >= 0 if provided
+
+**Success Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Podcast created successfully",
+  "data": {
+    "podcast": {
+      "id": "uuid",
+      "topic_id": "uuid",
+      "name": "Cell Structure Overview",
+      "url": "https://storage.lockin.tech/podcasts/cell-structure.mp3",
+      "length_seconds": 600,
+      "file_size": 15728640,
+      "is_active": true,
+      "added_by_user_id": "uuid",
+      "created_at": "2025-01-01T12:00:00.000000"
+    },
+    "topic": {
+      "name": "Cell Biology"
+    }
+  }
+}
+```
+
+**Error Responses**:
+
+*400 Bad Request* - Missing or invalid fields:
+```json
+{
+  "success": false,
+  "message": "Missing required field: url"
+}
+```
+
+*404 Not Found* - Topic doesn't exist:
+```json
+{
+  "success": false,
+  "message": "Topic not found or inactive"
+}
+```
+
+**Database Queries**: 2
+1. Verify topic exists and is active
+2. Insert podcast with RETURNING clause
+
+---
+
+### 3. Update Podcast
+
+**Endpoint**: `PUT /admin/podcasts/update`
+
+**Auth**: Admin or Owner
+
+**Description**: Update podcast details. Any combination of fields can be updated. Supports soft delete/reactivation via `is_active` field.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "podcast_id": "uuid",
+  "name": "Updated Podcast Name",          // Optional
+  "url": "https://new-url.com/podcast.mp3", // Optional
+  "length_seconds": 720,                    // Optional
+  "file_size": 20971520,                    // Optional
+  "is_active": false                        // Optional: soft delete
+}
+```
+
+**Validation**:
+- `podcast_id`: Required, must be valid UUID of existing podcast
+- At least one field to update must be provided
+- `length_seconds`: Must be >= 0 if provided
+- `file_size`: Must be >= 0 if provided
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Podcast updated successfully",
+  "data": {
+    "podcast": {
+      "id": "uuid",
+      "topic_id": "uuid",
+      "name": "Updated Podcast Name",
+      "url": "https://new-url.com/podcast.mp3",
+      "length_seconds": 720,
+      "file_size": 20971520,
+      "is_active": false,
+      "added_by_user_id": "uuid",
+      "created_at": "2025-01-01T12:00:00.000000"
+    }
+  }
+}
+```
+
+**Error Responses**:
+
+*400 Bad Request* - No fields to update:
+```json
+{
+  "success": false,
+  "message": "No fields to update"
+}
+```
+
+*400 Bad Request* - Invalid field value:
+```json
+{
+  "success": false,
+  "message": "length_seconds must be a non-negative integer"
+}
+```
+
+*404 Not Found* - Podcast doesn't exist:
+```json
+{
+  "success": false,
+  "message": "Podcast not found"
+}
+```
+
+**Database Queries**: 2
+1. Verify podcast exists
+2. Dynamic UPDATE with only provided fields, using RETURNING clause
+
+**Use Cases**:
+- Update podcast metadata after re-encoding
+- Change URL when moving to new storage
+- Soft delete: `{"is_active": false}`
+- Reactivate: `{"is_active": true}`
+
+---
+
+### 4. Delete Podcast
+
+**Endpoint**: `DELETE /admin/podcasts/delete`
+
+**Auth**: Admin or Owner
+
+**Description**: Two-stage delete process for podcasts. First call deactivates (soft delete), second call permanently removes from database.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "podcast_id": "uuid"
+}
+```
+
+**First Call Response** (200 OK - Soft Delete):
+```json
+{
+  "success": true,
+  "message": "Podcast 'Cell Structure Overview' deactivated successfully",
+  "data": {
+    "podcast_id": "uuid",
+    "name": "Cell Structure Overview",
+    "is_active": false,
+    "note": "Call delete again to permanently remove from database. To reactivate, use the update endpoint with is_active: true."
+  }
+}
+```
+
+**Second Call Response** (200 OK - Permanent Delete):
+```json
+{
+  "success": true,
+  "message": "Podcast 'Cell Structure Overview' permanently removed from database",
+  "data": {
+    "podcast_id": "uuid",
+    "name": "Cell Structure Overview",
+    "note": "Podcast has been permanently deleted from the database. This action cannot be reversed."
+  }
+}
+```
+
+**Error Response** (404 Not Found):
+```json
+{
+  "success": false,
+  "message": "Podcast not found"
+}
+```
+
+**Implementation Notes**:
+- **Two-stage delete** - requires two explicit calls
+- **First call**: Sets `is_active = false` (soft delete)
+- **Second call**: Permanently deletes record from database
+- Can be reactivated after soft delete using update endpoint
+- Does not affect the topic or other content
+
+**Database Queries**: 1 per call (optimized)
+- Single UPDATE or DELETE with RETURNING clause
+
+---
+
+### Podcasts Management Tests
+
+**Test Coverage** (26/26 passing):
+- ✅ Authentication & authorization (regular blocked, admin/owner allowed)
+- ✅ Create podcast with all fields
+- ✅ Create podcast without optional fields (length_seconds, file_size)
+- ✅ Missing required fields validation (url)
+- ✅ Invalid topic_id handling
+- ✅ Invalid length_seconds (negative) validation
+- ✅ Get podcasts for valid topic
+- ✅ Get podcasts for invalid topic
+- ✅ Update name only
+- ✅ Update multiple fields
+- ✅ Deactivate podcast (soft delete via update)
+- ✅ Reactivate podcast
+- ✅ Update with no fields (validation)
+- ✅ Update non-existent podcast
+- ✅ Soft delete podcast
+- ✅ Verify soft-deleted podcast can be reactivated
+- ✅ Delete non-existent podcast
+- ✅ Edge case: very long URL (1000+ chars)
+- ✅ Edge case: large file size (1GB)
+- ✅ Edge case: zero length podcast
+
+**Run Tests**:
+```bash
+python3 tests/test_admin_podcasts.py
+```
+
+**Test Features**:
+- Comprehensive role-based access control testing
+- Full CRUD operation validation
+- Edge cases for URLs, file sizes, and durations
+- Soft delete and reactivation verification
+- All error cases and validation rules
+
+---
+
+## Past Papers Management
+
+### 1. Get Past Papers for Paper
+
+**Endpoint**: `POST /admin/past_papers`
+
+**Auth**: Admin or Owner
+
+**Description**: Get all past papers (active and inactive) for a specific paper, including paper context information.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "paper_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Past papers fetched successfully",
+  "data": {
+    "paper": {
+      "id": "uuid",
+      "course_id": "uuid",
+      "name": "Paper 1",
+      "code": "P1",
+      "percentage_of_grade": 40.00,
+      "course_title": "GCSE Biology",
+      "subject_name": "Biology",
+      "year_name": "GCSE (10/11)"
+    },
+    "past_papers": [
+      {
+        "id": "uuid",
+        "paper_id": "uuid",
+        "year": 2024,
+        "url": "https://storage.lockin.tech/past_papers/2024-p1.pdf",
+        "file_size": 2097152,
+        "is_active": true,
+        "added_by_user_id": "uuid",
+        "added_by_username": "admin_user",
+        "created_at": "2025-01-01T12:00:00.000000"
+      }
+    ],
+    "past_papers_count": 5,
+    "active_past_papers_count": 4
+  }
+}
+```
+
+**Error Response** (404 Not Found):
+```json
+{
+  "success": false,
+  "message": "Paper not found"
+}
+```
+
+**Database Queries**: 2
+1. Verify paper exists + get context (with course/subject/year info)
+2. Fetch all past papers for paper (with LEFT JOIN for added_by user info)
+
+---
+
+### 2. Create Past Paper
+
+**Endpoint**: `POST /admin/past_papers/create`
+
+**Auth**: Admin or Owner
+
+**Description**: Create a new past paper for a specific paper. Automatically records the admin who created it.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "paper_id": "uuid",
+  "year": 2024,                       // Year as integer (e.g., 2024, 2023)
+  "url": "https://storage.lockin.tech/past_papers/2024-p1.pdf",
+  "file_size": 2097152                // Optional: file size in bytes
+}
+```
+
+**Validation**:
+- `paper_id`: Required, must be valid UUID of existing paper
+- `year`: Required, must be valid integer (e.g., 2024)
+- `url`: Required, non-empty string (URL to past paper file)
+- `file_size`: Optional, must be >= 0 if provided
+
+**Success Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Past paper created successfully",
+  "data": {
+    "past_paper": {
+      "id": "uuid",
+      "paper_id": "uuid",
+      "year": 2024,
+      "url": "https://storage.lockin.tech/past_papers/2024-p1.pdf",
+      "file_size": 2097152,
+      "is_active": true,
+      "added_by_user_id": "uuid",
+      "created_at": "2025-01-01T12:00:00.000000"
+    },
+    "paper": {
+      "name": "Paper 1",
+      "course_title": "GCSE Biology"
+    }
+  }
+}
+```
+
+**Error Responses**:
+
+*400 Bad Request* - Missing or invalid fields:
+```json
+{
+  "success": false,
+  "message": "Missing required field: year"
+}
+```
+
+*400 Bad Request* - Invalid year format:
+```json
+{
+  "success": false,
+  "message": "year must be a valid integer (e.g., 2024)"
+}
+```
+
+*404 Not Found* - Paper doesn't exist:
+```json
+{
+  "success": false,
+  "message": "Paper not found or inactive"
+}
+```
+
+**Database Queries**: 2
+1. Verify paper exists
+2. Insert past paper with RETURNING clause
+
+---
+
+### 3. Update Past Paper
+
+**Endpoint**: `PUT /admin/past_papers/update`
+
+**Auth**: Admin or Owner
+
+**Description**: Update past paper details. Any combination of fields can be updated. Supports soft delete/reactivation via `is_active` field.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "past_paper_id": "uuid",
+  "year": 2025,                       // Optional
+  "url": "https://new-url.com/paper.pdf", // Optional
+  "file_size": 3145728,               // Optional
+  "is_active": false                  // Optional: soft delete
+}
+```
+
+**Validation**:
+- `past_paper_id`: Required, must be valid UUID of existing past paper
+- At least one field to update must be provided
+- `year`: Must be valid integer if provided
+- `file_size`: Must be >= 0 if provided
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Past paper updated successfully",
+  "data": {
+    "past_paper": {
+      "id": "uuid",
+      "paper_id": "uuid",
+      "year": 2025,
+      "url": "https://new-url.com/paper.pdf",
+      "file_size": 3145728,
+      "is_active": false,
+      "added_by_user_id": "uuid",
+      "created_at": "2025-01-01T12:00:00.000000"
+    }
+  }
+}
+```
+
+**Error Responses**:
+
+*400 Bad Request* - No fields to update:
+```json
+{
+  "success": false,
+  "message": "No fields to update"
+}
+```
+
+*400 Bad Request* - Invalid field value:
+```json
+{
+  "success": false,
+  "message": "year must be a valid integer"
+}
+```
+
+*404 Not Found* - Past paper doesn't exist:
+```json
+{
+  "success": false,
+  "message": "Past paper not found"
+}
+```
+
+**Database Queries**: 2
+1. Verify past paper exists
+2. Dynamic UPDATE with only provided fields, using RETURNING clause
+
+**Use Cases**:
+- Update year after correction
+- Change URL when moving to new storage
+- Update file size after re-processing
+- Soft delete: `{"is_active": false}`
+- Reactivate: `{"is_active": true}`
+
+---
+
+### 4. Delete Past Paper
+
+**Endpoint**: `DELETE /admin/past_papers/delete`
+
+**Auth**: Admin or Owner
+
+**Description**: Two-stage delete process for past papers. First call deactivates (soft delete), second call permanently removes from database.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "past_paper_id": "uuid"
+}
+```
+
+**First Call Response** (200 OK - Soft Delete):
+```json
+{
+  "success": true,
+  "message": "Past paper deactivated successfully",
+  "data": {
+    "past_paper_id": "uuid",
+    "year": 2024,
+    "is_active": false,
+    "note": "Call delete again to permanently remove from database. To reactivate, use the update endpoint with is_active: true."
+  }
+}
+```
+
+**Second Call Response** (200 OK - Permanent Delete):
+```json
+{
+  "success": true,
+  "message": "Past paper permanently removed from database",
+  "data": {
+    "past_paper_id": "uuid",
+    "year": 2024,
+    "note": "Past paper has been permanently deleted from the database. This action cannot be reversed."
+  }
+}
+```
+
+**Error Response** (404 Not Found):
+```json
+{
+  "success": false,
+  "message": "Past paper not found"
+}
+```
+
+**Implementation Notes**:
+- **Two-stage delete** - requires two explicit calls
+- **First call**: Sets `is_active = false` (soft delete)
+- **Second call**: Permanently deletes record from database
+- Can be reactivated after soft delete using update endpoint
+- Does not affect the paper or other content
+
+**Database Queries**: 1 per call (optimized)
+- Single UPDATE or DELETE with RETURNING clause
+
+---
+
+### Past Papers Management Tests
+
+**Test Coverage** (29/29 passing):
+- ✅ Authentication & authorization (regular blocked, admin/owner allowed)
+- ✅ Create past paper with all fields
+- ✅ Create past paper without optional fields (file_size)
+- ✅ Missing required fields validation (year, url)
+- ✅ Invalid paper_id handling
+- ✅ Invalid file_size (negative) validation
+- ✅ Get past papers for valid paper
+- ✅ Get past papers for invalid paper
+- ✅ Verify ordering by year DESC
+- ✅ Update year only
+- ✅ Update multiple fields
+- ✅ Deactivate past paper (soft delete via update)
+- ✅ Reactivate past paper
+- ✅ Update with no fields (validation)
+- ✅ Update non-existent past paper
+- ✅ Soft delete past paper
+- ✅ Verify soft-deleted past paper can be reactivated
+- ✅ Delete non-existent past paper
+- ✅ Edge case: very long URL (2000+ chars)
+- ✅ Edge case: large file size (1GB)
+- ✅ Edge case: historical year (1990)
+- ✅ Edge case: zero file size
+
+**Run Tests**:
+```bash
+python3 tests/test_admin_past_papers.py
+```
+
+**Test Features**:
+- Comprehensive role-based access control testing
+- Full CRUD operation validation
+- Edge cases for URLs, file sizes, and years
+- Soft delete and reactivation verification
+- All error cases and validation rules
+
+---
+
+### Two-Stage Delete Comprehensive Tests
+
+**Test Suite**: `/tests/test_admin_two_stage_delete.py`
+
+**Description**: Comprehensive test suite that validates the two-stage delete behavior across all applicable admin endpoints. Ensures consistency and safety of the delete process.
+
+**Test Coverage** (25/25 passing):
+- ✅ Years two-stage delete (create → soft delete → permanent delete → 404)
+- ✅ Subjects two-stage delete (create → soft delete → permanent delete → 404)
+- ✅ Courses two-stage delete (create → soft delete → permanent delete → 404)
+- ✅ Topics two-stage delete (create → soft delete → permanent delete → 404)
+- ✅ Notes two-stage delete (create → soft delete → permanent delete → 404)
+- ✅ Podcasts two-stage delete (create → soft delete → permanent delete → 404)
+- ✅ Past Papers two-stage delete (create → soft delete → permanent delete → 404)
+
+**What Each Test Validates**:
+1. **First Delete Call**: 
+   - Returns 200 OK
+   - Sets `is_active = false`
+   - Returns note: "Call delete again to permanently remove"
+   
+2. **Second Delete Call**:
+   - Returns 200 OK
+   - Permanently removes from database
+   - Returns note: "Permanently removed from database"
+   
+3. **Third Delete Call**:
+   - Returns 404 Not Found
+   - Confirms record no longer exists
+
+**Run Tests**:
+```bash
+python3 tests/test_admin_two_stage_delete.py
+```
+
+**Test Features**:
+- Tests complete delete flow for all 7 applicable endpoints
+- Validates response messages and data structures
+- Confirms database state after each operation
+- Ensures consistency across all endpoints
+- All 25 tests passing ✓
+
+**Manual Setup Required**:
+- Test creates an admin user
+- Requires manual SQL command to set admin role (displayed during test run)
+- Press Enter after running SQL command to continue
+
+---
+
 ## Future Admin Endpoints
 
 The following admin endpoints are planned for future implementation:
@@ -2748,10 +4026,10 @@ The following admin endpoints are planned for future implementation:
 - ✅ Courses (5 endpoints) - COMPLETE
 - ✅ Papers (5 endpoints) - COMPLETE
 - ✅ Topics (5 endpoints) - COMPLETE
-- Notes (4 endpoints)
-- Questions (5 endpoints)
-- Podcasts (4 endpoints)
-- Past Papers (4 endpoints)
+- ✅ Notes (4 endpoints) - COMPLETE
+- ✅ Podcasts (4 endpoints) - COMPLETE
+- ✅ Past Papers (4 endpoints) - COMPLETE
+- ⏳ Questions (5 endpoints) - PLANNED
 
 ### Analytics
 - Stats Overview (dashboard metrics)
@@ -2768,3 +4046,4 @@ For issues or questions regarding admin endpoints:
 2. Review test suite examples
 3. Consult `ADMIN_API_PLAN.md` for implementation details
 4. Check regular user docs in `backend_documentation.txt`
+

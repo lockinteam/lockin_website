@@ -2,6 +2,7 @@
 
 const CoursesSection = {
     includeInactive: false,
+    searchQuery: '',
     
     async load() {
         UI.showLoading('Loading courses...');
@@ -34,9 +35,16 @@ const CoursesSection = {
     },
     
     render() {
-        const courses = AppState.courses;
+        let courses = AppState.courses;
         const years = AppState.years;
         const subjects = AppState.subjects;
+        
+        // Apply search filter
+        if (this.searchQuery) {
+            courses = courses.filter(c => 
+                c.title.toLowerCase().includes(this.searchQuery.toLowerCase())
+            );
+        }
         
         const createBtnHTML = UI.renderActionBtn(
             'Create Course',
@@ -56,6 +64,10 @@ const CoursesSection = {
         
         const filtersHTML = `
             <div class="content-filters">
+                <div class="filter-group" style="flex: 2;">
+                    <label class="filter-label">Search</label>
+                    <input type="text" class="filter-select" id="courseSearchInput" placeholder="Search courses..." value="${this.searchQuery}" oninput="CoursesSection.onSearchChange()">
+                </div>
                 <div class="filter-group">
                     <label class="filter-label">Year</label>
                     <select class="filter-select" id="courseYearFilter" onchange="CoursesSection.onYearFilterChange()">
@@ -142,6 +154,21 @@ const CoursesSection = {
                 </div>
             </div>
         `;
+    },
+    
+    onSearchChange() {
+        const input = document.getElementById('courseSearchInput');
+        const cursorPosition = input.selectionStart;
+        this.searchQuery = input.value;
+        this.render();
+        // Restore focus and cursor position
+        setTimeout(() => {
+            const newInput = document.getElementById('courseSearchInput');
+            if (newInput) {
+                newInput.focus();
+                newInput.setSelectionRange(cursorPosition, cursorPosition);
+            }
+        }, 0);
     },
     
     onYearFilterChange() {

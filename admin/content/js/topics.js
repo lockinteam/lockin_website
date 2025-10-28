@@ -2,6 +2,7 @@
 
 const TopicsSection = {
     includeInactive: false,
+    searchQuery: '',
     
     async load() {
         UI.showLoading('Loading topics...');
@@ -111,7 +112,20 @@ const TopicsSection = {
     },
     
     render(paperInfo) {
-        const topics = AppState.topics;
+        let topics = AppState.topics;
+        
+        // Apply search filter
+        if (this.searchQuery) {
+            topics = topics.filter(t => 
+                t.name.toLowerCase().includes(this.searchQuery.toLowerCase())
+            );
+        }
+        
+        // Apply inactive filter (already handled by includeInactive in load)
+        // But for immediate UI updates after toggle, filter here too
+        if (!this.includeInactive) {
+            topics = topics.filter(t => t.is_active);
+        }
         const courses = AppState.courses;
         const papers = AppState.papers;
         
@@ -130,6 +144,10 @@ const TopicsSection = {
         
         const filtersHTML = `
             <div class="content-filters">
+                <div class="filter-group" style="flex: 2;">
+                    <label class="filter-label">Search</label>
+                    <input type="text" class="filter-select" id="topicSearchInput" placeholder="Search topics..." value="${this.searchQuery}" oninput="TopicsSection.onSearchChange()">
+                </div>
                 <div class="filter-group">
                     <label class="filter-label">Course</label>
                     <select class="filter-select" id="topicCourseFilter" onchange="TopicsSection.onCourseChange()">
@@ -221,6 +239,21 @@ const TopicsSection = {
         `;
     },
     
+    onSearchChange() {
+        const input = document.getElementById('topicSearchInput');
+        const cursorPosition = input.selectionStart;
+        this.searchQuery = input.value;
+        this.render(AppState.findPaperById(AppState.filters.topics.paperId));
+        // Restore focus and cursor position
+        setTimeout(() => {
+            const newInput = document.getElementById('topicSearchInput');
+            if (newInput) {
+                newInput.focus();
+                newInput.setSelectionRange(cursorPosition, cursorPosition);
+            }
+        }, 0);
+    },
+    
     async onCourseChange() {
         const select = document.getElementById('topicCourseFilter');
         AppState.setTopicsCourseFilter(select.value || null);
@@ -239,7 +272,7 @@ const TopicsSection = {
     },
     
     openCreateModal() {
-        if (!AppState.selectedPaperId) {
+        if (!AppState.filters.topics.paperId) {
             UI.showToast('Please select a paper first', 'warning');
             return;
         }
@@ -289,7 +322,7 @@ const TopicsSection = {
         }
         
         try {
-            await API.createTopic(AppState.selectedPaperId, name, sortOrder);
+            await API.createTopic(AppState.filters.topics.paperId, name, sortOrder);
             UI.closeModal();
             UI.showToast('Topic created successfully', 'success');
             await this.load();

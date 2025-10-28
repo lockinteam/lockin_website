@@ -2,6 +2,7 @@
 
 const SubjectsSection = {
     includeInactive: false,
+    searchQuery: '',
     
     async load() {
         UI.showLoading('Loading subjects...');
@@ -17,7 +18,15 @@ const SubjectsSection = {
     },
     
     render() {
-        const subjects = AppState.subjects;
+        let subjects = AppState.subjects;
+        
+        // Apply search filter
+        if (this.searchQuery) {
+            subjects = subjects.filter(s => 
+                s.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                (s.code && s.code.toLowerCase().includes(this.searchQuery.toLowerCase()))
+            );
+        }
         
         const createBtnHTML = UI.renderActionBtn(
             'Create Subject',
@@ -27,9 +36,13 @@ const SubjectsSection = {
         
         const filtersHTML = `
             <div class="content-filters">
+                <div class="filter-group" style="flex: 2;">
+                    <label class="filter-label">Search</label>
+                    <input type="text" class="filter-select" id="subjectSearchInput" placeholder="Search subjects..." value="${this.searchQuery}" oninput="SubjectsSection.onSearchChange()">
+                </div>
                 <div class="filter-checkbox-group">
                     <input type="checkbox" id="includeInactiveSubjects" ${this.includeInactive ? 'checked' : ''} onchange="SubjectsSection.toggleIncludeInactive()">
-                    <label for="includeInactiveSubjects">Show Inactive Subjects</label>
+                    <label for="includeInactiveSubjects">Show Inactive</label>
                 </div>
                 <div style="margin-left: auto;">
                     ${createBtnHTML}
@@ -97,6 +110,21 @@ const SubjectsSection = {
                 </div>
             </div>
         `;
+    },
+    
+    onSearchChange() {
+        const input = document.getElementById('subjectSearchInput');
+        const cursorPosition = input.selectionStart;
+        this.searchQuery = input.value;
+        this.render();
+        // Restore focus and cursor position
+        setTimeout(() => {
+            const newInput = document.getElementById('subjectSearchInput');
+            if (newInput) {
+                newInput.focus();
+                newInput.setSelectionRange(cursorPosition, cursorPosition);
+            }
+        }, 0);
     },
     
     toggleIncludeInactive() {

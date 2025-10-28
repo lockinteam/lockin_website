@@ -1,6 +1,9 @@
 // Papers section management
 
 const PapersSection = {
+    includeInactive: false,
+    searchQuery: '',
+    
     async load() {
         UI.showLoading('Loading papers...');
         
@@ -18,7 +21,7 @@ const PapersSection = {
             }
             
             // Load papers for selected course
-            const data = await API.getPapers(AppState.filters.papers.courseId);
+            const data = await API.getPapers(AppState.filters.papers.courseId, this.includeInactive);
             AppState.setPapers(data.data.papers || []);
             this.render(data.data.course);
         } catch (error) {
@@ -38,7 +41,7 @@ const PapersSection = {
                     <label class="filter-label">Select Course</label>
                     <select class="filter-select" id="paperCourseFilter" onchange="PapersSection.onCourseChange()">
                         <option value="">-- Choose a course --</option>
-                        ${courseOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+                        ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.papers.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
                 </div>
             </div>
@@ -59,8 +62,17 @@ const PapersSection = {
     },
     
     render(courseInfo) {
-        const papers = AppState.papers;
+        const papers = AppState.papers; // Don't filter here - display what was loaded
         const courses = AppState.courses;
+        
+        // Apply search filter only
+        let filteredPapers = papers;
+        if (this.searchQuery) {
+            filteredPapers = papers.filter(p => 
+                p.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                (p.code && p.code.toLowerCase().includes(this.searchQuery.toLowerCase()))
+            );
+        }
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
@@ -75,11 +87,19 @@ const PapersSection = {
         
         const filtersHTML = `
             <div class="content-filters">
+                <div class="filter-group" style="flex: 2;">
+                    <label class="filter-label">Search</label>
+                    <input type="text" class="filter-select" id="paperSearchInput" placeholder="Search papers..." value="${this.searchQuery}" oninput="PapersSection.onSearchChange()">
+                </div>
                 <div class="filter-group" style="flex: 1;">
                     <label class="filter-label">Course</label>
                     <select class="filter-select" id="paperCourseFilter" onchange="PapersSection.onCourseChange()">
                         ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.papers.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
+                </div>
+                <div class="filter-checkbox-group">
+                    <input type="checkbox" id="includeInactivePapers" ${this.includeInactive ? 'checked' : ''} onchange="PapersSection.toggleIncludeInactive()">
+                    <label for="includeInactivePapers">Show Inactive</label>
                 </div>
                 <div style="margin-left: auto;">
                     ${createBtnHTML}
@@ -89,7 +109,12 @@ const PapersSection = {
         
         let contentHTML = '';
         
-        if (papers.length === 0) {
+        if (filteredPapers.length === 0) {
+            const message = this.searchQuery 
+                ? 'No papers match your search.' 
+                : (papers.length === 0 
+                    ? "This course doesn't have any papers yet. Create the first paper to get started."
+                    : 'No papers found. Try enabling "Show Inactive".');
             contentHTML = `
                 <div class="content-empty">
                     <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -97,14 +122,14 @@ const PapersSection = {
                         <polyline points="14 2 14 8 20 8"></polyline>
                     </svg>
                     <h3>No Papers Found</h3>
-                    <p>This course doesn't have any papers yet. Create the first paper to get started.</p>
+                    <p>${message}</p>
                 </div>
             `;
             UI.elements.contentArea.innerHTML = filtersHTML + contentHTML;
             return;
         }
         
-        const cardsHTML = papers.map(paper => this.renderPaperCard(paper)).join('');
+        const cardsHTML = filteredPapers.map(paper => this.renderPaperCard(paper)).join('');
         contentHTML = `
             <div class="content-grid">
                 ${cardsHTML}
@@ -120,6 +145,7 @@ const PapersSection = {
                 <div class="card-header">
                     <h3 class="card-title">${UI.escapeHtml(paper.name)}</h3>
                     ${paper.code ? `<span class="card-badge badge-active">${UI.escapeHtml(paper.code)}</span>` : ''}
+                    ${paper.is_active ? '<span class="card-badge badge-active">Active</span>' : '<span class="card-badge badge-inactive">Inactive</span>'}
                 </div>
                 <div class="card-meta">
                     <div class="meta-row">
@@ -143,21 +169,41 @@ const PapersSection = {
                     </button>
                     <button class="card-action-btn destructive" onclick="PapersSection.handleDelete('${paper.id}')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                        Delete
+                        ${paper.is_active ? 'Deactivate' : 'Delete'}
                     </button>
                 </div>
             </div>
         `;
     },
     
+    onSearchChange() {
+        const input = document.getElementById('paperSearchInput');
+        const cursorPosition = input.selectionStart;
+        this.searchQuery = input.value;
+        this.render(AppState.findCourseById(AppState.filters.papers.courseId));
+        // Restore focus and cursor position
+        setTimeout(() => {
+            const newInput = document.getElementById('paperSearchInput');
+            if (newInput) {
+                newInput.focus();
+                newInput.setSelectionRange(cursorPosition, cursorPosition);
+            }
+        }, 0);
+    },
+    
+    toggleIncludeInactive() {
+        this.includeInactive = !this.includeInactive;
+        this.load(); // Reload data from API with new filter
+    },
+    
     onCourseChange() {
-        const select = document.getElementById('paperCourseFilter');
-        AppState.setPapersCourseFilter(select.value || null);
+        const courseId = document.getElementById('paperCourseFilter').value || null;
+        AppState.setPapersCourseFilter(courseId);
         this.load();
     },
     
     openCreateModal() {
-        if (!AppState.selectedCourseId) {
+        if (!AppState.filters.papers.courseId) {
             UI.showToast('Please select a course first', 'warning');
             return;
         }
@@ -183,6 +229,13 @@ const PapersSection = {
                 ${UI.createFormRow('Paper Name', UI.createTextInput('paperName', paper.name, '', true))}
                 ${UI.createFormRow('Paper Code', UI.createTextInput('paperCode', paper.code || '', ''), 'Leave empty to remove')}
                 ${UI.createFormRow('Percentage of Grade', UI.createNumberInput('paperPercentage', paper.percentage_of_grade || '', '', 0, 100, 0.1))}
+                ${UI.createFormRow(
+                    'Status',
+                    UI.createSelect('paperStatus', [
+                        { value: 'true', label: 'Active' },
+                        { value: 'false', label: 'Inactive' }
+                    ], paper.is_active ? 'true' : 'false')
+                )}
                 ${UI.createModalActions('UI.closeModal()', null, 'Update Paper')}
             </form>
         `;
@@ -204,7 +257,7 @@ const PapersSection = {
         }
         
         try {
-            await API.createPaper(AppState.selectedCourseId, name, code, percentageValue);
+            await API.createPaper(AppState.filters.papers.courseId, name, code, percentageValue);
             UI.closeModal();
             UI.showToast('Paper created successfully', 'success');
             await this.load();
@@ -220,6 +273,7 @@ const PapersSection = {
         const code = document.getElementById('paperCode').value.trim() || null;
         const percentage = document.getElementById('paperPercentage').value;
         const percentageValue = percentage ? parseFloat(percentage) : null;
+        const isActive = document.getElementById('paperStatus').value === 'true';
         
         if (!name) {
             UI.showToast('Paper name is required', 'error');
@@ -227,7 +281,7 @@ const PapersSection = {
         }
         
         try {
-            await API.updatePaper(paperId, { name, code, percentage_of_grade: percentageValue });
+            await API.updatePaper(paperId, { name, code, percentage_of_grade: percentageValue, is_active: isActive });
             UI.closeModal();
             UI.showToast('Paper updated successfully', 'success');
             await this.load();
@@ -240,18 +294,37 @@ const PapersSection = {
         const paper = AppState.findPaperById(paperId);
         if (!paper) return;
         
-        const warningMessage = `⚠️ WARNING: This is a PERMANENT deletion!\n\nDeleting "${paper.name}" will also permanently delete ALL ${paper.topics_count || 0} topics associated with it.\n\nThis action CANNOT be undone.\n\nAre you absolutely sure?`;
-        
-        if (!UI.confirm(warningMessage)) {
-            return;
-        }
-        
-        try {
-            await API.deletePaper(paperId);
-            UI.showToast('Paper and all its topics deleted permanently', 'success');
-            await this.load();
-        } catch (error) {
-            UI.showToast(error.message, 'error');
+        // Two-stage delete pattern
+        if (paper.is_active) {
+            // First delete - soft delete (deactivate)
+            const confirmMessage = `Deactivate "${paper.name}"?\n\nThis will hide the paper from users but keep it in the database. You can reactivate it later by editing it.`;
+            
+            if (!UI.confirm(confirmMessage)) {
+                return;
+            }
+            
+            try {
+                const response = await API.deletePaper(paperId);
+                UI.showToast('Paper deactivated successfully', 'success');
+                await this.load();
+            } catch (error) {
+                UI.showToast(error.message, 'error');
+            }
+        } else {
+            // Second delete - permanent delete with CASCADE warning
+            const warningMessage = `⚠️ WARNING: This is a PERMANENT deletion!\n\nDeleting "${paper.name}" will permanently remove it from the database and also delete ALL ${paper.topics_count || 0} topics associated with it (CASCADE).\n\nThis action CANNOT be undone.\n\nAre you absolutely sure?`;
+            
+            if (!UI.confirm(warningMessage)) {
+                return;
+            }
+            
+            try {
+                await API.deletePaper(paperId);
+                UI.showToast('Paper and all its topics deleted permanently', 'success');
+                await this.load();
+            } catch (error) {
+                UI.showToast(error.message, 'error');
+            }
         }
     }
 };
