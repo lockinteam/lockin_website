@@ -95,6 +95,18 @@ const ContentManagement = {
                 case 'topics':
                     await TopicsSection.load();
                     break;
+                case 'notes':
+                    await NotesSection.load();
+                    break;
+                case 'podcasts':
+                    await PodcastsSection.load();
+                    break;
+                case 'pastPapers':
+                    await PastPapersSection.load();
+                    break;
+                case 'questions':
+                    await QuestionsSection.load();
+                    break;
                 default:
                     UI.showEmpty('Section Not Found', `The section "${section}" is not available.`);
             }

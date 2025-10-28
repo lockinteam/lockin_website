@@ -2236,9 +2236,7 @@ python3 tests/test_admin_courses.py
 
 ## Admin Papers Management Endpoints
 
-Papers are components of courses that organize topics. Each paper belongs to one course and can contain multiple topics. Papers have optional code and percentage_of_grade fields.
-
-**Important**: Papers use HARD DELETE with CASCADE - deleting a paper will permanently delete all associated topics.
+Papers are components of courses that organize topics. Each paper belongs to one course and can contain multiple topics. Papers have optional code and percentage_of_grade fields. Papers use **soft delete** (can be reactivated) with CASCADE to topics.
 
 ### 1. List Papers by Course
 
@@ -2250,7 +2248,8 @@ List all papers for a specific course with topic counts.
 ```json
 {
   "token": "admin_session_token",
-  "course_id": "uuid-of-course"
+  "course_id": "uuid-of-course",
+  "include_inactive": false
 }
 ```
 
@@ -2274,6 +2273,7 @@ List all papers for a specific course with topic counts.
         "name": "Paper 1",
         "code": "P1",
         "percentage_of_grade": 50.0,
+        "is_active": true,
         "topics_count": 12,
         "created_at": "2024-01-15T10:30:00",
         "added_by_user_id": "uuid"
@@ -2284,6 +2284,7 @@ List all papers for a specific course with topic counts.
         "name": "Paper 2",
         "code": "P2",
         "percentage_of_grade": 50.0,
+        "is_active": true,
         "topics_count": 10,
         "created_at": "2024-01-15T10:31:00",
         "added_by_user_id": "uuid"
@@ -2293,8 +2294,14 @@ List all papers for a specific course with topic counts.
 }
 ```
 
+**Parameters**:
+- `token` (required): Admin session token
+- `course_id` (required): UUID of the course
+- `include_inactive` (optional, default: false): Include soft-deleted papers in results
+
 **JavaScript Example**:
 ```javascript
+// Get only active papers (default)
 const response = await fetch(`${baseUrl}/admin/papers`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -2304,12 +2311,24 @@ const response = await fetch(`${baseUrl}/admin/papers`, {
   })
 });
 
-const data = await response.json();
+// Get all papers including soft-deleted
+const responseAll = await fetch(`${baseUrl}/admin/papers`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    course_id: courseId,
+    include_inactive: true
+  })
+});
+
+const data = await responseAll.json();
 if (data.success) {
   console.log(`Course: ${data.data.course.title}`);
   console.log(`Papers: ${data.data.papers.length}`);
   data.data.papers.forEach(paper => {
-    console.log(`- ${paper.name} (${paper.topics_count} topics)`);
+    const status = paper.is_active ? '✓' : '✗ (inactive)';
+    console.log(`- ${paper.name} (${paper.topics_count} topics) ${status}`);
   });
 }
 ```
@@ -2658,7 +2677,7 @@ console.log(data2.message); // "Paper permanently removed from database"
 
 ### Papers Management Tests
 
-**Test Coverage** (12/12 passing):
+**Test Coverage** (23/23 passing):
 - ✅ Authentication & authorization
 - ✅ Create paper with required fields only
 - ✅ Create paper with all optional fields
@@ -2670,12 +2689,22 @@ console.log(data2.message); // "Paper permanently removed from database"
 - ✅ Update paper name
 - ✅ Update all paper fields including is_active
 - ✅ Duplicate name prevention on update
-- ✅ Two-stage delete (soft then permanent with CASCADE)
-- ✅ CASCADE deletion of topics verified
+- ✅ Soft delete paper (Stage 1)
+- ✅ Soft delete sets is_active = false
+- ✅ Soft delete filters from list endpoint
+- ✅ Permanent delete paper (Stage 2)
+- ✅ Permanent delete removes from database
+- ✅ Permanent delete cascades to topics
+- ✅ Delete already-deleted paper returns 404
+- ✅ Reactivate soft-deleted paper via update
+- ✅ Two-stage delete workflow complete cycle
+- ✅ Reactivation prevents cascade deletion
+- ✅ Papers maintain creation order across CRUD
+- ✅ Permission levels (Admin vs Owner)
 
 **Run Tests**:
 ```bash
-python3 tests/test_admin_papers.py
+python3 tests/test_admin_papers_is_active.py
 ```
 
 ---
@@ -3024,6 +3053,498 @@ python3 tests/test_admin_topics.py
 
 ---
 
+## Questions Management
+
+Questions are quiz items within topics with multiple choice options. Questions use **soft delete** (can be reactivated). Each question has an associated set of options.
+
+### 1. List Questions
+
+**Endpoint**: `POST /admin/questions`
+
+**Auth**: Admin or Owner
+
+**Description**: List all questions for a specific topic, including soft-deleted questions if requested.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "topic_id": "uuid",
+  "include_inactive": false  // Optional: include soft-deleted questions
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Retrieved 8 questions for topic 'Algebra'",
+  "data": {
+    "topic": {
+      "id": "uuid",
+      "paper_id": "uuid",
+      "name": "Algebra",
+      "sort_order": 1,
+      "is_active": true
+    },
+    "questions": [
+      {
+        "id": "uuid",
+        "topic_id": "uuid",
+        "question_text": "What is 2 + 2?",
+        "sort_order": 1,
+        "is_active": true,
+        "created_at": "2025-01-01T12:00:00.000000",
+        "added_by_user_id": "uuid",
+        "options": [
+          {
+            "id": "uuid",
+            "question_id": "uuid",
+            "option_text": "3",
+            "sort_order": 1,
+            "is_correct": false
+          },
+          {
+            "id": "uuid",
+            "question_id": "uuid",
+            "option_text": "4",
+            "sort_order": 2,
+            "is_correct": true
+          }
+        ],
+        "option_count": 2
+      }
+    ],
+    "count": 8
+  }
+}
+```
+
+**Database Optimization**: 2 trips
+- Verify topic exists with paper context (1 query with JOINs)
+- Get questions with options aggregated as JSON (1 query with JSON_AGG)
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${backend_url}/admin/questions`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    topic_id: topicId,
+    include_inactive: false
+  })
+});
+const data = await response.json();
+```
+
+---
+
+### 2. Get Single Question
+
+**Endpoint**: `POST /admin/questions/get`
+
+**Auth**: Admin or Owner
+
+**Description**: Get a single question with all associated options and topic context.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "question_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Question retrieved successfully",
+  "data": {
+    "question": {
+      "id": "uuid",
+      "topic_id": "uuid",
+      "question_text": "What is the square root of 16?",
+      "sort_order": 1,
+      "is_active": true,
+      "created_at": "2025-01-01T12:00:00.000000",
+      "added_by_user_id": "uuid",
+      "topic_name": "Algebra",
+      "paper_name": "Paper 1",
+      "options": [
+        {
+          "id": "uuid",
+          "question_id": "uuid",
+          "option_text": "2",
+          "sort_order": 1,
+          "is_correct": false
+        },
+        {
+          "id": "uuid",
+          "question_id": "uuid",
+          "option_text": "4",
+          "sort_order": 2,
+          "is_correct": true
+        }
+      ]
+    }
+  }
+}
+```
+
+**Error Responses**:
+- 404 Not Found - Question doesn't exist or is permanently deleted
+
+**Database Optimization**: 1 trip
+- Single query with JOINs to topic, paper and aggregated options
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${backend_url}/admin/questions/get`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    question_id: questionId
+  })
+});
+const data = await response.json();
+```
+
+---
+
+### 3. Create Question
+
+**Endpoint**: `POST /admin/questions/create`
+
+**Auth**: Admin or Owner
+
+**Description**: Create a new question within a topic with options. Requires at least 2 options, exactly 1 marked as correct.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "topic_id": "uuid",
+  "question_text": "What is the derivative of x²?",
+  "sort_order": 5,
+  "options": [
+    {
+      "option_text": "x",
+      "sort_order": 1,
+      "is_correct": false
+    },
+    {
+      "option_text": "2x",
+      "sort_order": 2,
+      "is_correct": true
+    },
+    {
+      "option_text": "x³/3",
+      "sort_order": 3,
+      "is_correct": false
+    }
+  ]
+}
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Question created successfully",
+  "data": {
+    "question_id": "uuid",
+    "question_text": "What is the derivative of x²?",
+    "sort_order": 5,
+    "is_active": true,
+    "topic_id": "uuid",
+    "added_by_user_id": "uuid",
+    "option_count": 3,
+    "options": [
+      {
+        "id": "uuid",
+        "option_text": "x",
+        "sort_order": 1,
+        "is_correct": false
+      },
+      {
+        "id": "uuid",
+        "option_text": "2x",
+        "sort_order": 2,
+        "is_correct": true
+      },
+      {
+        "id": "uuid",
+        "option_text": "x³/3",
+        "sort_order": 3,
+        "is_correct": false
+      }
+    ]
+  }
+}
+```
+
+**Validation Rules**:
+- `question_text` is required and non-empty
+- `topic_id` must be valid and active
+- `options` array must have 2-10 items
+- Exactly 1 option must have `is_correct: true`
+- Option text must be non-empty and unique within question
+- `sort_order` must be positive integer (optional, auto-assigned if omitted)
+
+**Error Responses**:
+- 400 Bad Request - Missing required fields or validation failed
+- 404 Not Found - Topic doesn't exist
+
+**Database Optimization**: 3 trips
+- Verify topic exists (1 query)
+- Create question (1 INSERT with RETURNING)
+- Create all options (1 INSERT with multiple rows)
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${backend_url}/admin/questions/create`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    topic_id: topicId,
+    question_text: "What is 5 × 6?",
+    sort_order: 3,
+    options: [
+      { option_text: "25", sort_order: 1, is_correct: false },
+      { option_text: "30", sort_order: 2, is_correct: true },
+      { option_text: "35", sort_order: 3, is_correct: false }
+    ]
+  })
+});
+const data = await response.json();
+```
+
+---
+
+### 4. Update Question
+
+**Endpoint**: `POST /admin/questions/update`
+
+**Auth**: Admin or Owner
+
+**Description**: Update question text, sort order, or is_active status. Cannot modify options directly (must be deleted and recreated).
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "question_id": "uuid",
+  "question_text": "Updated question text?",  // Optional
+  "sort_order": 2,                         // Optional
+  "is_active": true                        // Optional
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Question updated successfully",
+  "data": {
+    "question_id": "uuid",
+    "question_text": "Updated question text?",
+    "sort_order": 2,
+    "is_active": true,
+    "updated_at": "2025-01-15T10:30:00.000000",
+    "options": [
+      {
+        "id": "uuid",
+        "option_text": "Option A",
+        "sort_order": 1,
+        "is_correct": true
+      }
+    ]
+  }
+}
+```
+
+**Validation Rules**:
+- At least one field must be provided for update
+- `question_text` must be non-empty if provided
+- `sort_order` must be positive integer if provided
+- Cannot reactivate if topic is inactive
+- At least one option must still have `is_correct: true`
+
+**Error Responses**:
+- 400 Bad Request - No update fields provided or validation failed
+- 404 Not Found - Question doesn't exist
+
+**Database Optimization**: 3-5 trips (variable)
+- Verify question exists (1 query)
+- Update question (1 UPDATE with RETURNING)
+- Get updated question with options (1 query)
+- Optional: Verify inactive topic state (1 query if checking topic)
+- Optional: Additional validation queries (1 query)
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${backend_url}/admin/questions/update`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    question_id: questionId,
+    question_text: "What is the capital of France?",
+    sort_order: 1
+  })
+});
+const data = await response.json();
+```
+
+---
+
+### 5. Delete Question
+
+**Endpoint**: `POST /admin/questions/delete`
+
+**Auth**: Admin or Owner
+
+**Description**: Delete a question (soft or permanent delete). Uses **two-stage delete** pattern:
+- **Stage 1** (First call): Soft delete - sets `is_active = false`
+- **Stage 2** (Second call): Permanent delete - removes from database
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "question_id": "uuid"
+}
+```
+
+**Success Response - Stage 1 (Soft Delete)** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Question marked for deletion. Call again to permanently delete.",
+  "data": {
+    "question_id": "uuid",
+    "is_active": false,
+    "warning": "This question is now hidden from users. Call this endpoint again to permanently remove from database. Warning: This will CASCADE to delete all options. To reactivate, use the update endpoint with is_active: true."
+  }
+}
+```
+
+**Success Response - Stage 2 (Permanent Delete)** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Question permanently deleted from database",
+  "data": {
+    "question_id": "uuid",
+    "deleted": true
+  }
+}
+```
+
+**Error Responses**:
+- 404 Not Found - After permanent delete, attempting another delete
+- 401 Unauthorized - Insufficient permissions
+
+**Implementation Notes**:
+- **Two-stage delete** - requires two explicit calls
+- **First call**: Sets `is_active = false` (soft delete)
+- **Second call**: Permanently deletes record from database
+- **⚠️ CASCADE WARNING**: Permanent delete cascades to all options
+- Can be reactivated after soft delete using update endpoint
+
+**Database Optimization**: 1 trip per call
+- Single UPDATE...RETURNING query with WHERE clause
+
+**JavaScript Example**:
+```javascript
+// Stage 1: Soft Delete
+const response1 = await fetch(`${backend_url}/admin/questions/delete`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    question_id: questionId
+  })
+});
+const data1 = await response1.json();
+console.log(data1.message); // "Question marked for deletion. Call again to permanently delete."
+
+// Stage 2: Permanent Delete (call same endpoint again)
+const response2 = await fetch(`${backend_url}/admin/questions/delete`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    question_id: questionId
+  })
+});
+const data2 = await response2.json();
+console.log(data2.message); // "Question permanently deleted from database"
+```
+
+---
+
+### Questions Management Tests
+
+**Test Coverage** (48/48 passing):
+- ✅ Authentication & authorization
+- ✅ Create question with valid options
+- ✅ Validation: Question text required
+- ✅ Validation: At least 2 options required
+- ✅ Validation: Exactly 1 correct answer required
+- ✅ Validation: Option text must be unique
+- ✅ Validation: Invalid topic ID
+- ✅ Create question with various sort_order values
+- ✅ List all questions for topic
+- ✅ List with include_inactive parameter
+- ✅ List questions count accuracy
+- ✅ Get single question with all options
+- ✅ Get question with options in sort order
+- ✅ Update question text
+- ✅ Update sort order
+- ✅ Update is_active status (soft delete reactivation)
+- ✅ Update validation: non-empty question text
+- ✅ Update validation: positive sort order
+- ✅ Get non-existent question (404)
+- ✅ Soft delete question (Stage 1)
+- ✅ Soft delete marks is_active = false
+- ✅ Soft delete filters from list endpoint
+- ✅ Permanent delete question (Stage 2)
+- ✅ Permanent delete removes from database
+- ✅ Permanent delete cascades to options
+- ✅ Delete already-deleted question returns 404
+- ✅ Reactivate soft-deleted question via update
+- ✅ Two-stage delete workflow complete cycle
+- ✅ Questions maintain sort order across CRUD
+- ✅ Options maintain correct sort order
+- ✅ Multiple questions per topic
+- ✅ Multiple options per question
+- ✅ Concurrent create/update operations
+- ✅ Large option sets (10 options)
+- ✅ Unicode text in questions and options
+- ✅ Empty string validation
+- ✅ Duplicate question text allowed
+- ✅ Case sensitivity in validation
+- ✅ Whitespace handling in text fields
+- ✅ Sort order conflicts and resolution
+- ✅ Transaction isolation for create
+- ✅ Transaction rollback on validation failure
+- ✅ Permission levels (Admin vs Owner)
+- ✅ Delete cascade with topic deactivation
+- ✅ Reactivate options with reactivated question
+- ✅ Two-stage delete prevents accidental loss
+
+**Run Tests**:
+```bash
+python3 tests/test_admin_questions.py
+```
+
+---
+
 ## Notes Management
 
 Admin endpoints for managing notes content within topics. Notes contain the primary text content for learning materials.
@@ -3034,13 +3555,14 @@ Admin endpoints for managing notes content within topics. Notes contain the prim
 
 **Auth**: Admin or Owner
 
-**Description**: Retrieve all notes for a specific topic, including inactive notes (unlike regular users who only see active notes).
+**Description**: Retrieve notes for a specific topic. By default, only active notes are returned. Set `include_inactive: true` to include soft-deleted notes.
 
 **Request Body**:
 ```json
 {
   "token": "session_token",
-  "topic_id": "uuid"
+  "topic_id": "uuid",
+  "include_inactive": false
 }
 ```
 
@@ -3070,10 +3592,15 @@ Admin endpoints for managing notes content within topics. Notes contain the prim
       }
     ],
     "notes_count": 2,
-    "active_notes_count": 1
+    "active_notes_count": 2
   }
 }
 ```
+
+**Parameters**:
+- `token` (required): Admin session token
+- `topic_id` (required): UUID of the topic
+- `include_inactive` (optional, default: false): Include soft-deleted notes in results
 
 **Error Responses**:
 - `400 Bad Request`: Missing required fields
@@ -3081,9 +3608,37 @@ Admin endpoints for managing notes content within topics. Notes contain the prim
 - `404 Not Found`: Topic not found
 - `500 Internal Server Error`: Database error
 
+**JavaScript Example**:
+```javascript
+// Get only active notes (default)
+const response = await fetch(`${baseUrl}/admin/notes`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    topic_id: topicId
+  })
+});
+
+// Get all notes including soft-deleted
+const responseAll = await fetch(`${baseUrl}/admin/notes`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    topic_id: topicId,
+    include_inactive: true
+  })
+});
+
+const data = await responseAll.json();
+console.log(`Total notes: ${data.data.notes_count}`);
+console.log(`Active notes: ${data.data.active_notes_count}`);
+```
+
 **Database Optimization**: 2 trips
 - Query 1: Get topic with course/paper context
-- Query 2: Get all notes for topic (ordered by created_at DESC)
+- Query 2: Get notes for topic (filtered by include_inactive, ordered by created_at DESC)
 
 ---
 
@@ -4024,12 +4579,12 @@ The following admin endpoints are planned for future implementation:
 - ✅ Years (4 endpoints) - COMPLETE
 - ✅ Subjects (4 endpoints) - COMPLETE
 - ✅ Courses (5 endpoints) - COMPLETE
-- ✅ Papers (5 endpoints) - COMPLETE
+- ✅ Papers (5 endpoints) - COMPLETE with is_active field
 - ✅ Topics (5 endpoints) - COMPLETE
+- ✅ Questions (5 endpoints) - COMPLETE
 - ✅ Notes (4 endpoints) - COMPLETE
 - ✅ Podcasts (4 endpoints) - COMPLETE
 - ✅ Past Papers (4 endpoints) - COMPLETE
-- ⏳ Questions (5 endpoints) - PLANNED
 
 ### Analytics
 - Stats Overview (dashboard metrics)

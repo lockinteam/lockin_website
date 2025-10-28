@@ -14,6 +14,10 @@ const AppState = {
     courses: [],
     papers: [],
     topics: [],
+    notes: [],
+    podcasts: [],
+    pastPapers: [],
+    questions: [],
     
     // Section-specific filters (not shared between sections)
     filters: {
@@ -27,6 +31,25 @@ const AppState = {
         topics: {
             courseId: null,
             paperId: null
+        },
+        notes: {
+            courseId: null,
+            paperId: null,
+            topicId: null
+        },
+        podcasts: {
+            courseId: null,
+            paperId: null,
+            topicId: null
+        },
+        pastPapers: {
+            courseId: null,
+            paperId: null
+        },
+        questions: {
+            courseId: null,
+            paperId: null,
+            topicId: null
         }
     },
     
@@ -96,6 +119,22 @@ const AppState = {
         this.topics = topics || [];
     },
     
+    setNotes(notes) {
+        this.notes = notes || [];
+    },
+    
+    setPodcasts(podcasts) {
+        this.podcasts = podcasts || [];
+    },
+    
+    setPastPapers(pastPapers) {
+        this.pastPapers = pastPapers || [];
+    },
+    
+    setQuestions(questions) {
+        this.questions = questions || [];
+    },
+    
     // Section-specific filter management
     setCoursesYearFilter(yearId) {
         this.filters.courses.yearId = yearId;
@@ -119,6 +158,64 @@ const AppState = {
         this.filters.topics.paperId = paperId;
     },
     
+    // Notes filter setters
+    setNotesCourseFilter(courseId) {
+        this.filters.notes.courseId = courseId;
+        this.filters.notes.paperId = null;
+        this.filters.notes.topicId = null;
+    },
+    
+    setNotesPaperFilter(paperId) {
+        this.filters.notes.paperId = paperId;
+        this.filters.notes.topicId = null;
+    },
+    
+    setNotesTopicFilter(topicId) {
+        this.filters.notes.topicId = topicId;
+    },
+    
+    // Podcasts filter setters
+    setPodcastsCourseFilter(courseId) {
+        this.filters.podcasts.courseId = courseId;
+        this.filters.podcasts.paperId = null;
+        this.filters.podcasts.topicId = null;
+    },
+    
+    setPodcastsPaperFilter(paperId) {
+        this.filters.podcasts.paperId = paperId;
+        this.filters.podcasts.topicId = null;
+    },
+    
+    setPodcastsTopicFilter(topicId) {
+        this.filters.podcasts.topicId = topicId;
+    },
+    
+    // Past Papers filter setters
+    setPastPapersCourseFilter(courseId) {
+        this.filters.pastPapers.courseId = courseId;
+        this.filters.pastPapers.paperId = null;
+    },
+    
+    setPastPapersPaperFilter(paperId) {
+        this.filters.pastPapers.paperId = paperId;
+    },
+    
+    // Questions filter setters
+    setQuestionsCourseFilter(courseId) {
+        this.filters.questions.courseId = courseId;
+        this.filters.questions.paperId = null;
+        this.filters.questions.topicId = null;
+    },
+    
+    setQuestionsPaperFilter(paperId) {
+        this.filters.questions.paperId = paperId;
+        this.filters.questions.topicId = null;
+    },
+    
+    setQuestionsTopicFilter(topicId) {
+        this.filters.questions.topicId = topicId;
+    },
+    
     // Find helpers
     findYearById(id) {
         return this.years.find(y => y.id === id);
@@ -140,6 +237,22 @@ const AppState = {
         return this.topics.find(t => t.id === id);
     },
     
+    findNoteById(id) {
+        return this.notes.find(n => n.id === id);
+    },
+    
+    findPodcastById(id) {
+        return this.podcasts.find(p => p.id === id);
+    },
+    
+    findPastPaperById(id) {
+        return this.pastPapers.find(pp => pp.id === id);
+    },
+    
+    findQuestionById(id) {
+        return this.questions.find(q => q.id === id);
+    },
+    
     // Reset
     reset() {
         this.token = null;
@@ -149,10 +262,18 @@ const AppState = {
         this.courses = [];
         this.papers = [];
         this.topics = [];
+        this.notes = [];
+        this.podcasts = [];
+        this.pastPapers = [];
+        this.questions = [];
         this.filters = {
             courses: { yearId: null, subjectId: null },
             papers: { courseId: null },
-            topics: { courseId: null, paperId: null }
+            topics: { courseId: null, paperId: null },
+            notes: { courseId: null, paperId: null, topicId: null },
+            podcasts: { courseId: null, paperId: null, topicId: null },
+            pastPapers: { courseId: null, paperId: null },
+            questions: { courseId: null, paperId: null, topicId: null }
         };
     }
 };

@@ -153,5 +153,87 @@ const API = {
     
     async deleteTopic(topicId) {
         return this.request('/admin/topics/delete', 'DELETE', { topic_id: topicId });
+    },
+    
+    // Notes
+    async getNotes(topicId, includeInactive = false) {
+        return this.request('/admin/notes', 'POST', { topic_id: topicId, include_inactive: includeInactive });
+    },
+    
+    async createNote(topicId, content) {
+        return this.request('/admin/notes/create', 'POST', { topic_id: topicId, content });
+    },
+    
+    async updateNote(notesId, updates) {
+        return this.request('/admin/notes/update', 'PUT', { notes_id: notesId, ...updates });
+    },
+    
+    async deleteNote(notesId) {
+        return this.request('/admin/notes/delete', 'DELETE', { notes_id: notesId });
+    },
+    
+    // Questions
+    async getQuestions(topicId, includeInactive = false) {
+        return this.request('/admin/questions', 'POST', { topic_id: topicId, include_inactive: includeInactive });
+    },
+    
+    async getQuestion(questionId) {
+        return this.request('/admin/questions/get', 'POST', { question_id: questionId });
+    },
+    
+    async createQuestion(topicId, questionText, sortOrder, options) {
+        return this.request('/admin/questions/create', 'POST', { 
+            topic_id: topicId, 
+            question_text: questionText, 
+            sort_order: sortOrder,
+            options 
+        });
+    },
+    
+    async updateQuestion(questionId, updates) {
+        return this.request('/admin/questions/update', 'POST', { question_id: questionId, ...updates });
+    },
+    
+    async deleteQuestion(questionId) {
+        return this.request('/admin/questions/delete', 'POST', { question_id: questionId });
+    },
+    
+    // Podcasts
+    async getPodcasts(topicId) {
+        return this.request('/admin/podcasts', 'POST', { topic_id: topicId });
+    },
+    
+    async createPodcast(topicId, name, url, lengthSeconds = null, fileSize = null) {
+        const body = { topic_id: topicId, name, url };
+        if (lengthSeconds !== null) body.length_seconds = lengthSeconds;
+        if (fileSize !== null) body.file_size = fileSize;
+        return this.request('/admin/podcasts/create', 'POST', body);
+    },
+    
+    async updatePodcast(podcastId, updates) {
+        return this.request('/admin/podcasts/update', 'PUT', { podcast_id: podcastId, ...updates });
+    },
+    
+    async deletePodcast(podcastId) {
+        return this.request('/admin/podcasts/delete', 'DELETE', { podcast_id: podcastId });
+    },
+    
+    // Past Papers
+    async getPastPapers(paperId) {
+        return this.request('/admin/past_papers', 'POST', { paper_id: paperId });
+    },
+    
+    async createPastPaper(paperId, year, url, fileSize = null) {
+        const body = { paper_id: paperId, year, url };
+        if (fileSize !== null) body.file_size = fileSize;
+        return this.request('/admin/past_papers/create', 'POST', body);
+    },
+    
+    async updatePastPaper(pastPaperId, updates) {
+        return this.request('/admin/past_papers/update', 'PUT', { past_paper_id: pastPaperId, ...updates });
+    },
+    
+    async deletePastPaper(pastPaperId) {
+        return this.request('/admin/past_papers/delete', 'DELETE', { past_paper_id: pastPaperId });
     }
 };
