@@ -181,10 +181,10 @@ const API = {
         return this.request('/admin/questions/get', 'POST', { question_id: questionId });
     },
     
-    async createQuestion(topicId, questionText, sortOrder, options) {
+    async createQuestion(topicId, title, sortOrder, options) {
         return this.request('/admin/questions/create', 'POST', { 
             topic_id: topicId, 
-            question_text: questionText, 
+            title: title, 
             sort_order: sortOrder,
             options 
         });
@@ -195,7 +195,7 @@ const API = {
     },
     
     async deleteQuestion(questionId) {
-        return this.request('/admin/questions/delete', 'POST', { question_id: questionId });
+        return this.request('/admin/questions/delete', 'DELETE', { question_id: questionId });
     },
     
     // Podcasts

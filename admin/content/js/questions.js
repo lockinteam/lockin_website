@@ -182,7 +182,7 @@ const QuestionsSection = {
         let filteredQuestions = questions;
         if (this.searchQuery) {
             filteredQuestions = questions.filter(q => 
-                q.question_text.toLowerCase().includes(this.searchQuery.toLowerCase())
+                q.title.toLowerCase().includes(this.searchQuery.toLowerCase())
             );
         }
         
@@ -270,12 +270,12 @@ const QuestionsSection = {
     renderQuestionCard(question) {
         const badgeClass = question.is_active ? 'badge-active' : 'badge-inactive';
         const badgeText = question.is_active ? 'Active' : 'Inactive';
-        const correctAnswer = question.options?.find(o => o.is_correct)?.option_text || 'None';
+        const correctAnswer = question.options?.find(o => o.is_correct)?.text || 'None';
         
         return `
             <div class="content-card">
                 <div class="card-header">
-                    <h3 class="card-title">${UI.escapeHtml(question.question_text)}</h3>
+                    <h3 class="card-title">${UI.escapeHtml(question.title)}</h3>
                     <span class="card-badge ${badgeClass}">${badgeText}</span>
                 </div>
                 <div class="card-meta">
@@ -354,7 +354,7 @@ const QuestionsSection = {
         
         const formHTML = `
             <form id="createQuestionForm" class="modal-form" onsubmit="QuestionsSection.handleCreate(event)">
-                ${UI.createFormRow('Question Text', UI.createTextInput('questionText', '', 'What is 2 + 2?', true))}
+                ${UI.createFormRow('Question Title', UI.createTextInput('questionTitle', '', 'What is 2 + 2?', true))}
                 ${UI.createFormRow('Sort Order', UI.createNumberInput('questionSortOrder', '', '0', 0))}
                 <div style="margin-top: 1.5rem; margin-bottom: 1rem;">
                     <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Options (2-10 required, mark 1 as correct):</label>
@@ -402,7 +402,7 @@ const QuestionsSection = {
             
             const formHTML = `
                 <form id="editQuestionForm" class="modal-form" onsubmit="QuestionsSection.handleUpdate(event, '${questionId}')">
-                    ${UI.createFormRow('Question Text', UI.createTextInput('questionText', question.question_text, '', true))}
+                    ${UI.createFormRow('Question Title', UI.createTextInput('questionTitle', question.title, '', true))}
                     ${UI.createFormRow('Sort Order', UI.createNumberInput('questionSortOrder', question.sort_order, '', 0))}
                     ${UI.createFormRow(
                         'Status',
@@ -413,7 +413,7 @@ const QuestionsSection = {
                     )}
                     <div style="margin-top: 1rem;">
                         <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Current Options:</label>
-                        ${question.options.map(opt => `<div style="padding: 0.5rem; background: #f5f5f5; margin-bottom: 0.5rem; border-radius: 4px;">${UI.escapeHtml(opt.option_text)} ${opt.is_correct ? '✓ (Correct)' : ''}</div>`).join('')}
+                        ${question.options.map(opt => `<div style="padding: 0.5rem; background: #f5f5f5; margin-bottom: 0.5rem; border-radius: 4px;">${UI.escapeHtml(opt.text)} ${opt.is_correct ? '✓ (Correct)' : ''}</div>`).join('')}
                         <p style="color: var(--color-grey-text); font-size: 0.85rem; margin-top: 0.5rem;">Note: To modify options, delete and recreate the question.</p>
                     </div>
                     ${UI.createModalActions('UI.closeModal()', null, 'Update Question')}
@@ -429,7 +429,7 @@ const QuestionsSection = {
     async handleCreate(event) {
         event.preventDefault();
         
-        const questionText = document.getElementById('questionText').value.trim();
+        const title = document.getElementById('questionTitle').value.trim();
         const sortOrder = parseInt(document.getElementById('questionSortOrder').value) || 0;
         
         // Collect options
@@ -447,15 +447,14 @@ const QuestionsSection = {
             const text = input.value.trim();
             if (text) {
                 options.push({
-                    option_text: text,
-                    sort_order: index + 1,
+                    text: text,
                     is_correct: index === correctIndex
                 });
             }
         });
         
-        if (!questionText) {
-            UI.showToast('Question text is required', 'error');
+        if (!title) {
+            UI.showToast('Question title is required', 'error');
             return;
         }
         
@@ -465,7 +464,7 @@ const QuestionsSection = {
         }
         
         try {
-            await API.createQuestion(AppState.filters.questions.topicId, questionText, sortOrder, options);
+            await API.createQuestion(AppState.filters.questions.topicId, title, sortOrder, options);
             UI.closeModal();
             UI.showToast('Question created successfully', 'success');
             await this.load();
@@ -477,17 +476,17 @@ const QuestionsSection = {
     async handleUpdate(event, questionId) {
         event.preventDefault();
         
-        const questionText = document.getElementById('questionText').value.trim();
+        const title = document.getElementById('questionTitle').value.trim();
         const sortOrder = parseInt(document.getElementById('questionSortOrder').value) || 0;
         const isActive = document.getElementById('questionStatus').value === 'true';
         
-        if (!questionText) {
-            UI.showToast('Question text is required', 'error');
+        if (!title) {
+            UI.showToast('Question title is required', 'error');
             return;
         }
         
         try {
-            await API.updateQuestion(questionId, { question_text: questionText, sort_order: sortOrder, is_active: isActive });
+            await API.updateQuestion(questionId, { title: title, sort_order: sortOrder, is_active: isActive });
             UI.closeModal();
             UI.showToast('Question updated successfully', 'success');
             await this.load();
