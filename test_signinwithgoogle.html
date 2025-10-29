@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Sign-In Test</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <h1>Google Sign-In Test</h1>
+    
+    <div id="g_id_onload"
+         data-client_id="233104118674-5kh7foe3odd1b0qcqrvps8ckuds6rdla.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse">
+    </div>
+    <div class="g_id_signin" data-type="standard"></div>
+
+    <div id="result" style="margin-top: 20px; padding: 10px; background: #f0f0f0;"></div>
+
+    <script>
+        function handleCredentialResponse(response) {
+            console.log("Encoded JWT ID token: " + response.credential);
+            
+            // Show token
+            document.getElementById('result').innerHTML = 
+                '<strong>ID Token:</strong><br><textarea style="width:100%; height:100px;">' + 
+                response.credential + '</textarea><br><button onclick="sendToBackend()">Send to Backend</button>';
+            
+            window.idToken = response.credential;
+        }
+
+        function sendToBackend() {
+            fetch('http://localhost:5000/auth/google_signin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    credential: window.idToken
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('result').innerHTML += 
+                    '<br><br><strong>Backend Response:</strong><br><pre>' + 
+                    JSON.stringify(data, null, 2) + '</pre>';
+                console.log('Backend response:', data);
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML += 
+                    '<br><br><strong>Error:</strong> ' + error;
+                console.error('Error:', error);
+            });
+        }
+    </script>
+</body>
+</html>
