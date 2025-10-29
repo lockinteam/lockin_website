@@ -3538,6 +3538,301 @@ console.log(data2.message); // "Question permanently deleted from database"
 
 ---
 
+### 6. Bulk Create Questions
+
+**Endpoint**: `POST /admin/questions/bulk_create`
+
+**Auth**: Admin or Owner
+
+**Description**: Create multiple questions for a single topic in one request. All questions and options are created in a single transaction for data integrity.
+
+**Request Body**:
+```json
+{
+  "token": "admin_token",
+  "topic_id": "uuid",
+  "questions": [
+    {
+      "title": "Question 1 text",
+      "sort_order": 1,
+      "options": [
+        {"text": "Option A", "is_correct": true},
+        {"text": "Option B", "is_correct": false}
+      ]
+    },
+    {
+      "title": "Question 2 text",
+      "sort_order": 2,
+      "options": [
+        {"text": "Option 1", "is_correct": false},
+        {"text": "Option 2", "is_correct": true},
+        {"text": "Option 3", "is_correct": false}
+      ]
+    }
+  ]
+}
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "3 questions created successfully with 7 total options",
+  "data": {
+    "questions": [
+      {
+        "id": "question-uuid-1",
+        "topic_id": "topic-uuid",
+        "title": "Question 1 text",
+        "sort_order": 1,
+        "is_active": true,
+        "created_at": "2025-10-29T10:00:00Z",
+        "added_by_user_id": "admin-uuid",
+        "options": [
+          {
+            "id": "option-uuid-1",
+            "text": "Option A",
+            "is_correct": true,
+            "created_at": "2025-10-29T10:00:00Z",
+            "added_by_user_id": "admin-uuid"
+          },
+          {
+            "id": "option-uuid-2",
+            "text": "Option B",
+            "is_correct": false,
+            "created_at": "2025-10-29T10:00:00Z",
+            "added_by_user_id": "admin-uuid"
+          }
+        ]
+      },
+      {
+        "id": "question-uuid-2",
+        "topic_id": "topic-uuid",
+        "title": "Question 2 text",
+        "sort_order": 2,
+        "is_active": true,
+        "created_at": "2025-10-29T10:00:00Z",
+        "added_by_user_id": "admin-uuid",
+        "options": [...]
+      }
+    ],
+    "count": 2,
+    "total_options": 5
+  }
+}
+```
+
+**Validation Rules**:
+- All questions must belong to the same `topic_id`
+- `questions` array must have at least 1 question
+- Each question must have:
+  - Non-empty `title`
+  - At least 2 options
+  - Exactly 1 option with `is_correct: true`
+  - `sort_order` must be integer (optional, defaults to 0)
+- Each option must have:
+  - Non-empty `text`
+  - `is_correct` boolean field
+- Topic must exist and be active
+
+**Error Responses**:
+- 400 Bad Request - Validation failed (see validation rules)
+- 404 Not Found - Topic doesn't exist
+- 403 Forbidden - Not admin or owner
+
+**Database Optimization**: **3 trips** (constant, regardless of number of questions)
+- Trip 1: Verify topic exists and is active
+- Trip 2: Batch INSERT all questions with RETURNING
+- Trip 3: Batch INSERT all options for all questions
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${backend_url}/admin/questions/bulk_create`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    token: sessionToken,
+    topic_id: topicId,
+    questions: [
+      {
+        title: "What is Python?",
+        sort_order: 1,
+        options: [
+          {text: "A programming language", is_correct: true},
+          {text: "A snake", is_correct: false},
+          {text: "A database", is_correct: false}
+        ]
+      },
+      {
+        title: "What is Flask?",
+        sort_order: 2,
+        options: [
+          {text: "A web framework", is_correct: true},
+          {text: "A database", is_correct: false}
+        ]
+      }
+    ]
+  })
+});
+const data = await response.json();
+console.log(`Created ${data.data.count} questions with ${data.data.total_options} options`);
+```
+
+**cURL Example**:
+```bash
+curl -X POST ${backend_url}/admin/questions/bulk_create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your_admin_token",
+    "topic_id": "topic-uuid",
+    "questions": [
+      {
+        "title": "Question 1",
+        "sort_order": 1,
+        "options": [
+          {"text": "Answer A", "is_correct": true},
+          {"text": "Answer B", "is_correct": false}
+        ]
+      },
+      {
+        "title": "Question 2",
+        "sort_order": 2,
+        "options": [
+          {"text": "Option 1", "is_correct": false},
+          {"text": "Option 2", "is_correct": true}
+        ]
+      }
+    ]
+  }'
+```
+
+---
+
+### 7. Bulk Delete Questions
+
+**Endpoint**: `DELETE /admin/questions/bulk_delete`
+
+**Auth**: Admin or Owner
+
+**Description**: Delete multiple questions at once. Uses **two-stage delete** pattern. **IMPORTANT**: All questions must have the same `is_active` state (all active OR all inactive).
+
+**Request Body**:
+```json
+{
+  "token": "admin_token",
+  "question_ids": ["uuid1", "uuid2", "uuid3"]
+}
+```
+
+**Success Response - Stage 1 (Soft Delete)** (200 OK):
+```json
+{
+  "success": true,
+  "message": "3 questions deactivated successfully",
+  "data": {
+    "question_ids": ["uuid1", "uuid2", "uuid3"],
+    "count": 3,
+    "is_active": false,
+    "note": "Call delete again with the same question_ids to permanently remove from database. Warning: This will CASCADE to all question options. To reactivate, use the update endpoint with is_active: true."
+  }
+}
+```
+
+**Success Response - Stage 2 (Permanent Delete)** (200 OK):
+```json
+{
+  "success": true,
+  "message": "3 questions permanently removed from database",
+  "data": {
+    "question_ids": ["uuid1", "uuid2", "uuid3"],
+    "count": 3,
+    "note": "Questions have been permanently deleted from the database. This action cannot be reversed. Associated question options were also removed (CASCADE)."
+  }
+}
+```
+
+**Validation Rules**:
+- `question_ids` array must have at least 1 ID
+- All questions must exist
+- **All questions must have the same `is_active` state**
+  - If mixed (some active, some inactive) → returns 400 error
+  - This ensures consistent bulk operations
+- Two-stage delete:
+  - Stage 1: All questions must be active → deactivates all
+  - Stage 2: All questions must be inactive → permanently deletes all
+
+**Error Responses**:
+- 400 Bad Request - Empty array, or mixed active/inactive states
+- 404 Not Found - One or more questions not found, or already permanently deleted
+- 403 Forbidden - Not admin or owner
+
+**Mixed State Error Example**:
+```json
+{
+  "success": false,
+  "message": "All questions must have the same is_active state. Found 2 active and 1 inactive questions. Please separate them into different requests."
+}
+```
+
+**Database Optimization**: **2 trips** (constant, regardless of number of questions)
+- Trip 1: Verify all questions exist and check their states
+- Trip 2: Batch UPDATE (soft delete) or Batch DELETE (permanent)
+
+**JavaScript Example**:
+```javascript
+// Stage 1: Soft delete (deactivate)
+const response1 = await fetch(`${backend_url}/admin/questions/bulk_delete`, {
+  method: 'DELETE',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    token: sessionToken,
+    question_ids: [questionId1, questionId2, questionId3]
+  })
+});
+const data1 = await response1.json();
+console.log(data1.message); // "3 questions deactivated successfully"
+
+// Stage 2: Permanent delete (call again with same IDs)
+const response2 = await fetch(`${backend_url}/admin/questions/bulk_delete`, {
+  method: 'DELETE',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    token: sessionToken,
+    question_ids: [questionId1, questionId2, questionId3]
+  })
+});
+const data2 = await response2.json();
+console.log(data2.message); // "3 questions permanently removed from database"
+```
+
+**cURL Example**:
+```bash
+# Stage 1: Soft delete
+curl -X DELETE ${backend_url}/admin/questions/bulk_delete \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your_admin_token",
+    "question_ids": ["uuid1", "uuid2", "uuid3"]
+  }'
+
+# Stage 2: Permanent delete (call again)
+curl -X DELETE ${backend_url}/admin/questions/bulk_delete \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your_admin_token",
+    "question_ids": ["uuid1", "uuid2", "uuid3"]
+  }'
+```
+
+**Important Notes**:
+- **Mixed States**: If you try to delete questions with mixed states (some active, some inactive), you'll get a 400 error. The frontend should prevent this, but the backend enforces it for safety.
+- **Consistent Operations**: This ensures you're always performing the same operation on all questions (deactivate all OR delete all permanently).
+- **Separation Required**: If you have 5 active and 3 inactive questions to delete, make two separate calls:
+  1. Bulk delete the 5 active ones (deactivate)
+  2. Bulk delete the 3 inactive ones (permanent delete)
+
+---
+
 ### Questions Management Tests
 
 **Test Coverage** (47/48 passing, 1 expected failure):
@@ -3573,11 +3868,28 @@ console.log(data2.message); // "Question permanently deleted from database"
 - ✅ Delete already-deleted question returns 404
 - ✅ Two-stage delete workflow complete cycle
 
+**Bulk Operations Test Coverage** (37/39 passing):
+- ✅ Bulk create 3 questions
+- ✅ Bulk create 5 more questions
+- ✅ All questions have correct structure
+- ✅ Validation: Empty questions array
+- ✅ Validation: Question with < 2 options
+- ✅ Validation: Question with no correct answer
+- ✅ Validation: Invalid topic_id
+- ✅ Bulk soft delete (Stage 1) - deactivate 3 questions
+- ✅ Bulk permanent delete (Stage 2) - remove 3 questions
+- ✅ Third delete returns 404
+- ✅ Mixed state validation - correctly rejects mixed states
+- ✅ Mixed state error message includes counts
+- ✅ Validation: Empty question_ids array
+- ✅ Validation: Non-existent question_ids
+
 **Note**: Test 4e (remove option) correctly fails with 400 because the API enforces a minimum of 2 options per question. This is expected validation behavior, not a bug.
 
 **Run Tests**:
 ```bash
 python3 tests/test_admin_questions.py
+python3 tests/test_admin_questions_bulk.py
 ```
 
 ---

@@ -198,6 +198,17 @@ const API = {
         return this.request('/admin/questions/delete', 'DELETE', { question_id: questionId });
     },
     
+    async bulkCreateQuestions(topicId, questions) {
+        return this.request('/admin/questions/bulk_create', 'POST', { 
+            topic_id: topicId, 
+            questions 
+        });
+    },
+    
+    async bulkDeleteQuestions(questionIds) {
+        return this.request('/admin/questions/bulk_delete', 'DELETE', { question_ids: questionIds });
+    },
+    
     // Podcasts
     async getPodcasts(topicId) {
         return this.request('/admin/podcasts', 'POST', { topic_id: topicId });

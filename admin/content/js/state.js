@@ -19,6 +19,9 @@ const AppState = {
     pastPapers: [],
     questions: [],
     
+    // Question selection state
+    selectedQuestionIds: [],
+    
     // Section-specific filters (not shared between sections)
     filters: {
         courses: {
@@ -132,7 +135,29 @@ const AppState = {
     },
     
     setQuestions(questions) {
-        this.questions = questions || [];
+        this.questions = questions;
+    },
+    
+    // Question selection management
+    toggleQuestionSelection(questionId) {
+        const index = this.selectedQuestionIds.indexOf(questionId);
+        if (index > -1) {
+            this.selectedQuestionIds.splice(index, 1);
+        } else {
+            this.selectedQuestionIds.push(questionId);
+        }
+    },
+    
+    selectAllQuestions(questionIds) {
+        this.selectedQuestionIds = [...questionIds];
+    },
+    
+    clearQuestionSelection() {
+        this.selectedQuestionIds = [];
+    },
+    
+    isQuestionSelected(questionId) {
+        return this.selectedQuestionIds.includes(questionId);
     },
     
     // Section-specific filter management
@@ -266,6 +291,7 @@ const AppState = {
         this.podcasts = [];
         this.pastPapers = [];
         this.questions = [];
+        this.selectedQuestionIds = [];
         this.filters = {
             courses: { yearId: null, subjectId: null },
             papers: { courseId: null },

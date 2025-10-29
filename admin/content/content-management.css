@@ -913,4 +913,332 @@
         max-width: calc(100% - 2rem);
         font-size: 0.9rem;
     }
+
+    /* Bulk action bar - mobile responsive */
+    .bulk-action-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .bulk-action-bar-text {
+        text-align: center;
+        font-size: 0.9rem;
+    }
+
+    .bulk-action-bar-buttons {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .bulk-action-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* Bulk Selection Styles */
+.selection-checkbox {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.content-card.selected {
+    border: 2px solid var(--color-primary-blue);
+    background: rgba(54, 120, 174, 0.05);
+}
+
+.content-card.selected .card-header {
+    padding-left: 2.5rem;
+}
+
+.bulk-action-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: linear-gradient(135deg, rgba(54, 120, 174, 0.95), rgba(83, 192, 184, 0.95));
+    backdrop-filter: blur(12px);
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 16px rgba(54, 120, 174, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: white;
+}
+
+.bulk-action-bar-text {
+    flex: 1;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.bulk-action-bar-buttons {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.bulk-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.25rem;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: white;
+    color: var(--color-primary-blue);
+}
+
+.bulk-action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.bulk-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.bulk-action-btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.bulk-action-btn.cancel {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+.bulk-action-btn.cancel:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+.bulk-action-btn.destructive {
+    background: #dc3545;
+    color: white;
+}
+
+.bulk-action-btn.destructive:hover {
+    background: #c82333;
+}
+
+.bulk-action-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* CSV Import Modal */
+.csv-preview {
+    max-height: 400px;
+    overflow-y: auto;
+    background: #f8f9fa;
+    border: 1px solid rgba(54, 120, 174, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.csv-question-preview {
+    background: white;
+    border-left: 3px solid var(--color-primary-blue);
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    border-radius: 4px;
+}
+
+.csv-question-preview strong {
+    color: var(--color-deep-blue);
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.csv-question-preview ul {
+    margin: 0.5rem 0 0 1.5rem;
+    list-style: none;
+    padding: 0;
+}
+
+.csv-question-preview li {
+    padding: 0.25rem 0;
+    color: var(--color-grey-text);
+}
+
+.csv-question-preview li.correct {
+    color: #28a745;
+    font-weight: 600;
+}
+
+.csv-question-preview li.correct::before {
+    content: "✓ ";
+}
+
+.csv-error {
+    background: #fff3cd;
+    border-left: 3px solid #ffc107;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    border-radius: 4px;
+    color: #856404;
+}
+
+.csv-help-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-primary-blue);
+    text-decoration: none;
+    font-weight: 600;
+    margin-top: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.csv-help-link:hover {
+    color: var(--color-deep-blue);
+    gap: 0.75rem;
+}
+
+.csv-help-link svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Option management buttons */
+.option-input {
+    padding: 0.65rem 0.75rem;
+    border: 1px solid rgba(54, 120, 174, 0.3);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.option-input:focus {
+    outline: none;
+    border-color: var(--color-primary-blue);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(54, 120, 174, 0.1);
+}
+
+.option-input::placeholder {
+    color: var(--color-grey-placeholder);
+}
+
+.option-add-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    justify-content: center;
+    padding: 0.75rem 1.25rem;
+    background: linear-gradient(135deg, rgba(54, 120, 174, 0.1), rgba(83, 192, 184, 0.1));
+    border: 2px solid rgba(54, 120, 174, 0.3);
+    color: var(--color-primary-blue);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.option-add-btn:hover {
+    background: linear-gradient(135deg, rgba(54, 120, 174, 0.2), rgba(83, 192, 184, 0.2));
+    border-color: var(--color-primary-blue);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(54, 120, 174, 0.2);
+}
+
+.option-add-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.option-remove-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    background: rgba(220, 53, 69, 0.1);
+    border: 2px solid rgba(220, 53, 69, 0.3);
+    color: #dc3545;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.option-remove-btn:hover {
+    background: rgba(220, 53, 69, 0.2);
+    border-color: #dc3545;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.2);
+    transform: scale(1.05);
+}
+
+.option-remove-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* CSV Drop Zone */
+.csv-drop-zone {
+    border: 2px dashed rgba(54, 120, 174, 0.3);
+    border-radius: 12px;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: rgba(54, 120, 174, 0.02);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.csv-drop-zone:hover {
+    border-color: var(--color-primary-blue);
+    background: rgba(54, 120, 174, 0.05);
+}
+
+.csv-drop-zone.drag-over {
+    border-color: var(--color-teal);
+    background: rgba(83, 192, 184, 0.1);
+    transform: scale(1.02);
+}
+
+.csv-drop-zone svg {
+    color: var(--color-primary-blue);
+    opacity: 0.6;
+}
+
+.csv-drop-zone-text {
+    font-size: 1rem;
+    color: var(--color-grey-text);
+}
+
+.csv-drop-zone-text strong {
+    color: var(--color-primary-blue);
+    font-weight: 600;
+}
+
+.csv-drop-zone-hint {
+    font-size: 0.85rem;
+    color: var(--color-grey-text);
+    opacity: 0.7;
 }
