@@ -343,7 +343,7 @@ const PodcastsSection = {
                 ${UI.createFormRow('Podcast Name', UI.createTextInput('podcastName', '', 'e.g., Introduction to Cell Biology', true))}
                 ${UI.createFormRow('URL', UI.createUrlInput('podcastUrl', '', 'https://storage.example.com/podcast.mp3'), 'Full URL to podcast file')}
                 ${UI.createFormRow('Duration (seconds)', UI.createNumberInput('podcastLength', '', '600', 0), 'Optional')}
-                ${UI.createFormRow('File Size (bytes)', UI.createNumberInput('podcastFileSize', '', '15728640', 0), 'Optional')}
+                ${UI.createFormRow('File Size (MB)', UI.createNumberInput('podcastFileSize', '', '15', 0), 'Optional')}
                 ${UI.createModalActions('UI.closeModal()', null, 'Create Podcast')}
             </form>
         `;
@@ -360,7 +360,7 @@ const PodcastsSection = {
                 ${UI.createFormRow('Podcast Name', UI.createTextInput('podcastName', podcast.name, '', true))}
                 ${UI.createFormRow('URL', UI.createUrlInput('podcastUrl', podcast.url, ''))}
                 ${UI.createFormRow('Duration (seconds)', UI.createNumberInput('podcastLength', podcast.length_seconds || '', '', 0))}
-                ${UI.createFormRow('File Size (bytes)', UI.createNumberInput('podcastFileSize', podcast.file_size || '', '', 0))}
+                ${UI.createFormRow('File Size (MB)', UI.createNumberInput('podcastFileSize', podcast.file_size ? (podcast.file_size / 1048576).toFixed(2) : '', '', 0))}
                 ${UI.createFormRow(
                     'Status',
                     UI.createSelect('podcastStatus', [
@@ -384,7 +384,7 @@ const PodcastsSection = {
         const fileSize = document.getElementById('podcastFileSize').value;
         
         const lengthValue = length ? parseInt(length) : null;
-        const fileSizeValue = fileSize ? parseInt(fileSize) : null;
+        const fileSizeValue = fileSize ? Math.round(parseFloat(fileSize) * 1048576) : null;
         
         if (!name || !url) {
             UI.showToast('Name and URL are required', 'error');
@@ -411,7 +411,7 @@ const PodcastsSection = {
         const isActive = document.getElementById('podcastStatus').value === 'true';
         
         const lengthValue = length ? parseInt(length) : null;
-        const fileSizeValue = fileSize ? parseInt(fileSize) : null;
+        const fileSizeValue = fileSize ? Math.round(parseFloat(fileSize) * 1048576) : null;
         
         if (!name || !url) {
             UI.showToast('Name and URL are required', 'error');
