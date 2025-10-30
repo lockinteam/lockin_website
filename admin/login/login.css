@@ -94,7 +94,6 @@
     width: 100%;
     text-align: center;
     position: relative;
-    margin: 1rem 0;
 }
 
 .divider::before {
@@ -104,24 +103,92 @@
     top: 50%;
     width: 100%;
     height: 1px;
-    background: rgba(255, 255, 255, 0.3);
+    background: linear-gradient(to right, transparent, rgba(54, 120, 174, 0.3), transparent);
 }
 
 .divider span {
     position: relative;
     display: inline-block;
-    padding: 0 1rem;
-    background: linear-gradient(to bottom right, #d4e4fc 0%, #b8d4f1 50%, #8db4e2 100%);
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    padding: 0.5rem 1.25rem;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    color: var(--color-primary-blue);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    border-radius: 20px;
+    border: 1px solid rgba(54, 120, 174, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.google-signin-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 0;
 }
 
 .g_id_signin {
-    display: flex;
+    display: inline-flex;
     justify-content: center;
-    margin: 0 auto;
+    transition: all 0.3s ease;
+}
+
+/* Style the Google button iframe container */
+.g_id_signin > div {
+    border-radius: 12px !important;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(54, 120, 174, 0.2) !important;
+    transition: all 0.3s ease;
+}
+
+.g_id_signin:hover > div {
+    box-shadow: 0 6px 20px rgba(54, 120, 174, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+/* Override Google's default button styling */
+.g_id_signin iframe {
+    border-radius: 12px !important;
+}
+
+.back-arrow-container {
+    position: absolute;
+    top: 2rem;
+    left: 2rem;
+    z-index: 100;
+}
+
+.back-arrow-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(54, 120, 174, 0.2);
+    border-radius: 50px;
+    text-decoration: none;
+    color: var(--color-deep-blue);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.back-arrow-pill:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: translateX(-4px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    border-color: var(--color-primary-blue);
+}
+
+.back-arrow-pill svg {
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+}
+
+.back-arrow-pill:hover svg {
+    opacity: 1;
 }
 
 .back-button {
@@ -182,6 +249,20 @@
     .login-container {
         padding: 2.5rem 1.5rem 4rem;
         gap: 1.5rem;
+    }
+
+    .back-arrow-container {
+        top: 1.25rem;
+        left: 1.25rem;
+    }
+
+    .back-arrow-pill {
+        width: 40px;
+        height: 40px;
+        margin: 1.25rem 0;
+        margin-top: 0;
+        width: 18px;
+        height: 18px;
     }
 
     .login-footer {

@@ -12,6 +12,14 @@
 </head>
 <body>
     <div class="login-container">
+        <div class="back-arrow-container">
+            <a href="/" class="back-arrow-pill">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </a>
+        </div>
         <div class="login-content">
             <div class="dashboard-title-section">
                 <h1 class="admin-title">Admin Portal</h1>
@@ -40,9 +48,9 @@
                  data-client_id="233104118674-jrqmv0eihmdnrpdkqlkssl6t93gknurk.apps.googleusercontent.com"
                  data-callback="handleCredentialResponse">
             </div>
-            <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="signin_with" data-shape="rectangular" data-logo_alignment="left"></div>
-
-            <a href="/" class="back-button">Back to main site</a>
+            <div class="google-signin-wrapper">
+                <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="signin_with" data-shape="rectangular" data-logo_alignment="left"></div>
+            </div>
         </div>
         
         <div class="login-footer">
