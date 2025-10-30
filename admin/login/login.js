@@ -7,6 +7,62 @@ if (token) {
     verifyExistingToken(token);
 }
 
+// Google Sign-In callback handler
+async function handleCredentialResponse(response) {
+    console.log("Google Sign-In credential received");
+    
+    const errorMessage = document.getElementById('errorMessage');
+    errorMessage.style.display = 'none';
+    
+    try {
+        // Send credential to backend
+        const backendResponse = await fetch(`${BACKEND_URL}/auth/google_signin`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                credential: response.credential
+            })
+        });
+
+        const data = await backendResponse.json();
+        console.log('Backend response:', data);
+        
+        if (data.success) {
+            // Check if user has admin or owner role
+            if (data.user.role === 'admin' || data.user.role === 'owner') {
+                // Store token and user info
+                sessionStorage.setItem('admin_token', data.token);
+                sessionStorage.setItem('admin_user', JSON.stringify(data.user));
+                
+                // Redirect to admin dashboard
+                window.location.href = '/admin/';
+            } else {
+                // User doesn't have sufficient permissions
+                errorMessage.textContent = 'Insufficient permissions. Admin or Owner role required.';
+                errorMessage.style.display = 'block';
+                
+                // Log them out from the backend
+                await fetch(`${BACKEND_URL}/auth/logout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: data.token })
+                });
+            }
+        } else {
+            // Sign-in failed
+            errorMessage.textContent = data.message || 'Google Sign-In failed. Please try again.';
+            errorMessage.style.display = 'block';
+        }
+    } catch (error) {
+        // Network or server error
+        errorMessage.textContent = 'Connection error during Google Sign-In. Please try again.';
+        errorMessage.style.display = 'block';
+        console.error('Google Sign-In error:', error);
+    }
+}
+
 async function verifyExistingToken(token) {
     try {
         const response = await fetch(`${BACKEND_URL}/auth/verify_token`, {
