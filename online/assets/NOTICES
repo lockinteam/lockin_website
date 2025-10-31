@@ -4949,7 +4949,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 flutter_lints
 google_identity_services_web
 google_sign_in
-google_sign_in_android
 google_sign_in_ios
 google_sign_in_platform_interface
 google_sign_in_web
@@ -9548,6 +9547,7 @@ FROM,OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE USE OR OTHER DEALINGS
 IN THE MATERIALS.
 --------------------------------------------------------------------------------
 google_fonts
+google_sign_in_android
 
 Copyright 2013 The Flutter Authors
 
