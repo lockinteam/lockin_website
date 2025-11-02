@@ -99,6 +99,12 @@ const UI = {
     closeModal() {
         if (!this.elements.modalOverlay || !this.elements.modalContent) return;
         
+        // Clean up fullscreen if active
+        if (typeof MarkdownEditor !== 'undefined' && MarkdownEditor.isFullscreen) {
+            document.body.style.overflow = '';
+            MarkdownEditor.isFullscreen = false;
+        }
+        
         this.elements.modalOverlay.hidden = true;
         this.elements.modalContent.innerHTML = '';
     },

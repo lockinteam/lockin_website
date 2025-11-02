@@ -259,9 +259,27 @@ const NotesSection = {
     },
     
     renderNoteCard(note) {
-        const preview = note.content.substring(0, 150) + (note.content.length > 150 ? '...' : '');
+        // Strip markdown formatting for preview
+        let preview = note.content
+            .replace(/[#*_~`>\[\]!]/g, '') // Remove markdown symbols
+            .replace(/\n+/g, ' ') // Replace newlines with spaces
+            .trim();
+        preview = preview.substring(0, 200) + (preview.length > 200 ? '...' : '');
+        
         const badgeClass = note.is_active ? 'badge-active' : 'badge-inactive';
         const badgeText = note.is_active ? 'Active' : 'Inactive';
+        
+        // Count markdown features for metadata
+        const hasImages = /!\[.*?\]\(.*?\)/.test(note.content);
+        const hasCode = /```[\s\S]*?```|`[^`]+`/.test(note.content);
+        const hasLists = /^[\s]*[-*+]\s|^\d+\.\s/m.test(note.content);
+        const hasTables = /\|.*\|/.test(note.content);
+        
+        const features = [];
+        if (hasImages) features.push('📷 Images');
+        if (hasCode) features.push('💻 Code');
+        if (hasLists) features.push('📝 Lists');
+        if (hasTables) features.push('📊 Tables');
         
         return `
             <div class="content-card">
@@ -272,6 +290,7 @@ const NotesSection = {
                 <div class="card-description">
                     ${UI.escapeHtml(preview)}
                 </div>
+                ${features.length > 0 ? `<div class="card-meta"><div class="meta-row"><span class="meta-label">Contains</span><span class="meta-value">${features.join(', ')}</span></div></div>` : ''}
                 <div class="card-meta">
                     <div class="meta-row">
                         <span class="meta-label">Length</span>
@@ -338,9 +357,14 @@ const NotesSection = {
             return;
         }
         
+        const editorId = 'note-create-editor';
         const formHTML = `
-            <form id="createNoteForm" class="modal-form" onsubmit="NotesSection.handleCreate(event)">
-                ${UI.createFormRow('Content', UI.createTextarea('noteContent', '', 'Enter detailed notes content...', 15), 'Markdown formatting supported')}
+            <form id="createNoteForm" class="modal-form" onsubmit="NotesSection.handleCreate(event, '${editorId}')">
+                <div class="form-row">
+                    <label>Content</label>
+                    ${MarkdownEditor.create('', 'Start typing your notes in markdown...')}
+                    <p class="form-hint">Use the toolbar for formatting or type markdown directly. Supports bold, italic, headers, lists, code, images, and more!</p>
+                </div>
                 ${UI.createModalActions('UI.closeModal()', null, 'Create Notes')}
             </form>
         `;
@@ -352,9 +376,14 @@ const NotesSection = {
         const note = AppState.findNoteById(noteId);
         if (!note) return;
         
+        const editorId = 'note-edit-editor';
         const formHTML = `
-            <form id="editNoteForm" class="modal-form" onsubmit="NotesSection.handleUpdate(event, '${noteId}')">
-                ${UI.createFormRow('Content', UI.createTextarea('noteContent', note.content, '', 15))}
+            <form id="editNoteForm" class="modal-form" onsubmit="NotesSection.handleUpdate(event, '${noteId}', '${editorId}')">
+                <div class="form-row">
+                    <label>Content</label>
+                    ${MarkdownEditor.create(note.content, 'Start typing your notes in markdown...')}
+                    <p class="form-hint">Use the toolbar for formatting or type markdown directly.</p>
+                </div>
                 ${UI.createFormRow(
                     'Status',
                     UI.createSelect('noteStatus', [
@@ -369,18 +398,22 @@ const NotesSection = {
         UI.openModal('Edit Notes', formHTML);
     },
     
-    async handleCreate(event) {
+    async handleCreate(event, editorId) {
         event.preventDefault();
         
-        const content = document.getElementById('noteContent').value.trim();
-        
-        if (!content) {
-            UI.showToast('Content is required', 'error');
-            return;
-        }
+        // Get content from markdown editor
+        const textarea = document.querySelector('.markdown-editor-textarea');
+        const content = textarea ? textarea.value : '';
         
         try {
             await API.createNote(AppState.filters.notes.topicId, content);
+            
+            // Clean up fullscreen if active
+            if (MarkdownEditor.isFullscreen) {
+                document.body.style.overflow = '';
+                MarkdownEditor.isFullscreen = false;
+            }
+            
             UI.closeModal();
             UI.showToast('Notes created successfully', 'success');
             await this.load();
@@ -389,19 +422,23 @@ const NotesSection = {
         }
     },
     
-    async handleUpdate(event, noteId) {
+    async handleUpdate(event, noteId, editorId) {
         event.preventDefault();
         
-        const content = document.getElementById('noteContent').value.trim();
+        // Get content from markdown editor
+        const textarea = document.querySelector('.markdown-editor-textarea');
+        const content = textarea ? textarea.value : '';
         const isActive = document.getElementById('noteStatus').value === 'true';
-        
-        if (!content) {
-            UI.showToast('Content is required', 'error');
-            return;
-        }
         
         try {
             await API.updateNote(noteId, { content, is_active: isActive });
+            
+            // Clean up fullscreen if active
+            if (MarkdownEditor.isFullscreen) {
+                document.body.style.overflow = '';
+                MarkdownEditor.isFullscreen = false;
+            }
+            
             UI.closeModal();
             UI.showToast('Notes updated successfully', 'success');
             await this.load();
