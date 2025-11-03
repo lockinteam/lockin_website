@@ -1,7 +1,7 @@
 // Years section management
 
 const YearsSection = {
-    includeInactive: false,
+    includeInactive: true,
     searchQuery: '',
     
     async load() {
@@ -26,6 +26,14 @@ const YearsSection = {
                 y.name.toLowerCase().includes(this.searchQuery.toLowerCase())
             );
         }
+        
+        // Sort: active items first, then inactive items at the end
+        years.sort((a, b) => {
+            if (a.is_active !== b.is_active) {
+                return b.is_active - a.is_active; // active (true/1) comes before inactive (false/0)
+            }
+            return a.sort_order - b.sort_order; // then by sort_order
+        });
         
         const createBtnHTML = UI.renderActionBtn(
             'Create Year',

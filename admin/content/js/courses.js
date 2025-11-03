@@ -1,7 +1,7 @@
 // Courses section management
 
 const CoursesSection = {
-    includeInactive: false,
+    includeInactive: true,
     searchQuery: '',
     
     async load() {
@@ -45,6 +45,14 @@ const CoursesSection = {
                 c.title.toLowerCase().includes(this.searchQuery.toLowerCase())
             );
         }
+        
+        // Sort: active items first, then inactive items at the end
+        courses.sort((a, b) => {
+            if (a.is_active !== b.is_active) {
+                return b.is_active - a.is_active; // active (true/1) comes before inactive (false/0)
+            }
+            return a.title.localeCompare(b.title); // then alphabetically by title
+        });
         
         const createBtnHTML = UI.renderActionBtn(
             'Create Course',

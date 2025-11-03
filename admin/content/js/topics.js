@@ -1,7 +1,7 @@
 // Topics section management
 
 const TopicsSection = {
-    includeInactive: false,
+    includeInactive: true,
     searchQuery: '',
     
     async load() {
@@ -126,6 +126,14 @@ const TopicsSection = {
         if (!this.includeInactive) {
             topics = topics.filter(t => t.is_active);
         }
+        
+        // Sort: active items first, then inactive items at the end
+        topics.sort((a, b) => {
+            if (a.is_active !== b.is_active) {
+                return b.is_active - a.is_active; // active (true/1) comes before inactive (false/0)
+            }
+            return a.sort_order - b.sort_order; // then by sort_order
+        });
         const courses = AppState.courses;
         const papers = AppState.papers;
         

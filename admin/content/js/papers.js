@@ -1,7 +1,7 @@
 // Papers section management
 
 const PapersSection = {
-    includeInactive: false,
+    includeInactive: true,
     searchQuery: '',
     
     async load() {
@@ -73,6 +73,14 @@ const PapersSection = {
                 (p.code && p.code.toLowerCase().includes(this.searchQuery.toLowerCase()))
             );
         }
+        
+        // Sort: active items first, then inactive items at the end
+        filteredPapers.sort((a, b) => {
+            if (a.is_active !== b.is_active) {
+                return b.is_active - a.is_active; // active (true/1) comes before inactive (false/0)
+            }
+            return a.name.localeCompare(b.name); // then alphabetically by name
+        });
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 

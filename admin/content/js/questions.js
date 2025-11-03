@@ -1,7 +1,7 @@
 // Questions section management
 
 const QuestionsSection = {
-    includeInactive: false,
+    includeInactive: true,
     searchQuery: '',
     selectionMode: false,
     selectAllState: 0, // 0 = select active, 1 = select inactive, 2 = deselect all
@@ -187,6 +187,14 @@ const QuestionsSection = {
                 q.title.toLowerCase().includes(this.searchQuery.toLowerCase())
             );
         }
+        
+        // Sort: active items first, then inactive items at the end
+        filteredQuestions.sort((a, b) => {
+            if (a.is_active !== b.is_active) {
+                return b.is_active - a.is_active; // active (true/1) comes before inactive (false/0)
+            }
+            return a.sort_order - b.sort_order; // then by sort_order
+        });
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
