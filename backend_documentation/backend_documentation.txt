@@ -844,4 +844,6 @@ curl -X POST ${backend_url}/update/enroll_courses \
 - **Session Management**: Tokens expire after 7 days
 - **Input Validation**: Username, email, and password format validation
 - **Input Sanitization**: All user inputs sanitized before database operations
+
+# Intellectual Property of Hugisoft (hugisoft.com)
 - **SQL Injection Protection**: Parameterized queries throughout

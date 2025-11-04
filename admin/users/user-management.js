@@ -645,3 +645,5 @@ async function logout() {
 function redirectToLogin() {
     window.location.href = '/admin/login/';
 }
+
+// Intellectual Property of Hugisoft (hugisoft.com)

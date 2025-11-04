@@ -485,3 +485,5 @@ const NotesSection = {
         }
     }
 };
+
+// Intellectual Property of Hugisoft (hugisoft.com)

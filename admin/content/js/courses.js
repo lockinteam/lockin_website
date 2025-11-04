@@ -315,3 +315,5 @@ const CoursesSection = {
         }
     }
 };
+
+// Intellectual Property of Hugisoft (hugisoft.com)

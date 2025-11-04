@@ -336,3 +336,5 @@ const PapersSection = {
         }
     }
 };
+
+// Intellectual Property of Hugisoft (hugisoft.com)

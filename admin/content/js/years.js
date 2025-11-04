@@ -233,3 +233,5 @@ const YearsSection = {
         }
     }
 };
+
+// Intellectual Property of Hugisoft (hugisoft.com)

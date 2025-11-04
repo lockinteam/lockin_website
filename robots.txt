@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
 
+# Intellectual Property of Hugisoft (hugisoft.com)
+
 # Crawl-delay is optional and can be adjusted if needed
 # Crawl-delay: 10

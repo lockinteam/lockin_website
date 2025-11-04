@@ -135,3 +135,5 @@ function navigateToContent(e) {
 
 // Run auth check on page load
 checkAuth();
+
+// Intellectual Property of Hugisoft (hugisoft.com)

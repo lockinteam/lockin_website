@@ -187,3 +187,5 @@ const UI = {
         return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
     }
 };
+
+// Intellectual Property of Hugisoft (hugisoft.com)

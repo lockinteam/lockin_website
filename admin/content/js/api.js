@@ -245,6 +245,8 @@ const API = {
     },
     
     async deletePastPaper(pastPaperId) {
-        return this.request('/admin/past_papers/delete', 'DELETE', { past_paper_id: pastPaperId });
+        return this.request('/content/past-papers', 'DELETE', { past_paper_id: pastPaperId });
     }
 };
+
+// Intellectual Property of Hugisoft (hugisoft.com)

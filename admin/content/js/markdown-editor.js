@@ -491,3 +491,5 @@ const MarkdownEditor = {
         return html;
     }
 };
+
+// Intellectual Property of Hugisoft (hugisoft.com)

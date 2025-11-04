@@ -245,3 +245,7 @@ All standard CommonMark markdown plus:
 
 ## Support
 For issues or feature requests, contact the development team.
+
+---
+
+*Intellectual Property of Hugisoft (hugisoft.com)*

@@ -148,3 +148,5 @@ loginForm.addEventListener('submit', async (e) => {
         submitButton.textContent = 'Login';
     }
 });
+
+// Intellectual Property of Hugisoft (hugisoft.com)

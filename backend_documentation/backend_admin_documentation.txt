@@ -4951,3 +4951,5 @@ For issues or questions regarding admin endpoints:
 3. Consult `ADMIN_API_PLAN.md` for implementation details
 4. Check regular user docs in `backend_documentation.txt`
 
+# Intellectual Property of Hugisoft (hugisoft.com)
+

@@ -235,3 +235,5 @@ const SubjectsSection = {
         }
     }
 };
+
+// Intellectual Property of Hugisoft (hugisoft.com)

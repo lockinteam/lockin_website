@@ -138,3 +138,5 @@ if (document.readyState === 'loading') {
 } else {
     ContentManagement.init();
 }
+
+// Intellectual Property of Hugisoft (hugisoft.com)

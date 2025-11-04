@@ -47,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	const internalLinks = document.querySelectorAll('a[href^="#"]');
 
-	internalLinks.forEach((link) => {
+		internalLinks.forEach((link) => {
 		link.addEventListener("click", (event) => {
 			const targetId = link.getAttribute("href");
 			if (!targetId || targetId === "#") {
@@ -69,3 +69,5 @@ document.addEventListener("DOMContentLoaded", () => {
 		});
 	});
 });
+
+// Intellectual Property of Hugisoft (hugisoft.com)

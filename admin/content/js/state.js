@@ -303,3 +303,5 @@ const AppState = {
         };
     }
 };
+
+// Intellectual Property of Hugisoft (hugisoft.com)
