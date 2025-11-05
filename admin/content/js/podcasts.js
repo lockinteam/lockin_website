@@ -341,9 +341,8 @@ const PodcastsSection = {
         const formHTML = `
             <form id="createPodcastForm" class="modal-form" onsubmit="PodcastsSection.handleCreate(event)">
                 ${UI.createFormRow('Podcast Name', UI.createTextInput('podcastName', '', 'e.g., Introduction to Cell Biology', true))}
-                ${UI.createFormRow('URL', UI.createUrlInput('podcastUrl', '', 'https://storage.example.com/podcast.mp3'), 'Full URL to podcast file')}
-                ${UI.createFormRow('Duration (seconds)', UI.createNumberInput('podcastLength', '', '600', 0), 'Optional')}
-                ${UI.createFormRow('File Size (MB)', UI.createNumberInput('podcastFileSize', '', '15', 0), 'Optional')}
+                ${UI.createFormRow('Audio File', UI.createFileOrUrlInput('podcastFile', '', 'audio/*', 'https://storage.example.com/podcast.mp3'), 'Upload audio or enter URL')}
+                ${UI.createFormRow('Duration (seconds)', UI.createNumberInput('podcastLength', '', '600', 0), 'Optional - leave blank to auto-detect from file')}
                 ${UI.createModalActions('UI.closeModal()', null, 'Create Podcast')}
             </form>
         `;
@@ -358,9 +357,8 @@ const PodcastsSection = {
         const formHTML = `
             <form id="editPodcastForm" class="modal-form" onsubmit="PodcastsSection.handleUpdate(event, '${podcastId}')">
                 ${UI.createFormRow('Podcast Name', UI.createTextInput('podcastName', podcast.name, '', true))}
-                ${UI.createFormRow('URL', UI.createUrlInput('podcastUrl', podcast.url, ''))}
-                ${UI.createFormRow('Duration (seconds)', UI.createNumberInput('podcastLength', podcast.length_seconds || '', '', 0))}
-                ${UI.createFormRow('File Size (MB)', UI.createNumberInput('podcastFileSize', podcast.file_size ? (podcast.file_size / 1048576).toFixed(2) : '', '', 0))}
+                ${UI.createFormRow('Audio File', UI.createFileOrUrlInput('podcastFile', podcast.url || '', 'audio/*', 'https://storage.example.com/podcast.mp3'), 'Upload audio or enter URL')}
+                ${UI.createFormRow('Duration (seconds)', UI.createNumberInput('podcastLength', podcast.length_seconds || '', '', 0), 'Optional')}
                 ${UI.createFormRow(
                     'Status',
                     UI.createSelect('podcastStatus', [
@@ -379,19 +377,42 @@ const PodcastsSection = {
         event.preventDefault();
         
         const name = document.getElementById('podcastName').value.trim();
-        const url = document.getElementById('podcastUrl').value.trim();
         const length = document.getElementById('podcastLength').value;
-        const fileSize = document.getElementById('podcastFileSize').value;
         
-        const lengthValue = length ? parseInt(length) : null;
-        const fileSizeValue = fileSize ? Math.round(parseFloat(fileSize) * 1048576) : null;
+        let lengthValue = length ? parseInt(length) : null;
         
-        if (!name || !url) {
-            UI.showToast('Name and URL are required', 'error');
+        if (!name) {
+            UI.showToast('Podcast name is required', 'error');
             return;
         }
         
         try {
+            // Get uploaded file info if file mode, otherwise URL
+            const fileInput = document.getElementById('podcastFileFile');
+            const mode = document.getElementById('podcastFileMode').value;
+            let url, fileSizeValue = null;
+            
+            if (mode === 'file' && fileInput.files && fileInput.files.length > 0) {
+                // Auto-detect file size from uploaded file
+                fileSizeValue = fileInput.files[0].size;
+                
+                // Auto-detect duration from audio file if not manually entered
+                if (!lengthValue) {
+                    try {
+                        lengthValue = await this.getAudioDuration(fileInput.files[0]);
+                    } catch (error) {
+                        console.warn('Could not determine audio duration:', error);
+                    }
+                }
+            }
+            
+            url = await UI.getFileOrUrlValue('podcastFile');
+            
+            if (!url) {
+                UI.showToast('Please provide an audio file or URL', 'error');
+                return;
+            }
+            
             await API.createPodcast(AppState.filters.podcasts.topicId, name, url, lengthValue, fileSizeValue);
             UI.closeModal();
             UI.showToast('Podcast created successfully', 'success');
@@ -405,20 +426,43 @@ const PodcastsSection = {
         event.preventDefault();
         
         const name = document.getElementById('podcastName').value.trim();
-        const url = document.getElementById('podcastUrl').value.trim();
         const length = document.getElementById('podcastLength').value;
-        const fileSize = document.getElementById('podcastFileSize').value;
         const isActive = document.getElementById('podcastStatus').value === 'true';
         
-        const lengthValue = length ? parseInt(length) : null;
-        const fileSizeValue = fileSize ? Math.round(parseFloat(fileSize) * 1048576) : null;
+        let lengthValue = length ? parseInt(length) : null;
         
-        if (!name || !url) {
-            UI.showToast('Name and URL are required', 'error');
+        if (!name) {
+            UI.showToast('Podcast name is required', 'error');
             return;
         }
         
         try {
+            // Get uploaded file info if file mode, otherwise URL
+            const fileInput = document.getElementById('podcastFileFile');
+            const mode = document.getElementById('podcastFileMode').value;
+            let url, fileSizeValue = null;
+            
+            if (mode === 'file' && fileInput.files && fileInput.files.length > 0) {
+                // Auto-detect file size from uploaded file
+                fileSizeValue = fileInput.files[0].size;
+                
+                // Auto-detect duration from audio file if not manually entered
+                if (!lengthValue) {
+                    try {
+                        lengthValue = await this.getAudioDuration(fileInput.files[0]);
+                    } catch (error) {
+                        console.warn('Could not determine audio duration:', error);
+                    }
+                }
+            }
+            
+            url = await UI.getFileOrUrlValue('podcastFile');
+            
+            if (!url) {
+                UI.showToast('Please provide an audio file or URL', 'error');
+                return;
+            }
+            
             await API.updatePodcast(podcastId, { name, url, length_seconds: lengthValue, file_size: fileSizeValue, is_active: isActive });
             UI.closeModal();
             UI.showToast('Podcast updated successfully', 'success');
@@ -462,6 +506,30 @@ const PodcastsSection = {
                 UI.showToast(error.message, 'error');
             }
         }
+    },
+    
+    // Helper method to get audio duration from file
+    async getAudioDuration(file) {
+        return new Promise((resolve, reject) => {
+            const audio = new Audio();
+            const objectUrl = URL.createObjectURL(file);
+            
+            audio.addEventListener('loadedmetadata', () => {
+                URL.revokeObjectURL(objectUrl);
+                if (audio.duration === Infinity || isNaN(audio.duration)) {
+                    reject(new Error('Could not determine duration'));
+                } else {
+                    resolve(Math.round(audio.duration));
+                }
+            });
+            
+            audio.addEventListener('error', () => {
+                URL.revokeObjectURL(objectUrl);
+                reject(new Error('Could not load audio file'));
+            });
+            
+            audio.src = objectUrl;
+        });
     }
 };
 

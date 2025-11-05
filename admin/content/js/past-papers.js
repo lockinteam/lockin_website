@@ -268,8 +268,7 @@ const PastPapersSection = {
         const formHTML = `
             <form id="createPastPaperForm" class="modal-form" onsubmit="PastPapersSection.handleCreate(event)">
                 ${UI.createFormRow('Year', UI.createNumberInput('pastPaperYear', '', '2024', 1900, 2100), 'e.g., 2024')}
-                ${UI.createFormRow('URL', UI.createUrlInput('pastPaperUrl', '', 'https://storage.example.com/past-paper.pdf'), 'Full URL to past paper PDF')}
-                ${UI.createFormRow('File Size (bytes)', UI.createNumberInput('pastPaperFileSize', '', '', 0), 'Optional')}
+                ${UI.createFormRow('PDF File', UI.createFileOrUrlInput('pastPaperFile', '', 'application/pdf', 'https://storage.example.com/past-paper.pdf'), 'Upload PDF or enter URL')}
                 ${UI.createModalActions('UI.closeModal()', null, 'Upload Past Paper')}
             </form>
         `;
@@ -284,8 +283,7 @@ const PastPapersSection = {
         const formHTML = `
             <form id="editPastPaperForm" class="modal-form" onsubmit="PastPapersSection.handleUpdate(event, '${pastPaperId}')">
                 ${UI.createFormRow('Year', UI.createNumberInput('pastPaperYear', pastPaper.year, '', 1900, 2100))}
-                ${UI.createFormRow('URL', UI.createUrlInput('pastPaperUrl', pastPaper.url, ''))}
-                ${UI.createFormRow('File Size (bytes)', UI.createNumberInput('pastPaperFileSize', pastPaper.file_size || '', '', 0))}
+                ${UI.createFormRow('PDF File', UI.createFileOrUrlInput('pastPaperFile', pastPaper.url || '', 'application/pdf', 'https://storage.example.com/past-paper.pdf'), 'Upload PDF or enter URL')}
                 ${UI.createFormRow(
                     'Status',
                     UI.createSelect('pastPaperStatus', [
@@ -304,17 +302,30 @@ const PastPapersSection = {
         event.preventDefault();
         
         const year = parseInt(document.getElementById('pastPaperYear').value);
-        const url = document.getElementById('pastPaperUrl').value.trim();
-        const fileSize = document.getElementById('pastPaperFileSize').value;
         
-        const fileSizeValue = fileSize ? parseInt(fileSize) : null;
-        
-        if (!year || !url) {
-            UI.showToast('Year and URL are required', 'error');
+        if (!year) {
+            UI.showToast('Year is required', 'error');
             return;
         }
         
         try {
+            // Get uploaded file info if file mode, otherwise URL
+            const fileInput = document.getElementById('pastPaperFileFile');
+            const mode = document.getElementById('pastPaperFileMode').value;
+            let url, fileSizeValue = null;
+            
+            if (mode === 'file' && fileInput.files && fileInput.files.length > 0) {
+                // Auto-detect file size from uploaded file
+                fileSizeValue = fileInput.files[0].size;
+            }
+            
+            url = await UI.getFileOrUrlValue('pastPaperFile');
+            
+            if (!url) {
+                UI.showToast('Please provide a PDF file or URL', 'error');
+                return;
+            }
+            
             await API.createPastPaper(AppState.filters.pastPapers.paperId, year, url, fileSizeValue);
             UI.closeModal();
             UI.showToast('Past paper uploaded successfully', 'success');
@@ -328,18 +339,31 @@ const PastPapersSection = {
         event.preventDefault();
         
         const year = parseInt(document.getElementById('pastPaperYear').value);
-        const url = document.getElementById('pastPaperUrl').value.trim();
-        const fileSize = document.getElementById('pastPaperFileSize').value;
         const isActive = document.getElementById('pastPaperStatus').value === 'true';
         
-        const fileSizeValue = fileSize ? parseInt(fileSize) : null;
-        
-        if (!year || !url) {
-            UI.showToast('Year and URL are required', 'error');
+        if (!year) {
+            UI.showToast('Year is required', 'error');
             return;
         }
         
         try {
+            // Get uploaded file info if file mode, otherwise URL
+            const fileInput = document.getElementById('pastPaperFileFile');
+            const mode = document.getElementById('pastPaperFileMode').value;
+            let url, fileSizeValue = null;
+            
+            if (mode === 'file' && fileInput.files && fileInput.files.length > 0) {
+                // Auto-detect file size from uploaded file
+                fileSizeValue = fileInput.files[0].size;
+            }
+            
+            url = await UI.getFileOrUrlValue('pastPaperFile');
+            
+            if (!url) {
+                UI.showToast('Please provide a PDF file or URL', 'error');
+                return;
+            }
+            
             await API.updatePastPaper(pastPaperId, { year, url, file_size: fileSizeValue, is_active: isActive });
             UI.closeModal();
             UI.showToast('Past paper updated successfully', 'success');

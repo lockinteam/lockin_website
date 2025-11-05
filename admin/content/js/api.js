@@ -245,7 +245,82 @@ const API = {
     },
     
     async deletePastPaper(pastPaperId) {
-        return this.request('/content/past-papers', 'DELETE', { past_paper_id: pastPaperId });
+        return this.request('/admin/past_papers/delete', 'DELETE', { past_paper_id: pastPaperId });
+    },
+    
+    // File Upload (Admin)
+    async uploadFile(file, onProgress = null) {
+        const token = AppState.getToken();
+        
+        try {
+            // Step 1: Get presigned URL
+            const presignResponse = await fetch(`${this.baseUrl}/admin/upload/presign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    token,
+                    filename: file.name,
+                    content_type: file.type,
+                    file_size: file.size
+                })
+            });
+            
+            const presignData = await presignResponse.json();
+            
+            // Check for success and data structure
+            if (!presignData.success || !presignData.data || !presignData.data.presigned_url) {
+                throw new Error(presignData.message || 'Failed to get presigned URL');
+            }
+            
+            // Step 2: Upload file to R2
+            const uploadResponse = await fetch(presignData.data.presigned_url, {
+                method: 'PUT',
+                body: file,
+                headers: { 'Content-Type': file.type }
+            });
+            
+            if (!uploadResponse.ok) {
+                throw new Error('Failed to upload file to storage');
+            }
+            
+            // Step 3: Complete upload and save metadata
+            const completeResponse = await fetch(`${this.baseUrl}/admin/upload/complete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    token,
+                    object_key: presignData.data.object_key,
+                    filename: file.name,
+                    content_type: file.type,
+                    file_size: file.size
+                })
+            });
+            
+            const completeData = await completeResponse.json();
+            
+            // Check if complete was successful
+            if (!completeData.success) {
+                throw new Error(completeData.message || 'Failed to complete upload');
+            }
+            
+            // Handle both possible response formats
+            const fileUrl = completeData.file_url || completeData.data?.file_url || presignData.data.public_url;
+            const fileId = completeData.file_id || completeData.data?.file_id;
+            
+            if (!fileUrl) {
+                throw new Error('Failed to complete upload - no file URL returned');
+            }
+            
+            return {
+                success: true,
+                file_url: fileUrl,
+                file_id: fileId,
+                file_size: file.size
+            };
+        } catch (error) {
+            console.error('Upload error:', error);
+            throw error;
+        }
     }
 };
 

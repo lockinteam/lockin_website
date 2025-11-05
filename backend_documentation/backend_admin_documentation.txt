@@ -692,6 +692,195 @@ curl -X DELETE ${backend_url}/admin/users/delete \
 
 ---
 
+## Admin File Upload Endpoints
+
+### 1. Generate Presigned URL (Admin)
+
+**Endpoint**: `POST /admin/upload/presign`
+
+**Auth**: Admin or Owner
+
+**Description**: Generate a presigned URL for uploading large files directly to Cloudflare R2 storage. Admins have a 100MB file size limit (20x higher than regular users).
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "filename": "lecture_recording.mp3",
+  "content_type": "audio/mpeg",
+  "file_size": 52428800
+}
+```
+
+**Parameters**:
+- `token` (string, required): Valid session token with admin/owner role
+- `filename` (string, required): Original filename
+- `content_type` (string, required): MIME type - must be one of:
+  - Images: image/jpeg, image/png, image/gif, image/webp, image/svg+xml
+  - PDF: application/pdf
+  - Audio: audio/mpeg, audio/wav, audio/ogg, audio/mp4, audio/webm
+- `file_size` (integer, required): File size in bytes - maximum 100MB (104857600 bytes) for admins
+
+**Success Response** (200 OK):
+```json
+{
+  "presigned_url": "https://r2.example.com/...",
+  "object_key": "uploads/750e8400-e29b-41d4-a716-446655440000.mp3",
+  "public_url": "https://cdn.lockin.tech/uploads/750e8400-e29b-41d4-a716-446655440000.mp3"
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: Missing required fields, invalid content type, or file size exceeds 100MB limit
+- `401 Unauthorized`: Invalid or missing token
+- `403 Forbidden`: User is not admin or owner
+- `500 Internal Server Error`: R2 service error
+
+**Usage Flow**:
+1. Call `/admin/upload/presign` to get presigned URL
+2. Upload file directly to R2 using presigned URL (PUT request)
+3. Call `/admin/upload/complete` to save file metadata in database
+
+**Usage Examples**:
+
+```javascript
+// Step 1: Get presigned URL (admin)
+const presignResponse = await fetch(`${backend_url}/admin/upload/presign`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    filename: file.name,
+    content_type: file.type,
+    file_size: file.size
+  })
+});
+const { presigned_url, object_key, public_url } = await presignResponse.json();
+
+// Step 2: Upload file to R2
+await fetch(presigned_url, {
+  method: 'PUT',
+  body: file,
+  headers: { 'Content-Type': file.type }
+});
+
+// Step 3: Complete upload
+const completeResponse = await fetch(`${backend_url}/admin/upload/complete`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    object_key: object_key,
+    original_filename: file.name,
+    content_type: file.type,
+    file_size: file.size
+  })
+});
+const fileData = await completeResponse.json();
+console.log(`File uploaded: ${fileData.file_url}`);
+```
+
+```bash
+# cURL - Presign
+curl -X POST ${backend_url}/admin/upload/presign \
+  -H "Content-Type: application/json" \
+  -d '{"token": "admin_token", "filename": "lecture.mp3", "content_type": "audio/mpeg", "file_size": 52428800}'
+
+# cURL - Upload to R2 (using presigned URL from above)
+curl -X PUT "presigned_url_here" \
+  -H "Content-Type: audio/mpeg" \
+  --data-binary @lecture.mp3
+
+# cURL - Complete
+curl -X POST ${backend_url}/admin/upload/complete \
+  -H "Content-Type: application/json" \
+  -d '{"token": "admin_token", "object_key": "uploads/uuid.mp3", "original_filename": "lecture.mp3", "content_type": "audio/mpeg", "file_size": 52428800}'
+```
+
+**Notes**:
+- Presigned URL expires after 5 minutes
+- 100MB file size limit for admins (vs 5MB for regular users)
+- Supports large audio files, high-res images, and other content
+
+---
+
+### 2. Complete Upload (Admin)
+
+**Endpoint**: `POST /admin/upload/complete`
+
+**Auth**: Admin or Owner
+
+**Description**: Save file metadata to database after successful upload to R2. Records the admin user as the uploader.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "object_key": "uploads/750e8400-e29b-41d4-a716-446655440000.mp3",
+  "original_filename": "lecture_recording.mp3",
+  "content_type": "audio/mpeg",
+  "file_size": 52428800
+}
+```
+
+**Parameters**:
+- `token` (string, required): Valid session token with admin/owner role
+- `object_key` (string, required): Object key from presign response
+- `original_filename` (string, required): Original filename
+- `content_type` (string, required): MIME type
+- `file_size` (integer, required): File size in bytes
+
+**Success Response** (201 Created):
+```json
+{
+  "file_id": "850e8400-e29b-41d4-a716-446655440000",
+  "file_url": "https://cdn.lockin.tech/uploads/750e8400-e29b-41d4-a716-446655440000.mp3",
+  "created_at": "2024-01-15T10:30:00Z"
+}
+```
+
+**Error Responses**:
+- `400 Bad Request`: Missing required fields
+- `401 Unauthorized`: Invalid or missing token
+- `403 Forbidden`: User is not admin or owner
+- `500 Internal Server Error`: Database error
+
+**Usage Examples**:
+
+```javascript
+// Complete admin upload
+const response = await fetch(`${backend_url}/admin/upload/complete`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    object_key: objectKey,
+    original_filename: filename,
+    content_type: contentType,
+    file_size: fileSize
+  })
+});
+
+const data = await response.json();
+console.log(`File ID: ${data.file_id}`);
+console.log(`CDN URL: ${data.file_url}`);
+```
+
+```bash
+# cURL
+curl -X POST ${backend_url}/admin/upload/complete \
+  -H "Content-Type: application/json" \
+  -d '{"token": "admin_token", "object_key": "uploads/uuid.mp3", "original_filename": "lecture.mp3", "content_type": "audio/mpeg", "file_size": 52428800}'
+```
+
+**Notes**:
+- Must be called after successful upload to R2
+- Stores file record linked to uploading admin user
+- File URL uses CDN domain (cdn.lockin.tech)
+- Use this to track admin-uploaded content
+
+---
+
 ## Admin Years Management Endpoints
 
 ### 1. List All Years
@@ -4950,6 +5139,4 @@ For issues or questions regarding admin endpoints:
 2. Review test suite examples
 3. Consult `ADMIN_API_PLAN.md` for implementation details
 4. Check regular user docs in `backend_documentation.txt`
-
-# Intellectual Property of Hugisoft (hugisoft.com)
-
+Intellectual Property of Hugisoft (hugisoft.com)

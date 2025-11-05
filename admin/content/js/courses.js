@@ -214,7 +214,7 @@ const CoursesSection = {
                 ${UI.createFormRow('Year', UI.createSelect('courseYear', yearOptions))}
                 ${UI.createFormRow('Subject', UI.createSelect('courseSubject', subjectOptions))}
                 ${UI.createFormRow('Description', UI.createTextarea('courseDescription', '', 'Optional course description'))}
-                ${UI.createFormRow('Specification Link', UI.createUrlInput('courseSpecLink', '', 'https://example.com/spec'), 'Optional link to course specification')}
+                ${UI.createFormRow('Specification', UI.createFileOrUrlInput('courseSpec', '', 'application/pdf', 'https://example.com/specification.pdf'), 'Upload PDF or enter URL')}
                 ${UI.createModalActions('UI.closeModal()', null, 'Create Course')}
             </form>
         `;
@@ -230,7 +230,7 @@ const CoursesSection = {
             <form id="editCourseForm" class="modal-form" onsubmit="CoursesSection.handleUpdate(event, '${courseId}')">
                 ${UI.createFormRow('Course Title', UI.createTextInput('courseTitle', course.title, '', true))}
                 ${UI.createFormRow('Description', UI.createTextarea('courseDescription', course.description || '', 'Optional course description'))}
-                ${UI.createFormRow('Specification Link', UI.createUrlInput('courseSpecLink', course.link_to_specification || '', 'https://example.com/spec'))}
+                ${UI.createFormRow('Specification', UI.createFileOrUrlInput('courseSpec', course.link_to_specification || '', 'application/pdf', 'https://example.com/specification.pdf'), 'Upload PDF or enter URL')}
                 ${UI.createFormRow(
                     'Status',
                     UI.createSelect('courseStatus', [
@@ -252,7 +252,6 @@ const CoursesSection = {
         const yearId = document.getElementById('courseYear').value;
         const subjectId = document.getElementById('courseSubject').value;
         const description = document.getElementById('courseDescription').value.trim() || null;
-        const specLink = document.getElementById('courseSpecLink').value.trim() || null;
         
         if (!title || !yearId || !subjectId) {
             UI.showToast('Title, year, and subject are required', 'error');
@@ -260,6 +259,7 @@ const CoursesSection = {
         }
         
         try {
+            const specLink = await UI.getFileOrUrlValue('courseSpec') || null;
             await API.createCourse(yearId, subjectId, title, description, specLink);
             UI.closeModal();
             UI.showToast('Course created successfully', 'success');
@@ -274,7 +274,6 @@ const CoursesSection = {
         
         const title = document.getElementById('courseTitle').value.trim();
         const description = document.getElementById('courseDescription').value.trim() || null;
-        const specLink = document.getElementById('courseSpecLink').value.trim() || null;
         const isActive = document.getElementById('courseStatus').value === 'true';
         
         if (!title) {
@@ -283,6 +282,7 @@ const CoursesSection = {
         }
         
         try {
+            const specLink = await UI.getFileOrUrlValue('courseSpec') || null;
             await API.updateCourse(courseId, { 
                 title, 
                 description, 

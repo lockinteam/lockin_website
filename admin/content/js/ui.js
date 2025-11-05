@@ -85,6 +85,118 @@ const UI = {
         `;
     },
     
+    // Create file upload input with URL alternative
+    createFileOrUrlInput(fieldId, currentUrl = '', accept = '*/*', urlPlaceholder = 'https://example.com/file') {
+        const hasUrl = currentUrl && currentUrl.trim();
+        return `
+            <div class="file-or-url-input">
+                <div class="input-mode-switch">
+                    <button type="button" class="mode-btn ${!hasUrl ? 'active' : ''}" onclick="UI.switchInputMode('${fieldId}', 'file')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        Upload File
+                    </button>
+                    <button type="button" class="mode-btn ${hasUrl ? 'active' : ''}" onclick="UI.switchInputMode('${fieldId}', 'url')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                        Enter URL
+                    </button>
+                </div>
+                <div class="input-mode-content">
+                    <div class="input-mode-panel ${!hasUrl ? 'active' : ''}" data-mode="file">
+                        <input type="file" id="${fieldId}File" class="file-input" accept="${accept}" onchange="UI.handleFileSelected('${fieldId}')">
+                        <div class="file-upload-area" onclick="document.getElementById('${fieldId}File').click()">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                            <p class="upload-text">Click to select or drag and drop</p>
+                            <p class="upload-hint">Max 100MB for admins</p>
+                        </div>
+                        <div class="file-selected-info" id="${fieldId}FileInfo" style="display: none;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+                            <span class="file-name"></span>
+                            <button type="button" class="file-remove-btn" onclick="UI.clearFileSelection('${fieldId}')">&times;</button>
+                        </div>
+                    </div>
+                    <div class="input-mode-panel ${hasUrl ? 'active' : ''}" data-mode="url">
+                        <input type="url" id="${fieldId}Url" class="form-input" placeholder="${urlPlaceholder}" value="${currentUrl}">
+                    </div>
+                </div>
+                <input type="hidden" id="${fieldId}Mode" value="${hasUrl ? 'url' : 'file'}">
+            </div>
+        `;
+    },
+    
+    switchInputMode(fieldId, mode) {
+        const container = document.querySelector(`#${fieldId}Url`).closest('.file-or-url-input');
+        const modeButtons = container.querySelectorAll('.mode-btn');
+        const modePanels = container.querySelectorAll('.input-mode-panel');
+        const modeInput = document.getElementById(`${fieldId}Mode`);
+        
+        modeButtons.forEach((btn, idx) => {
+            if ((idx === 0 && mode === 'file') || (idx === 1 && mode === 'url')) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+        
+        modePanels.forEach(panel => {
+            if (panel.dataset.mode === mode) {
+                panel.classList.add('active');
+            } else {
+                panel.classList.remove('active');
+            }
+        });
+        
+        modeInput.value = mode;
+    },
+    
+    handleFileSelected(fieldId) {
+        const fileInput = document.getElementById(`${fieldId}File`);
+        const fileInfo = document.getElementById(`${fieldId}FileInfo`);
+        const fileName = fileInfo?.querySelector('.file-name');
+        
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            if (fileName) {
+                fileName.textContent = `${file.name} (${(file.size / 1048576).toFixed(2)} MB)`;
+            }
+            if (fileInfo) {
+                fileInfo.style.display = 'flex';
+            }
+        }
+    },
+    
+    clearFileSelection(fieldId) {
+        const fileInput = document.getElementById(`${fieldId}File`);
+        const fileInfo = document.getElementById(`${fieldId}FileInfo`);
+        
+        if (fileInput) fileInput.value = '';
+        if (fileInfo) fileInfo.style.display = 'none';
+    },
+    
+    async getFileOrUrlValue(fieldId) {
+        const mode = document.getElementById(`${fieldId}Mode`).value;
+        
+        if (mode === 'url') {
+            const urlInput = document.getElementById(`${fieldId}Url`);
+            return urlInput.value.trim();
+        } else {
+            const fileInput = document.getElementById(`${fieldId}File`);
+            if (!fileInput.files || fileInput.files.length === 0) {
+                return null;
+            }
+            
+            // Upload file and return URL
+            this.showToast('Uploading file...', 'info');
+            try {
+                const result = await API.uploadFile(fileInput.files[0]);
+                this.showToast('File uploaded successfully', 'success');
+                return result.file_url;
+            } catch (error) {
+                this.showToast('File upload failed: ' + error.message, 'error');
+                throw error;
+            }
+        }
+    },
+    
     // Modal functions
     openModal(title, contentHTML) {
         if (!this.elements.modalContent || !this.elements.modalOverlay) return;

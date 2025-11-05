@@ -15,6 +15,7 @@ backend_url = https://backend.lockin.tech
 **Authentication**
 - `POST /auth/signup` - Register a new user account
 - `POST /auth/login` - Authenticate and receive session token
+- `POST /auth/google_signin` - Authenticate with Google Sign-In
 - `POST /auth/verify_token` - Validate token and retrieve user info
 - `POST /auth/logout` - Invalidate session token
 
@@ -29,6 +30,11 @@ backend_url = https://backend.lockin.tech
 **Update User Data**
 - `POST /update/change_year` - Set/change user's year level
 - `POST /update/enroll_courses` - Update user's course enrollments
+- `POST /update/profile_picture` - Update user's profile picture
+
+**File Upload**
+- `POST /upload/presign` - Generate presigned URL for file upload to R2 (5MB limit)
+- `POST /upload/complete` - Save file metadata after successful upload
 
 **System**
 - `GET /health` - Health check endpoint
@@ -114,7 +120,282 @@ backend_url = https://backend.lockin.tech
 - User not found (404)
 - Incorrect password (401)
 
-### 3. Verify Token
+### 3. Google Sign-In
+
+**Endpoint**: `POST backend_url/auth/google_signin`
+
+**Description**: Authenticate using Google Sign-In. The client (web, iOS, or Android) uses Google's authentication system to obtain an ID token, then sends that token to this endpoint. The backend verifies the token with Google and creates/logs in the user.
+
+**Google Client IDs** (backend accepts tokens from any of these):
+- **Web**: `233104118674-jrqmv0eihmdnrpdkqlkssl6t93gknurk.apps.googleusercontent.com`
+- **Android**: `233104118674-hho6d36b1k3g4d7fegd972ev4q8ekh7u.apps.googleusercontent.com`
+- **iOS**: *Not yet configured*
+
+**Request Body**:
+```json
+{
+  "credential": "google_id_token_from_google_sign_in"
+}
+```
+
+**Success Response - New User** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Account created successfully",
+  "token": "random_session_token",
+  "expires_at": "2025-10-04T18:30:40.123456",
+  "user": {
+    "id": "user_uuid",
+    "username": "john_doe",
+    "email": "john@gmail.com",
+    "email_verified": true,
+    "role": "user",
+    "profile_picture_url": "https://lh3.googleusercontent.com/..."
+  }
+}
+```
+
+**Success Response - Existing User** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "token": "random_session_token",
+  "expires_at": "2025-10-04T18:30:40.123456",
+  "user": {
+    "id": "user_uuid",
+    "username": "existing_username",
+    "email": "john@gmail.com",
+    "email_verified": true,
+    "role": "user",
+    "profile_picture_url": "https://lh3.googleusercontent.com/..."
+  }
+}
+```
+
+**Success Response - Account Linked** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Google account linked successfully",
+  "token": "random_session_token",
+  "expires_at": "2025-10-04T18:30:40.123456",
+  "user": {
+    "id": "user_uuid",
+    "username": "existing_username",
+    "email": "john@gmail.com",
+    "email_verified": true,
+    "role": "user",
+    "profile_picture_url": "https://lh3.googleusercontent.com/..."
+  }
+}
+```
+
+**How It Works**:
+1. **New User**: Creates account with Google email, auto-generated username, verified email
+2. **Existing Google User**: Logs in with existing account
+3. **Email Match**: Links Google to existing password-based account (preserves original username)
+
+**Username Generation**:
+- Generated from Google name (e.g., "John Doe" → "john_doe")
+- Falls back to email prefix if no name provided
+- Automatically ensures uniqueness with numeric suffix if needed
+- Always lowercase
+
+**Error Cases**:
+- Missing credential field (400)
+- Invalid Google ID token (401)
+- Google email not verified (400)
+- Token verification failed (401)
+- Server error (500)
+
+**Client Implementation**:
+
+#### Web Implementation
+
+1. **Add Google Sign-In library to your HTML**:
+```html
+<head>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+```
+
+2. **Add Google Sign-In button**:
+```html
+<div id="g_id_onload"
+     data-client_id="233104118674-jrqmv0eihmdnrpdkqlkssl6t93gknurk.apps.googleusercontent.com"
+     data-callback="handleCredentialResponse">
+</div>
+<div class="g_id_signin" data-type="standard"></div>
+```
+
+3. **Handle the response**:
+```javascript
+function handleCredentialResponse(response) {
+  // response.credential contains the ID token
+  fetch('https://backend.lockin.tech/auth/google_signin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential: response.credential })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      // Store the session token
+      localStorage.setItem('token', data.token);
+      // Redirect to your app
+      window.location.href = '/dashboard';
+    }
+  });
+}
+```
+
+#### Flutter Implementation
+
+**Note**: Works for Web, iOS, and Android with the same code!
+
+1. **Add dependencies to `pubspec.yaml`**:
+```yaml
+dependencies:
+  google_sign_in: ^6.2.1
+  http: ^1.1.0
+  flutter_secure_storage: ^9.0.0
+```
+
+2. **Configure Web** - Add to `web/index.html` in `<head>`:
+```html
+<meta name="google-signin-client_id" 
+      content="233104118674-jrqmv0eihmdnrpdkqlkssl6t93gknurk.apps.googleusercontent.com">
+```
+
+3. **Configure iOS** - Add to `ios/Runner/Info.plist` inside `<dict>`:
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+    <dict>
+        <key>CFBundleTypeRole</key>
+        <string>Editor</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>com.googleusercontent.apps.233104118674-jrqmv0eihmdnrpdkqlkssl6t93gknurk</string>
+        </array>
+    </dict>
+</array>
+<key>GIDClientID</key>
+<string>233104118674-jrqmv0eihmdnrpdkqlkssl6t93gknurk.apps.googleusercontent.com</string>
+```
+
+4. **Configure Android** - Ensure `minSdkVersion 21` in `android/app/build.gradle`:
+```gradle
+android {
+    defaultConfig {
+        minSdkVersion 21
+    }
+}
+```
+
+5. **Create Auth Service** - `lib/services/auth_service.dart`:
+```dart
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+class AuthService {
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: '233104118674-jrqmv0eihmdnrpdkqlkssl6t93gknurk.apps.googleusercontent.com',
+    scopes: ['email', 'profile'],
+  );
+
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+
+  Future<Map<String, dynamic>?> signInWithGoogle() async {
+    try {
+      // 1. Trigger Google Sign-In
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return null;
+
+      // 2. Get ID token
+      final GoogleSignInAuthentication googleAuth = 
+          await googleUser.authentication;
+
+      // 3. Send to backend
+      final response = await http.post(
+        Uri.parse('https://backend.lockin.tech/auth/google_signin'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'credential': googleAuth.idToken}),
+      );
+
+      // 4. Handle response
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        if (data['success']) {
+          // Store token
+          await _storage.write(key: 'auth_token', value: data['token']);
+          return {
+            'token': data['token'],
+            'user': data['user'],
+          };
+        }
+      }
+      return null;
+    } catch (error) {
+      print('Error: $error');
+      return null;
+    }
+  }
+
+  Future<String?> getToken() async {
+    return await _storage.read(key: 'auth_token');
+  }
+
+  Future<void> signOut() async {
+    await _googleSignIn.signOut();
+    await _storage.deleteAll();
+  }
+}
+```
+
+6. **Use in your UI**:
+```dart
+import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+
+class LoginScreen extends StatelessWidget {
+  final AuthService _authService = AuthService();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: ElevatedButton.icon(
+          onPressed: () async {
+            final result = await _authService.signInWithGoogle();
+            if (result != null) {
+              // Success - navigate to home
+              Navigator.pushReplacementNamed(context, '/home');
+            }
+          },
+          icon: Image.network(
+            'https://www.google.com/favicon.ico',
+            height: 24,
+          ),
+          label: Text('Sign in with Google'),
+        ),
+      ),
+    );
+  }
+}
+```
+
+**Flutter Platform Notes**:
+- **Web**: Works out of the box with meta tag in index.html
+- **iOS**: Requires Info.plist configuration with reversed client ID
+- **Android**: Works automatically with web client ID (minSdk 21+)
+- Same Dart code works on all three platforms!
+
+### 4. Verify Token
 
 **Endpoint**: `POST backend_url/auth/verify_token`
 
@@ -146,7 +427,7 @@ backend_url = https://backend.lockin.tech
 - Token not found or invalid (401)
 - Token expired (401)
 
-### 4. Logout
+### 5. Logout
 
 **Endpoint**: `POST backend_url/auth/logout`
 
@@ -599,6 +880,88 @@ Passing an empty array `[]` will deactivate all current enrollments:
 - One or more course_ids invalid or inactive (404)
 - Update failed (500)
 
+### Update Profile Picture
+
+**Endpoint**: `POST backend_url/update/profile_picture`
+
+**Description**: Updates the user's profile picture after uploading an image to R2. The user must first upload the image via `/upload/presign` with an image content type, then call this endpoint to update their profile. Old profile pictures are automatically deleted from R2.
+
+**Flow**:
+1. Call `/upload/presign` with image content type (JPEG, PNG, WebP, GIF, SVG)
+2. Upload image to presigned URL
+3. Call this endpoint with the object_key
+4. Profile picture is updated and old one is deleted
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token",
+  "object_key": "abc123-uuid-profile.jpg"
+}
+```
+
+**Parameters**:
+- `token` (string, required): Valid session token
+- `object_key` (string, required): Object key from presign response
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Profile picture updated successfully",
+  "data": {
+    "profile_picture_url": "https://cdn.lockin.tech/abc123-uuid-profile.jpg"
+  }
+}
+```
+
+**Error Cases**:
+- Missing required fields (400)
+- File is not an image (400)
+- Token not found, invalid, or expired (401)
+- File not found in R2 storage (404)
+- Update failed (500)
+
+**Notes**:
+- Only image files allowed (JPEG, PNG, WebP, GIF, SVG)
+- 5MB size limit (enforced by `/upload/presign`)
+- Old profile pictures are automatically deleted from R2
+- Default profile pictures ("default") are not deleted
+
+**Example Usage**:
+```javascript
+// Step 1: Get presigned URL for image
+const presignResponse = await fetch('/upload/presign', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken,
+    filename: 'my-profile.jpg',
+    content_type: 'image/jpeg',
+    file_size: imageFile.size
+  })
+});
+const { presigned_url, object_key } = await presignResponse.json();
+
+// Step 2: Upload image to R2
+await fetch(presigned_url, {
+  method: 'PUT',
+  body: imageFile,
+  headers: { 'Content-Type': 'image/jpeg' }
+});
+
+// Step 3: Update profile picture
+const updateResponse = await fetch('/update/profile_picture', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken,
+    object_key: object_key
+  })
+});
+const { profile_picture_url } = await updateResponse.json();
+```
+
 ## General Endpoints
 
 ### Health Check
@@ -628,11 +991,45 @@ Passing an empty array `[]` will deactivate all current enrollments:
 
 ## Authentication Flow
 
+### Traditional Authentication
 1. **Register**: Sign up to create an account and receive a session token
 2. **Login**: Authenticate with username/email and password to receive a session token
 3. **Use Token**: Include token in requests to authenticate
 4. **Verify Token**: Check if a token is valid and get associated user information
 5. **Logout**: Invalidate a token when done
+
+### Google Sign-In Authentication
+
+**Complete Flow**:
+1. **Client Setup**: Configure Google client ID in your app (web: HTML meta tag, Flutter: platform configs)
+2. **User Action**: User clicks "Sign in with Google" button
+3. **Google Popup**: Google authentication popup/dialog appears
+4. **User Signs In**: User enters Google credentials and approves
+5. **ID Token**: Google returns ID token to your app
+6. **Send to Backend**: App sends ID token to `POST /auth/google_signin`
+7. **Backend Verifies**: Backend validates token with Google's servers
+8. **User Creation/Login**: 
+   - New email: Creates user account with auto-generated username
+   - Existing Google user: Logs in existing account
+   - Existing email (password): Links Google to existing account
+9. **Session Token**: Backend returns session token (same as regular login)
+10. **Store Token**: App stores session token securely
+11. **Authenticated Requests**: Use session token for all API calls
+12. **Logout**: Invalidate session token when done
+
+**Key Technical Points**:
+- **ID Token**: JWT signed by Google, contains user info (email, name, picture)
+- **Verification**: Backend validates signature, issuer, audience, and expiration against all registered client IDs
+- **Multi-Platform Support**: Backend accepts tokens from Web, Android, and iOS client IDs
+- **No Password**: Google Sign-In users don't have passwords in our system
+- **Account Linking**: If email exists, Google auth is linked to that account
+- **Username Preservation**: Linked accounts keep their original username
+- **Session Token**: After Google auth, regular session management applies (7-day expiry)
+
+### Account Linking
+- If a user signs up with email/password, then later uses Google Sign-In with the same email, their accounts are automatically linked
+- Original username is preserved when linking accounts
+- Both authentication methods work for the same user after linking
 
 ## Usage Examples
 
@@ -657,6 +1054,42 @@ async function login(identifier, password) {
     body: JSON.stringify({ identifier, password })
   });
   return await response.json();
+}
+
+// Google Sign-In example (after getting ID token from Google)
+async function googleSignIn(googleIdToken) {
+  const response = await fetch(`${backend_url}/auth/google_signin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential: googleIdToken })
+  });
+  return await response.json();
+}
+
+// Complete Web Google Sign-In implementation
+function setupGoogleSignIn() {
+  // This function is called when Google Sign-In library loads
+  window.handleCredentialResponse = function(response) {
+    fetch('https://backend.lockin.tech/auth/google_signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: response.credential })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        window.location.href = '/dashboard';
+      } else {
+        alert('Sign in failed: ' + data.message);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Sign in error');
+    });
+  };
 }
 
 // Verify token example
@@ -774,6 +1207,16 @@ curl -X POST ${backend_url}/auth/login \
   -H "Content-Type: application/json" \
   -d '{"identifier": "john@example.com", "password": "securePassword123"}'
 
+# Google Sign-In (with actual ID token from Google)
+curl -X POST ${backend_url}/auth/google_signin \
+  -H "Content-Type: application/json" \
+  -d '{"credential": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjdlMzA3..."}'
+
+# Note: The credential must be a valid Google ID token obtained from:
+# - Web: Google Sign-In JavaScript library
+# - Flutter: google_sign_in package
+# - You cannot manually generate these tokens
+
 # Verify Token
 curl -X POST ${backend_url}/auth/verify_token \
   -H "Content-Type: application/json" \
@@ -833,7 +1276,148 @@ curl -X POST ${backend_url}/update/change_year \
 curl -X POST ${backend_url}/update/enroll_courses \
   -H "Content-Type: application/json" \
   -d '{"token": "your_token_here", "course_ids": ["course_uuid_1", "course_uuid_2"]}'
+
+# Update Profile Picture
+curl -X POST ${backend_url}/update/profile_picture \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here", "object_key": "abc123-uuid-profile.jpg"}'
+
+# Upload - Presign
+curl -X POST ${backend_url}/upload/presign \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here", "filename": "document.pdf", "content_type": "application/pdf", "file_size": 2048576}'
+
+# Upload - Complete
+curl -X POST ${backend_url}/upload/complete \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here", "object_key": "uploads/uuid.pdf", "original_filename": "document.pdf", "content_type": "application/pdf", "file_size": 2048576}'
 ```
+
+## File Upload Endpoints
+
+### POST /upload/presign
+
+Generate a presigned URL for uploading files directly to Cloudflare R2 storage.
+
+**Request Body:**
+```json
+{
+  "token": "session_token_string",
+  "filename": "example.pdf",
+  "content_type": "application/pdf",
+  "file_size": 2048576
+}
+```
+
+**Parameters:**
+- `token` (string, required): Valid session token
+- `filename` (string, required): Original filename
+- `content_type` (string, required): MIME type - must be one of:
+  - Images: image/jpeg, image/png, image/gif, image/webp, image/svg+xml
+  - PDF: application/pdf
+  - Audio: audio/mpeg, audio/wav, audio/ogg, audio/mp4, audio/webm
+- `file_size` (integer, required): File size in bytes - maximum 5MB (5242880 bytes) for regular users
+
+**Success Response (200 OK):**
+```json
+{
+  "presigned_url": "https://r2.example.com/...",
+  "object_key": "uploads/550e8400-e29b-41d4-a716-446655440000.pdf",
+  "public_url": "https://cdn.lockin.tech/uploads/550e8400-e29b-41d4-a716-446655440000.pdf"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Missing required fields, invalid content type, or file size exceeds limit
+- `401 Unauthorized`: Invalid or missing token
+- `500 Internal Server Error`: R2 service error
+
+**Usage Flow:**
+1. Call `/upload/presign` to get presigned URL
+2. Upload file directly to R2 using presigned URL (PUT request)
+3. Call `/upload/complete` to save file metadata in database
+
+**Example (JavaScript):**
+```javascript
+// Step 1: Get presigned URL
+const presignResponse = await fetch('/upload/presign', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    filename: file.name,
+    content_type: file.type,
+    file_size: file.size
+  })
+});
+const { presigned_url, object_key, public_url } = await presignResponse.json();
+
+// Step 2: Upload file to R2
+await fetch(presigned_url, {
+  method: 'PUT',
+  body: file,
+  headers: { 'Content-Type': file.type }
+});
+
+// Step 3: Complete upload
+const completeResponse = await fetch('/upload/complete', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    object_key: object_key,
+    original_filename: file.name,
+    content_type: file.type,
+    file_size: file.size
+  })
+});
+```
+
+**Notes:**
+- Presigned URL expires after 5 minutes
+- 5MB file size limit for regular users
+- Admins have 100MB limit (use `/admin/upload/presign`)
+
+### POST /upload/complete
+
+Save file metadata to database after successful upload to R2.
+
+**Request Body:**
+```json
+{
+  "token": "session_token_string",
+  "object_key": "uploads/550e8400-e29b-41d4-a716-446655440000.pdf",
+  "original_filename": "document.pdf",
+  "content_type": "application/pdf",
+  "file_size": 2048576
+}
+```
+
+**Parameters:**
+- `token` (string, required): Valid session token
+- `object_key` (string, required): Object key from presign response
+- `original_filename` (string, required): Original filename
+- `content_type` (string, required): MIME type
+- `file_size` (integer, required): File size in bytes
+
+**Success Response (201 Created):**
+```json
+{
+  "file_id": "650e8400-e29b-41d4-a716-446655440000",
+  "file_url": "https://cdn.lockin.tech/uploads/550e8400-e29b-41d4-a716-446655440000.pdf",
+  "created_at": "2024-01-15T10:30:00Z"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Missing required fields
+- `401 Unauthorized`: Invalid or missing token
+- `500 Internal Server Error`: Database error
+
+**Notes:**
+- Must be called after successful upload to R2
+- Stores file record linked to uploading user
+- File URL uses CDN domain (cdn.lockin.tech)
 
 ## Security Features
 
@@ -841,9 +1425,15 @@ curl -X POST ${backend_url}/update/enroll_courses \
   - Hashed with argon2id (memory-hard algorithm)
   - Minimum 8 characters required
   - Must contain uppercase, lowercase, and digit
+  - OAuth users (Google Sign-In) don't require passwords
+- **Google Sign-In Security**:
+  - ID tokens verified directly with Google's servers
+  - Tokens checked for valid issuer, audience, and expiration
+  - Accepts tokens from multiple verified Google client IDs (Web, Android, iOS)
+  - Email verification required from Google
 - **Session Management**: Tokens expire after 7 days
 - **Input Validation**: Username, email, and password format validation
 - **Input Sanitization**: All user inputs sanitized before database operations
-
-# Intellectual Property of Hugisoft (hugisoft.com)
 - **SQL Injection Protection**: Parameterized queries throughout
+- **Account Linking**: Automatic linking of Google accounts to existing email-based accounts
+Intellectual Property of Hugisoft (hugisoft.com)
