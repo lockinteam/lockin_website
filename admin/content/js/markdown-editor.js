@@ -393,6 +393,7 @@ const MarkdownEditor = {
         // Store them temporarily with unique markers that won't be affected by escaping
         const imageMap = new Map();
         const linkMap = new Map();
+        const tableMap = new Map();
         
         // Extract and replace images with placeholders
         html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
@@ -405,6 +406,30 @@ const MarkdownEditor = {
         html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
             const placeholder = `LINKPLACEHOLDER${linkMap.size}LINKPLACEHOLDER`;
             linkMap.set(placeholder, `<a href="${url}" target="_blank">${text}</a>`);
+            return placeholder;
+        });
+        
+        // Parse tables BEFORE escaping HTML (tables contain special chars and formatting)
+        html = html.replace(/(?:^|\n)(\|.+\|)\n\|([-:\s|]+)\|\n((?:\|.+\|\n?)+)/gm, (match, header, separator, rows) => {
+            const placeholder = `TABLEPLACEHOLDER${tableMap.size}TABLEPLACEHOLDER`;
+            
+            // Process bold/italic in cells before creating HTML
+            const processCell = (cell) => {
+                let processed = cell.trim();
+                processed = processed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                processed = processed.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+                processed = processed.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+                processed = processed.replace(/_([^_]+)_/g, '<em>$1</em>');
+                return processed;
+            };
+            
+            const headers = header.split('|').filter(h => h.trim()).map(h => `<th>${processCell(h)}</th>`).join('');
+            const rowsHtml = rows.trim().split('\n').map(row => {
+                const cells = row.split('|').filter(c => c.trim()).map(c => `<td>${processCell(c)}</td>`).join('');
+                return `<tr>${cells}</tr>`;
+            }).join('');
+            
+            tableMap.set(placeholder, `<table><thead><tr>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table>`);
             return placeholder;
         });
         
@@ -470,14 +495,9 @@ const MarkdownEditor = {
         html = html.replace(/<\/ol>\s*<ol>/g, '');
         html = html.replace(/<\/ul>\s*<ul class="checklist">/g, '');
         
-        // Tables (improved support with alignment)
-        html = html.replace(/(?:^|\n)(\|.+\|)\n\|([-:\s|]+)\|\n((?:\|.+\|\n?)+)/g, (match, header, separator, rows) => {
-            const headers = header.split('|').filter(h => h.trim()).map(h => `<th>${h.trim()}</th>`).join('');
-            const rowsHtml = rows.trim().split('\n').map(row => {
-                const cells = row.split('|').filter(c => c.trim()).map(c => `<td>${c.trim()}</td>`).join('');
-                return `<tr>${cells}</tr>`;
-            }).join('');
-            return `<table><thead><tr>${headers}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
+        // Restore tables from placeholders (tables were already processed)
+        tableMap.forEach((value, key) => {
+            html = html.replace(new RegExp(key, 'g'), value);
         });
         
         // Restore images and links from placeholders
