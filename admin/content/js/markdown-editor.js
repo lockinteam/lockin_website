@@ -470,8 +470,8 @@ const MarkdownEditor = {
         html = html.replace(/<\/ol>\s*<ol>/g, '');
         html = html.replace(/<\/ul>\s*<ul class="checklist">/g, '');
         
-        // Tables (basic support)
-        html = html.replace(/\n\|(.+)\|\n\|[-:\s|]+\|\n((?:\|.+\|\n?)+)/g, (match, header, rows) => {
+        // Tables (improved support with alignment)
+        html = html.replace(/(?:^|\n)(\|.+\|)\n\|([-:\s|]+)\|\n((?:\|.+\|\n?)+)/g, (match, header, separator, rows) => {
             const headers = header.split('|').filter(h => h.trim()).map(h => `<th>${h.trim()}</th>`).join('');
             const rowsHtml = rows.trim().split('\n').map(row => {
                 const cells = row.split('|').filter(c => c.trim()).map(c => `<td>${c.trim()}</td>`).join('');
