@@ -79,6 +79,11 @@ const ContentManagement = {
         AppState.setActiveSection(section);
         
         try {
+            // Clear any polling from previous section
+            if (window.GenerateSection && typeof GenerateSection.cleanup === 'function') {
+                GenerateSection.cleanup();
+            }
+            
             switch (section) {
                 case 'years':
                     await YearsSection.load();
@@ -106,6 +111,9 @@ const ContentManagement = {
                     break;
                 case 'questions':
                     await QuestionsSection.load();
+                    break;
+                case 'generate':
+                    await GenerateSection.load();
                     break;
                 default:
                     UI.showEmpty('Section Not Found', `The section "${section}" is not available.`);

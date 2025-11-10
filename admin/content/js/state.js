@@ -19,6 +19,9 @@ const AppState = {
     pastPapers: [],
     questions: [],
     
+    // Generate tasks
+    generateTasks: [],
+    
     // Question selection state
     selectedQuestionIds: [],
     
@@ -136,6 +139,10 @@ const AppState = {
     
     setQuestions(questions) {
         this.questions = questions;
+    },
+    
+    setGenerateTasks(tasks) {
+        this.generateTasks = tasks;
     },
     
     // Question selection management

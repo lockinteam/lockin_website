@@ -5124,11 +5124,766 @@ The following admin endpoints are planned for future implementation:
 - ✅ Podcasts (4 endpoints) - COMPLETE
 - ✅ Past Papers (4 endpoints) - COMPLETE
 
+### AI-Powered Content Generation
+- ✅ POST /admin/generate/info - Extract course info from PDF - COMPLETE
+- ✅ POST /admin/generate/content - Generate full course content - COMPLETE
+- ✅ GET /admin/generate/status - Check generation progress - COMPLETE
+- ✅ GET /admin/generate/list - List all generation tasks - COMPLETE
+- ✅ DELETE /admin/generate/cancel - Cancel running task - COMPLETE
+
 ### Analytics
 - Stats Overview (dashboard metrics)
 - Content Statistics (by course/subject)
 
 See `ADMIN_API_PLAN.md` for complete implementation plan.
+
+---
+
+## Admin Generate Routes
+
+### POST /admin/generate/info
+
+Extract course information from specification document using AI (Gemini API).
+
+**Authentication:** Admin or Owner required
+
+**Purpose:** This is Step 1 of a two-step AI content generation process. Extracts course metadata from a PDF specification for admin review before full content generation.
+
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "url": "https://cdn.lockin.tech/uploads/specification.pdf"
+}
+```
+
+**Required Fields:**
+- `token`: Admin session token
+- `url`: Direct URL to PDF specification file (must start with http:// or https:// and end with .pdf)
+
+**Process:**
+1. Verifies admin authentication
+2. Validates URL is a PDF (must end with .pdf)
+3. Retrieves available years and subjects from database
+4. Gets course_info prompt from `generation_prompts` table
+5. Calls Gemini API to extract course information from PDF
+6. Parses JSON response and matches year/subject to existing data
+7. Creates `generation_task` record with status 'info_complete'
+8. Returns extracted information for admin review/editing
+
+**Success Response (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Course information extracted successfully",
+  "data": {
+    "task_id": "e7a330a4-f558-41e3-a675-7338649905fd",
+    "course_info": {
+      "course_title": "Computer Science A-Level",
+      "year_id": "uuid-of-matched-year",
+      "year_name": "A-Level",
+      "subject_id": "uuid-of-matched-subject",
+      "subject_name": "Computer Science",
+      "subject_code": "9618",
+      "create_new_subject": false,
+      "description": "Comprehensive A-Level Computer Science course covering programming, algorithms, and system architecture."
+    },
+    "specification_url": "https://cdn.lockin.tech/spec.pdf",
+    "original_filename": "computer-science-spec.pdf",
+    "created_at": "2025-11-10T10:00:00Z"
+  }
+}
+```
+
+**Error Responses:**
+
+400 Bad Request (missing fields):
+```json
+{
+  "success": false,
+  "message": "Missing required fields: token, url"
+}
+```
+
+400 Bad Request (invalid URL):
+```json
+{
+  "success": false,
+  "message": "URL must start with http:// or https://"
+}
+```
+
+400 Bad Request (not a PDF):
+```json
+{
+  "success": false,
+  "message": "URL must point to a PDF file (must end with .pdf)"
+}
+```
+
+403 Forbidden:
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+500 Internal Server Error (JSON parsing):
+```json
+{
+  "success": false,
+  "message": "Failed to parse Gemini response as JSON",
+  "error": "JSONDecodeError: ...",
+  "raw_response": "First 500 chars of response..."
+}
+```
+
+500 Internal Server Error (Gemini API):
+```json
+{
+  "success": false,
+  "message": "Failed to extract course information",
+  "error": "API error details"
+}
+```
+
+503 Service Unavailable:
+```json
+{
+  "success": false,
+  "message": "Gemini API not available. Install google-genai package."
+}
+```
+
+**Features:**
+- **URL-Based**: Frontend only needs the URL, no need to track file_id
+- **Automatic Matching**: Fuzzy matching of years and subjects to existing database records
+- **Rate Limiting**: Respects Gemini API limits (10 RPM for Gemini 2.5 Flash, configurable)
+- **JSON Validation**: Handles responses with or without markdown code blocks
+- **New Subject Flag**: Indicates when a new subject should be created
+- **Task Tracking**: Creates generation_task record for status monitoring
+- **Error Resilience**: Comprehensive error handling with detailed messages
+
+**Requirements:**
+- URL must point to a publicly accessible PDF file
+- URL must start with http:// or https://
+- URL must end with .pdf
+- Gemini API key must be configured in environment (`GEMINI_API_KEY`)
+- `google-genai` and `httpx` packages must be installed
+
+**Rate Limiting:**
+- Default: 15 requests per minute (free tier)
+- Minimum delay: 4 seconds between requests
+- Configurable via `GEMINI_RPM_LIMIT` environment variable
+- Thread-safe implementation
+
+**Database Changes:**
+- Creates new record in `generation_tasks` table
+- Sets status to 'info_complete'
+- Records specification URL and course metadata
+- Sets `specification_file_id` to NULL (no longer required)
+- Tracks API call count (increments by 1)
+
+**Next Steps:**
+After receiving and reviewing the extracted information, admin can:
+1. Edit any of the returned course_info fields
+2. Proceed to Step 2: POST /admin/generate/content
+
+**Example Usage:**
+
+```bash
+# Extract course info from PDF URL
+POST /admin/generate/info
+{
+  "token": "admin_token_here",
+  "url": "https://cdn.lockin.tech/uploads/computer-science-spec.pdf"
+}
+```
+
+```javascript
+// JavaScript example
+const response = await fetch(`${backend_url}/admin/generate/info`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    url: 'https://cdn.lockin.tech/uploads/computer-science-spec.pdf'
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  console.log('Task ID:', data.data.task_id);
+  console.log('Course Title:', data.data.course_info.course_title);
+  // Review and proceed to Step 2
+}
+```
+
+**Testing:**
+See `tests/test_admin_generate_info.py` for comprehensive test suite (11 tests, all passing).
+
+---
+
+### POST /admin/generate/content
+
+Start full AI-powered course content generation (Step 2).
+
+**Authentication:** Admin or Owner required
+
+**Purpose:** After reviewing course information from Step 1, this endpoint creates the course and initiates background generation of all content (papers, topics, notes, questions).
+
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "task_id": "uuid-from-step-1",
+  "course_title": "Computer Science A-Level",
+  "year_id": "uuid",
+  "subject_id": "uuid-or-null",
+  "subject_name": "Computer Science",
+  "subject_code": "9618",
+  "description": "Course description (can be edited)",
+  "link_to_specification": "https://optional-override-url.pdf"
+}
+```
+
+**Required Fields:**
+- `token`: Admin session token
+- `task_id`: UUID from `/admin/generate/info` response
+- `course_title`: Title for the course (can be edited from Step 1)
+- `year_id`: UUID of year from database
+- `description`: Course description (can be edited from Step 1)
+
+**Conditional Fields:**
+- If `subject_id` is provided: Uses existing subject
+- If `subject_id` is null: `subject_name` is required, creates new subject
+- `subject_code`: Optional, used when creating new subject
+- `link_to_specification`: Optional, defaults to specification URL from task
+
+**Process:**
+1. Verifies admin authentication and validates inputs
+2. Checks that task exists and status is 'info_complete'
+3. Creates subject if needed (or uses existing)
+4. Creates course in database
+5. Updates generation task with course_id and status 'content_generating'
+6. Enqueues task for background processing
+7. Returns immediately (generation runs in background)
+
+**Background Generation (automatic):**
+The background worker processes the task through these stages:
+1. **Generating Papers/Topics**: Extracts paper structure and all topics
+2. **Generating Notes**: Creates comprehensive notes for each topic
+3. **Generating Questions**: Creates practice questions for each topic
+4. **Completed**: Marks task as complete
+
+**Success Response (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Content generation started",
+  "data": {
+    "task_id": "e7a330a4-f558-41e3-a675-7338649905fd",
+    "course_id": "new-course-uuid",
+    "subject_id": "subject-uuid",
+    "subject_name": "Computer Science",
+    "status": "content_generating",
+    "estimated_duration_minutes": 15,
+    "note": "Generation is running in the background. Use /admin/generate/status to check progress."
+  }
+}
+```
+
+**Error Responses:**
+
+400 Bad Request (missing fields):
+```json
+{
+  "success": false,
+  "message": "Missing required fields: course_title, year_id"
+}
+```
+
+400 Bad Request (wrong task status):
+```json
+{
+  "success": false,
+  "message": "Task status must be 'info_complete', current status: 'pending'"
+}
+```
+
+403 Forbidden:
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+404 Not Found (task):
+```json
+{
+  "success": false,
+  "message": "Generation task not found"
+}
+```
+
+404 Not Found (year):
+```json
+{
+  "success": false,
+  "message": "Year not found: uuid-here"
+}
+```
+
+503 Service Unavailable:
+```json
+{
+  "success": false,
+  "message": "Background worker is not running. Please contact administrator."
+}
+```
+
+500 Internal Server Error:
+```json
+{
+  "success": false,
+  "message": "Failed to start content generation",
+  "error": "Detailed error message"
+}
+```
+
+**Features:**
+- **Subject Creation**: Automatically creates new subjects if not exists
+- **Subject Matching**: Finds existing subjects by name or code
+- **Background Processing**: Long-running generation doesn't block request
+- **Progress Tracking**: Updates task status and counters throughout
+- **Error Handling**: Logs errors to task record without stopping
+- **Cancellation Support**: Tasks can be cancelled mid-generation (future)
+
+**Generation Timing Estimates:**
+- **Papers/Topics Structure**: ~5 seconds (1 API call)
+- **Notes per Topic**: ~11 seconds each (API call + 6s rate limit delay)
+- **Questions per Topic**: ~11 seconds each (API call + 6s rate limit delay)
+
+Example for 24 topics:
+- Structure: 5s
+- Notes: 24 × 11s = 264s (4.4 minutes)
+- Questions: 24 × 11s = 264s (4.4 minutes)
+- **Total: ~9-10 minutes**
+
+**Database Changes:**
+- Creates new record in `courses` table
+- May create new record in `subjects` table
+- Updates `generation_tasks` record with course_id and new status
+- Background: Creates papers, topics, notes, questions, options
+
+**Rate Limiting:**
+- Respects Gemini API limits (10 RPM for Gemini 2.5 Flash)
+- 6-second minimum delay between API calls
+- Thread-safe rate limiter shared across all generation tasks
+
+**Background Worker:**
+- Runs as daemon thread, started on app startup
+- Processes tasks from queue sequentially
+- Updates task status and progress in real-time
+- Handles errors gracefully, logs to database
+- Can be monitored via `/admin/generate/status` (coming soon)
+
+**Example Usage:**
+
+Full workflow:
+```bash
+# Step 1: Extract info from PDF URL
+POST /admin/generate/info
+{
+  "token": "admin_token",
+  "url": "https://cdn.lockin.tech/uploads/computer-science-spec.pdf"
+}
+
+# Response includes task_id and course_info
+
+# Step 2: Review and start generation
+POST /admin/generate/content
+{
+  "token": "admin_token",
+  "task_id": "task-uuid",
+  "course_title": "Computer Science A-Level (Edited)",
+  "year_id": "year-uuid",
+  "subject_id": null,
+  "subject_name": "Computer Science",
+  "subject_code": "9618",
+  "description": "Edited description..."
+}
+
+# Response returns immediately, generation runs in background
+
+# Step 3: Monitor progress
+GET /admin/generate/status?task_id=task-uuid&token=admin_token
+```
+
+**Generated Content Structure:**
+```
+Course
+└─ Papers (e.g., Paper 1, Paper 2, Paper 3)
+    └─ Topics (e.g., Data Structures, Algorithms, Networks)
+        ├─ Notes (comprehensive study notes)
+        └─ Questions (10 multiple-choice per topic)
+            └─ Options (4 options per question, 1 correct)
+```
+
+**Testing:**
+See `tests/test_admin_generate_content.py` for comprehensive test suite (8 tests).
+
+**Monitoring:**
+- Task status stored in `generation_tasks.status`
+- Progress counters: `completed_papers`, `completed_topics`, `completed_notes`, `completed_questions`
+- API metrics: `total_api_calls`, `total_tokens_used`, `estimated_cost`
+- Error tracking: `error_message`, `error_details`
+
+**Next Steps:**
+- Monitor generation: GET `/admin/generate/status` - See below
+- List all tasks: GET `/admin/generate/list` - See below
+- Cancel generation: DELETE `/admin/generate/cancel` - See below
+
+---
+
+### GET /admin/generate/status
+
+Check generation task status and real-time progress.
+
+**Authentication:** Admin or Owner required
+
+**Query Parameters:**
+```
+?token=admin_session_token&task_id=uuid
+```
+
+**Process:**
+1. Verifies admin authentication
+2. Fetches task from database with course and user details
+3. Calculates progress metrics (percentage, items completed)
+4. Estimates completion time for active tasks
+5. Returns comprehensive status information
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "task_id": "e7a330a4-f558-41e3-a675-7338649905fd",
+    "status": "generating_notes_uuid",
+    "course_id": "uuid",
+    "course_title": "Computer Science A-Level",
+    "subject_name": "Computer Science",
+    "created_by": "admin_user",
+    
+    "progress": {
+      "total_papers": 2,
+      "total_topics": 24,
+      "completed_papers": 2,
+      "completed_topics": 24,
+      "completed_notes": 12,
+      "completed_questions": 10,
+      "percentage": 45.8,
+      "current_task": "Generating notes for: Data Structures"
+    },
+    
+    "timestamps": {
+      "created_at": "2025-11-10T10:00:00Z",
+      "started_at": "2025-11-10T10:00:05Z",
+      "info_completed_at": "2025-11-10T10:00:30Z",
+      "content_started_at": "2025-11-10T10:05:00Z",
+      "completed_at": null,
+      "estimated_completion": "2025-11-10T10:20:15Z"
+    },
+    
+    "metrics": {
+      "total_api_calls": 26,
+      "total_tokens_used": 45000,
+      "estimated_cost": 0.12
+    },
+    
+    "specification": {
+      "file_id": null,
+      "filename": "computer-science-spec.pdf",
+      "url": "https://cdn.lockin.tech/spec.pdf"
+    },
+    
+    "error": null
+  }
+}
+```
+
+**Error Responses:**
+
+400 Bad Request:
+```json
+{
+  "success": false,
+  "message": "Missing required parameters: task_id, token"
+}
+```
+
+403 Forbidden:
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+404 Not Found:
+```json
+{
+  "success": false,
+  "message": "Generation task not found"
+}
+```
+
+**Features:**
+- Real-time progress tracking
+- Percentage completion calculation
+- Estimated completion time for active tasks
+- Detailed status descriptions
+- API call and cost metrics
+- Error message display for failed tasks
+
+**Status Values:**
+- `pending` - Waiting to start
+- `info_generating` - Extracting course information
+- `info_complete` - Ready for Step 2
+- `content_generating` - Starting content generation
+- `generating_papers` - Creating papers/topics structure
+- `generating_notes_uuid` - Generating notes for specific topic
+- `generating_questions_uuid` - Generating questions for specific topic
+- `completed` - All content generated successfully
+- `failed` - Generation failed (see error field)
+- `cancelled` - Cancelled by admin
+
+**Polling Recommendation:**
+Poll every 5 seconds during active generation to track progress.
+
+---
+
+### GET /admin/generate/list
+
+List all generation tasks with filtering, sorting, and pagination.
+
+**Authentication:** Admin or Owner required
+
+**Query Parameters:**
+```
+?token=admin_session_token
+&status=completed             (optional: filter by status)
+&created_by=user_uuid         (optional: filter by creator)
+&limit=20                     (optional: 1-200, default 20)
+&offset=0                     (optional: pagination offset)
+&sort=created_at_desc         (optional: sort order)
+```
+
+**Sort Options:**
+- `created_at_desc` - Newest first (default)
+- `created_at_asc` - Oldest first
+- `status` - By status alphabetically
+- `course_title` - By course title alphabetically
+
+**Process:**
+1. Verifies admin authentication
+2. Validates parameters (limit 1-200, offset ≥ 0)
+3. Builds dynamic query with filters
+4. Gets total count for pagination
+5. Fetches paginated tasks with course/user details
+6. Calculates metrics for each task (duration, progress %)
+7. Returns formatted task list with pagination info
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "tasks": [
+      {
+        "task_id": "uuid",
+        "course_id": "uuid",
+        "course_title": "Computer Science A-Level",
+        "subject_name": "Computer Science",
+        "specification_filename": "spec.pdf",
+        "status": "completed",
+        "created_by": "admin_user",
+        "created_at": "2025-11-10T10:00:00Z",
+        "started_at": "2025-11-10T10:00:05Z",
+        "info_completed_at": "2025-11-10T10:00:30Z",
+        "content_started_at": "2025-11-10T10:05:00Z",
+        "completed_at": "2025-11-10T10:18:23Z",
+        "duration_seconds": 1098,
+        "progress": {
+          "total_topics": 24,
+          "completed_notes": 24,
+          "completed_questions": 24,
+          "percentage": 100.0
+        },
+        "metrics": {
+          "total_api_calls": 50,
+          "estimated_cost": 0.25
+        },
+        "error": null
+      }
+    ],
+    "pagination": {
+      "total_count": 47,
+      "limit": 20,
+      "offset": 0,
+      "page": 1,
+      "total_pages": 3
+    }
+  }
+}
+```
+
+**Error Responses:**
+
+400 Bad Request (missing token):
+```json
+{
+  "success": false,
+  "message": "Missing required parameter: token"
+}
+```
+
+400 Bad Request (invalid limit):
+```json
+{
+  "success": false,
+  "message": "Limit must be between 1 and 200"
+}
+```
+
+403 Forbidden:
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+**Features:**
+- Multi-criteria filtering (status, creator)
+- Flexible sorting options
+- Pagination support
+- Duration calculation
+- Progress percentage
+- Cost tracking
+
+**Use Cases:**
+- Dashboard: List recent tasks
+- Monitoring: Filter by status to find running tasks
+- Analytics: Sort by duration or cost
+- User tracking: Filter by creator to see specific admin's tasks
+
+---
+
+### DELETE /admin/generate/cancel
+
+Cancel a running generation task.
+
+**Authentication:** Admin or Owner required
+
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "task_id": "uuid"
+}
+```
+
+**Process:**
+1. Verifies admin authentication
+2. Fetches task and validates it exists
+3. Checks task status (cannot cancel completed/failed/cancelled)
+4. Verifies ownership (non-owners can only cancel their own tasks)
+5. Requests cancellation in background worker
+6. Updates task status to 'cancelled' in database
+7. Returns progress at time of cancellation
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Generation task cancelled successfully",
+  "data": {
+    "task_id": "uuid",
+    "status": "cancelled",
+    "was_actively_running": true,
+    "progress_at_cancellation": {
+      "completed_notes": 8,
+      "completed_questions": 5,
+      "total_topics": 24
+    }
+  }
+}
+```
+
+**Error Responses:**
+
+400 Bad Request (missing fields):
+```json
+{
+  "success": false,
+  "message": "Missing required fields: token, task_id"
+}
+```
+
+400 Bad Request (invalid status):
+```json
+{
+  "success": false,
+  "message": "Cannot cancel task with status: completed"
+}
+```
+
+403 Forbidden (not authorized):
+```json
+{
+  "success": false,
+  "message": "You can only cancel your own generation tasks"
+}
+```
+
+403 Forbidden (no admin access):
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+404 Not Found:
+```json
+{
+  "success": false,
+  "message": "Generation task not found"
+}
+```
+
+**Features:**
+- Graceful cancellation (checks between stages)
+- Ownership validation (non-owners can only cancel own tasks)
+- Owners can cancel any task
+- Progress preserved at cancellation
+- Database status updated immediately
+
+**Cancellation Mechanism:**
+- Background worker checks cancellation flag before each topic
+- Task stops gracefully after completing current operation
+- Partial progress is saved (notes/questions already generated remain)
+- Status updated to 'cancelled' with timestamp
+
+**Permissions:**
+- **Admin**: Can cancel their own tasks only
+- **Owner**: Can cancel any task
+
+**Note:** Cancellation is not instant. The task will complete its current operation (generating notes or questions for one topic) before stopping. This typically takes 5-10 seconds.
 
 ---
 

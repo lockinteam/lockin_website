@@ -267,8 +267,11 @@ const API = {
             
             const presignData = await presignResponse.json();
             
-            // Check for success and data structure
-            if (!presignData.success || !presignData.data || !presignData.data.presigned_url) {
+            console.log('Presign response:', presignData);
+            
+            // Check if presign was successful - response HAS a success wrapper
+            if (!presignData.success || !presignData.data.presigned_url || !presignData.data.object_key) {
+                console.error('Presign data invalid:', presignData);
                 throw new Error(presignData.message || 'Failed to get presigned URL');
             }
             
@@ -284,44 +287,133 @@ const API = {
             }
             
             // Step 3: Complete upload and save metadata
+            const completeBody = {
+                token,
+                object_key: presignData.data.object_key,
+                filename: file.name,
+                content_type: file.type,
+                file_size: file.size
+            };
+            
+            console.log('Complete request body:', completeBody);
+            
             const completeResponse = await fetch(`${this.baseUrl}/admin/upload/complete`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    token,
-                    object_key: presignData.data.object_key,
-                    filename: file.name,
-                    content_type: file.type,
-                    file_size: file.size
-                })
+                body: JSON.stringify(completeBody)
             });
             
             const completeData = await completeResponse.json();
             
-            // Check if complete was successful
-            if (!completeData.success) {
+            console.log('Complete response:', completeData);
+            
+            // Check if complete was successful - response has nested data structure
+            if (!completeData.success || !completeData.data || !completeData.data.file_id) {
+                console.error('Complete data invalid:', completeData);
                 throw new Error(completeData.message || 'Failed to complete upload');
-            }
-            
-            // Handle both possible response formats
-            const fileUrl = completeData.file_url || completeData.data?.file_url || presignData.data.public_url;
-            const fileId = completeData.file_id || completeData.data?.file_id;
-            
-            if (!fileUrl) {
-                throw new Error('Failed to complete upload - no file URL returned');
             }
             
             return {
                 success: true,
-                file_url: fileUrl,
-                file_id: fileId,
+                file_url: completeData.data.file_url || presignData.data.public_url,
+                file_id: completeData.data.file_id,
                 file_size: file.size
             };
         } catch (error) {
-            console.error('Upload error:', error);
+            console.error('Upload error details:', error);
             throw error;
         }
+    },
+    
+    // Generate (AI Content Generation)
+    async adminPresignUpload(filename, contentType, fileSize) {
+        return await this.request('/admin/upload/presign', 'POST', {
+            filename: filename,
+            content_type: contentType,
+            file_size: fileSize
+        });
+    },
+    
+    async adminCompleteUpload(objectKey, originalFilename, contentType, fileSize) {
+        return await this.request('/admin/upload/complete', 'POST', {
+            object_key: objectKey,
+            original_filename: originalFilename,
+            content_type: contentType,
+            file_size: fileSize
+        });
+    },
+    
+    async generateInfo(specificationUrl) {
+        return await this.request('/admin/generate/info', 'POST', {
+            url: specificationUrl
+        });
+    },
+    
+    async generateContent(taskId, courseInfo) {
+        return await this.request('/admin/generate/content', 'POST', {
+            task_id: taskId,
+            course_title: courseInfo.course_title,
+            year_id: courseInfo.year_id,
+            subject_id: courseInfo.subject_id,
+            subject_name: courseInfo.subject_name,
+            subject_code: courseInfo.subject_code,
+            description: courseInfo.description,
+            link_to_specification: courseInfo.link_to_specification
+        });
+    },
+    
+    async getGenerateStatus(taskId) {
+        const token = AppState.getToken();
+        const response = await fetch(`${this.baseUrl}/admin/generate/status?token=${encodeURIComponent(token)}&task_id=${encodeURIComponent(taskId)}`, {
+            method: 'GET'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
+            throw new Error(errorData.message || 'Failed to fetch generation status');
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Failed to fetch generation status');
+        }
+        
+        return data.data;
+    },
+    
+    async listGenerateTasks(filters = {}) {
+        const token = AppState.getToken();
+        const params = new URLSearchParams({ token });
+        
+        if (filters.status) params.append('status', filters.status);
+        if (filters.created_by) params.append('created_by', filters.created_by);
+        if (filters.limit) params.append('limit', filters.limit);
+        if (filters.offset) params.append('offset', filters.offset);
+        if (filters.sort) params.append('sort', filters.sort);
+        
+        const response = await fetch(`${this.baseUrl}/admin/generate/list?${params.toString()}`, {
+            method: 'GET'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
+            throw new Error(errorData.message || 'Failed to list generation tasks');
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Failed to list generation tasks');
+        }
+        
+        return data.data;
+    },
+    
+    async cancelGenerate(taskId) {
+        return await this.request('/admin/generate/cancel', 'DELETE', {
+            task_id: taskId
+        });
     }
 };
 
+// Intellectual Property of Hugisoft (hugisoft.com)
 // Intellectual Property of Hugisoft (hugisoft.com)
