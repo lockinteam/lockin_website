@@ -412,6 +412,38 @@ const API = {
         return await this.request('/admin/generate/cancel', 'DELETE', {
             task_id: taskId
         });
+    },
+    
+    // Generate Prompts
+    async getGeneratePrompts(filters = {}) {
+        const token = AppState.getToken();
+        const params = new URLSearchParams({ token });
+        
+        if (filters.stage) params.append('stage', filters.stage);
+        if (filters.includeInactive !== undefined) params.append('include_inactive', filters.includeInactive);
+        
+        const response = await fetch(`${this.baseUrl}/admin/generate/prompts/fetch?${params.toString()}`, {
+            method: 'GET'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
+            throw new Error(errorData.message || 'Failed to fetch prompts');
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Failed to fetch prompts');
+        }
+        
+        return data.data;
+    },
+    
+    async updateGeneratePrompt(promptId, updates) {
+        return await this.request('/admin/generate/prompts/edit', 'PUT', {
+            prompt_id: promptId,
+            ...updates
+        });
     }
 };
 

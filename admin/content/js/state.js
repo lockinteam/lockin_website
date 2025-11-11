@@ -22,6 +22,9 @@ const AppState = {
     // Generate tasks
     generateTasks: [],
     
+    // Generate prompts
+    generatePrompts: [],
+    
     // Question selection state
     selectedQuestionIds: [],
     
@@ -143,6 +146,10 @@ const AppState = {
     
     setGenerateTasks(tasks) {
         this.generateTasks = tasks;
+    },
+    
+    setGeneratePrompts(prompts) {
+        this.generatePrompts = prompts;
     },
     
     // Question selection management

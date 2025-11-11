@@ -3,18 +3,42 @@
 const GenerateSection = {
     pollInterval: null,
     pollIntervalMs: 5000, // Poll every 5 seconds
+    currentView: 'tasks', // 'tasks' or 'prompts'
     
     async load() {
-        UI.showLoading('Loading generation tasks...');
-        
-        try {
-            await this.loadTasks();
-            this.render();
-            this.startPolling();
-        } catch (error) {
-            console.error('Load error:', error);
-            UI.showToast('Failed to load generation tasks', 'error');
+        if (this.currentView === 'tasks') {
+            UI.showLoading('Loading generation tasks...');
+            try {
+                await this.loadTasks();
+                this.render();
+                this.startPolling();
+            } catch (error) {
+                console.error('Load error:', error);
+                UI.showToast('Failed to load generation tasks', 'error');
+            }
+        } else if (this.currentView === 'prompts') {
+            UI.showLoading('Loading AI prompts...');
+            try {
+                await this.loadPrompts();
+                this.renderPrompts();
+            } catch (error) {
+                console.error('Load error:', error);
+                UI.showToast('Failed to load AI prompts', 'error');
+            }
         }
+    },
+    
+    async loadPrompts() {
+        const data = await API.getGeneratePrompts();
+        AppState.setGeneratePrompts(data.prompts);
+    },
+    
+    switchView(view) {
+        this.currentView = view;
+        if (view === 'tasks') {
+            this.stopPolling();
+        }
+        this.load();
     },
     
     async loadTasks() {
@@ -84,6 +108,21 @@ const GenerateSection = {
     render() {
         const tasks = AppState.generateTasks;
         
+        const viewTabsHTML = `
+            <div class="content-filters" style="margin-bottom: 1rem;">
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="action-btn ${this.currentView === 'tasks' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('tasks')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        Generation Tasks
+                    </button>
+                    <button class="action-btn ${this.currentView === 'prompts' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('prompts')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        AI Prompts
+                    </button>
+                </div>
+            </div>
+        `;
+        
         const createBtnHTML = UI.renderActionBtn(
             'Create New Generation',
             '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>',
@@ -136,7 +175,7 @@ const GenerateSection = {
             contentHTML = `<div class="content-grid">${cardsHTML}</div>`;
         }
         
-        UI.elements.contentArea.innerHTML = filtersHTML + contentHTML;
+        UI.elements.contentArea.innerHTML = viewTabsHTML + filtersHTML + contentHTML;
     },
     
     renderTaskCard(task) {
@@ -768,6 +807,251 @@ const GenerateSection = {
         } catch (error) {
             console.error('Cancel error:', error);
             UI.showToast('Failed to cancel task', 'error');
+        }
+    },
+    
+    // Prompts Management
+    renderPrompts() {
+        const prompts = AppState.generatePrompts;
+        
+        const viewTabsHTML = `
+            <div class="content-filters" style="margin-bottom: 1rem;">
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="action-btn ${this.currentView === 'tasks' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('tasks')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        Generation Tasks
+                    </button>
+                    <button class="action-btn ${this.currentView === 'prompts' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('prompts')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        AI Prompts
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        let contentHTML = '';
+        
+        if (prompts.length === 0) {
+            contentHTML = `
+                <div class="content-empty">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    <h3>No AI Prompts Found</h3>
+                    <p>System prompts control how AI generates content.</p>
+                </div>
+            `;
+        } else {
+            // Group prompts by stage
+            const stageOrder = ['course_info', 'papers_topics', 'notes', 'questions'];
+            const stageLabels = {
+                'course_info': 'Course Info Extraction',
+                'papers_topics': 'Papers & Topics Structure',
+                'notes': 'Notes Generation',
+                'questions': 'Questions Generation'
+            };
+            
+            const groupedPrompts = {};
+            stageOrder.forEach(stage => {
+                groupedPrompts[stage] = prompts.filter(p => p.stage === stage);
+            });
+            
+            let sectionsHTML = '';
+            stageOrder.forEach(stage => {
+                const stagePrompts = groupedPrompts[stage];
+                if (stagePrompts.length > 0) {
+                    const cardsHTML = stagePrompts.map(p => this.renderPromptCard(p)).join('');
+                    sectionsHTML += `
+                        <div style="margin-bottom: 2rem;">
+                            <h3 style="color: var(--color-text-primary); font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem;">
+                                ${stageLabels[stage]}
+                            </h3>
+                            <div class="content-grid">${cardsHTML}</div>
+                        </div>
+                    `;
+                }
+            });
+            
+            contentHTML = sectionsHTML;
+        }
+        
+        UI.elements.contentArea.innerHTML = viewTabsHTML + contentHTML;
+    },
+    
+    renderPromptCard(prompt) {
+        const statusBadge = prompt.is_active 
+            ? '<span class="card-badge badge-active">Active</span>'
+            : '<span class="card-badge badge-inactive">Inactive</span>';
+        
+        const createdDate = new Date(prompt.created_at).toLocaleString();
+        const previewText = prompt.prompt_template.substring(0, 150) + (prompt.prompt_template.length > 150 ? '...' : '');
+        
+        return `
+            <div class="content-card">
+                <div class="card-header">
+                    <div>
+                        <h3 class="card-title">${UI.escapeHtml(prompt.name)}</h3>
+                        ${statusBadge}
+                    </div>
+                </div>
+                <div class="card-meta">
+                    <div class="meta-row">
+                        <span class="meta-label">Model:</span>
+                        <span class="meta-value">${UI.escapeHtml(prompt.model)}</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">Stage:</span>
+                        <span class="meta-value">${UI.escapeHtml(prompt.stage)}</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">Created:</span>
+                        <span class="meta-value">${createdDate}</span>
+                    </div>
+                </div>
+                <div class="card-description">
+                    <strong>Prompt Preview:</strong><br>
+                    ${UI.escapeHtml(previewText)}
+                </div>
+                <div class="card-actions">
+                    <button class="card-action-btn" onclick="GenerateSection.openEditPromptModal('${prompt.id}')" title="Edit Prompt">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        Edit
+                    </button>
+                    ${prompt.is_active ? `
+                        <button class="card-action-btn" onclick="GenerateSection.handleTogglePromptStatus('${prompt.id}', false)" title="Deactivate Prompt">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                            Deactivate
+                        </button>
+                    ` : `
+                        <button class="card-action-btn" onclick="GenerateSection.handleTogglePromptStatus('${prompt.id}', true)" title="Activate Prompt">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            Activate
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+    },
+    
+    openEditPromptModal(promptId) {
+        const prompt = AppState.generatePrompts.find(p => p.id === promptId);
+        if (!prompt) {
+            UI.showToast('Prompt not found', 'error');
+            return;
+        }
+        
+        const modelOptions = [
+            { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended)' },
+            { value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash (Experimental)' },
+            { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+            { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+            { value: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash 8B' }
+        ].map(opt => ({ ...opt, selected: opt.value === prompt.model }));
+        
+        const formHTML = `
+            <form id="editPromptForm" onsubmit="GenerateSection.handleUpdatePrompt(event, '${promptId}'); return false;">
+                <h2>Edit AI Prompt</h2>
+                <p class="form-description">Modify the prompt template or model used for AI content generation. Changes take effect for new generation tasks.</p>
+                
+                ${UI.createFormRow(
+                    'Prompt Name',
+                    `<input type="text" class="filter-select" value="${UI.escapeHtml(prompt.name)}" disabled style="background: var(--bg-secondary); cursor: not-allowed;">`
+                )}
+                
+                ${UI.createFormRow(
+                    'Generation Stage',
+                    `<input type="text" class="filter-select" value="${UI.escapeHtml(prompt.stage)}" disabled style="background: var(--bg-secondary); cursor: not-allowed;">`
+                )}
+                
+                ${UI.createFormRow(
+                    'AI Model',
+                    UI.createSelect('model', modelOptions, prompt.model)
+                )}
+                
+                ${UI.createFormRow(
+                    'Prompt Template',
+                    `<textarea id="promptTemplate" class="filter-select" rows="15" style="font-family: 'Courier New', monospace; font-size: 0.875rem; line-height: 1.6; resize: vertical;" required>${UI.escapeHtml(prompt.prompt_template)}</textarea>`,
+                    'Use markdown formatting and placeholders as needed. Be specific and clear.'
+                )}
+                
+                <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px; margin-top: 1rem;">
+                    <strong>Tips:</strong>
+                    <ul style="margin: 0.5rem 0 0 1.5rem; line-height: 1.8; font-size: 0.875rem;">
+                        <li>Be specific about output format and structure</li>
+                        <li>Include examples when helpful</li>
+                        <li>Test changes with a generation task</li>
+                        <li>Keep prompts focused on single responsibility</li>
+                    </ul>
+                </div>
+                
+                ${UI.createModalActions(
+                    'UI.closeModal()',
+                    'document.getElementById("editPromptForm").requestSubmit()',
+                    'Save Changes',
+                    false
+                )}
+            </form>
+        `;
+        
+        UI.openModal('Edit Prompt', formHTML);
+    },
+    
+    async handleUpdatePrompt(event, promptId) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const model = form.model.value;
+        const promptTemplate = form.promptTemplate.value.trim();
+        
+        if (!promptTemplate) {
+            UI.showToast('Prompt template cannot be empty', 'error');
+            return;
+        }
+        
+        try {
+            UI.closeModal();
+            UI.showLoading('Updating prompt...');
+            
+            const data = await API.updateGeneratePrompt(promptId, {
+                prompt_template: promptTemplate,
+                model: model
+            });
+            
+            UI.showToast('Prompt updated successfully', 'success');
+            
+            // Reload prompts
+            await this.loadPrompts();
+            this.renderPrompts();
+            
+        } catch (error) {
+            console.error('Update prompt error:', error);
+            UI.showToast('Failed to update prompt: ' + error.message, 'error');
+        }
+    },
+    
+    async handleTogglePromptStatus(promptId, newStatus) {
+        const action = newStatus ? 'activate' : 'deactivate';
+        if (!UI.confirm(`Are you sure you want to ${action} this prompt?`)) {
+            return;
+        }
+        
+        try {
+            UI.showLoading(`${action === 'activate' ? 'Activating' : 'Deactivating'} prompt...`);
+            
+            await API.updateGeneratePrompt(promptId, {
+                is_active: newStatus
+            });
+            
+            UI.showToast(`Prompt ${action}d successfully`, 'success');
+            
+            // Reload prompts
+            await this.loadPrompts();
+            this.renderPrompts();
+            
+        } catch (error) {
+            console.error('Toggle prompt status error:', error);
+            UI.showToast(`Failed to ${action} prompt: ` + error.message, 'error');
         }
     },
     
