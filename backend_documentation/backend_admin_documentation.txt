@@ -5130,6 +5130,8 @@ The following admin endpoints are planned for future implementation:
 - ✅ GET /admin/generate/status - Check generation progress - COMPLETE
 - ✅ GET /admin/generate/list - List all generation tasks - COMPLETE
 - ✅ DELETE /admin/generate/cancel - Cancel running task - COMPLETE
+- ✅ GET /admin/generate/prompts/fetch - Fetch AI prompts - COMPLETE
+- ✅ PUT /admin/generate/prompts/edit - Edit AI prompts - COMPLETE
 
 ### Analytics
 - Stats Overview (dashboard metrics)
@@ -5882,6 +5884,272 @@ Cancel a running generation task.
 **Permissions:**
 - **Admin**: Can cancel their own tasks only
 - **Owner**: Can cancel any task
+
+**Note:** Cancellation is not instant. The task will complete its current operation (generating notes or questions for one topic) before stopping. This typically takes 5-10 seconds.
+
+---
+
+### GET /admin/generate/prompts/fetch
+
+Fetch all AI generation prompts with optional filtering by stage.
+
+**Authentication:** Admin or Owner required
+
+**Purpose:** Retrieve prompts used by the AI generation system. Useful for viewing, auditing, or preparing to edit prompts through the frontend.
+
+**Query Parameters:**
+- `token`: Admin session token (required)
+- `stage`: Filter by generation stage (optional) - one of: `course_info`, `papers_topics`, `notes`, `questions`
+- `include_inactive`: Include inactive prompts (optional, default: `false`)
+
+**Example Requests:**
+
+Fetch all active prompts:
+```
+GET /admin/generate/prompts/fetch?token=admin_session_token
+```
+
+Fetch only course_info prompts:
+```
+GET /admin/generate/prompts/fetch?token=admin_session_token&stage=course_info
+```
+
+Fetch all prompts including inactive:
+```
+GET /admin/generate/prompts/fetch?token=admin_session_token&include_inactive=true
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Prompts fetched successfully",
+  "data": {
+    "prompts": [
+      {
+        "id": "6422bbde-4013-4fce-b7b2-27cca313794b",
+        "name": "Course Info Extraction",
+        "stage": "course_info",
+        "prompt_template": "Analyze this course specification document...",
+        "model": "gemini-2.5-flash",
+        "is_active": true,
+        "created_at": "2025-11-10T15:30:00Z",
+        "created_by_user_id": "admin-user-id"
+      },
+      {
+        "id": "uuid-2",
+        "name": "Papers and Topics Structure",
+        "stage": "papers_topics",
+        "prompt_template": "Extract the course structure...",
+        "model": "gemini-2.5-flash",
+        "is_active": true,
+        "created_at": "2025-11-10T15:31:00Z",
+        "created_by_user_id": "admin-user-id"
+      }
+    ],
+    "count": 2
+  }
+}
+```
+
+**Error Responses:**
+
+400 Bad Request (missing token):
+```json
+{
+  "success": false,
+  "message": "Missing required field: token"
+}
+```
+
+400 Bad Request (invalid stage):
+```json
+{
+  "success": false,
+  "message": "Invalid stage. Must be one of: course_info, papers_topics, notes, questions"
+}
+```
+
+403 Forbidden:
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+**Features:**
+- Returns prompts sorted by stage order, then newest first
+- Stage filter validates against allowed values
+- Includes full prompt template text for editing
+- Shows creation metadata
+
+**Prompt Stages:**
+1. `course_info` - Extract course metadata from specification
+2. `papers_topics` - Generate course structure (papers and topics)
+3. `notes` - Generate study notes for each topic
+4. `questions` - Generate practice questions for each topic
+
+---
+
+### PUT /admin/generate/prompts/edit
+
+Update an existing AI generation prompt's template, model, or active status.
+
+**Authentication:** Admin or Owner required
+
+**Purpose:** Modify AI prompts to improve generation quality, change models, or deactivate outdated prompts.
+
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "prompt_id": "6422bbde-4013-4fce-b7b2-27cca313794b",
+  "prompt_template": "Updated prompt text...",
+  "model": "gemini-1.5-flash",
+  "is_active": false
+}
+```
+
+**Required Fields:**
+- `token`: Admin session token
+- `prompt_id`: UUID of the prompt to update
+
+**Optional Fields (at least one required):**
+- `prompt_template`: New prompt template text
+- `model`: AI model to use - one of: `gemini-2.0-flash-exp`, `gemini-1.5-flash`, `gemini-1.5-flash-8b`, `gemini-1.5-pro`, `gemini-2.5-flash`
+- `is_active`: Boolean to activate/deactivate prompt
+
+**Example Requests:**
+
+Update prompt template:
+```json
+{
+  "token": "admin_session_token",
+  "prompt_id": "6422bbde-4013-4fce-b7b2-27cca313794b",
+  "prompt_template": "NEW IMPROVED PROMPT: Analyze this course specification..."
+}
+```
+
+Change model:
+```json
+{
+  "token": "admin_session_token",
+  "prompt_id": "6422bbde-4013-4fce-b7b2-27cca313794b",
+  "model": "gemini-1.5-pro"
+}
+```
+
+Deactivate prompt:
+```json
+{
+  "token": "admin_session_token",
+  "prompt_id": "6422bbde-4013-4fce-b7b2-27cca313794b",
+  "is_active": false
+}
+```
+
+Update multiple fields:
+```json
+{
+  "token": "admin_session_token",
+  "prompt_id": "6422bbde-4013-4fce-b7b2-27cca313794b",
+  "prompt_template": "Updated prompt...",
+  "model": "gemini-2.5-flash",
+  "is_active": true
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Prompt updated successfully",
+  "data": {
+    "prompt": {
+      "id": "6422bbde-4013-4fce-b7b2-27cca313794b",
+      "name": "Course Info Extraction",
+      "stage": "course_info",
+      "prompt_template": "Updated prompt text...",
+      "model": "gemini-1.5-flash",
+      "is_active": false,
+      "created_at": "2025-11-10T15:30:00Z",
+      "created_by_user_id": "admin-user-id"
+    }
+  }
+}
+```
+
+**Error Responses:**
+
+400 Bad Request (missing fields):
+```json
+{
+  "success": false,
+  "message": "Missing required fields: token and prompt_id"
+}
+```
+
+400 Bad Request (no fields to update):
+```json
+{
+  "success": false,
+  "message": "At least one field to update must be provided (prompt_template, model, or is_active)"
+}
+```
+
+400 Bad Request (invalid model):
+```json
+{
+  "success": false,
+  "message": "Invalid model. Must be one of: gemini-2.0-flash-exp, gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro, gemini-2.5-flash"
+}
+```
+
+400 Bad Request (empty template):
+```json
+{
+  "success": false,
+  "message": "prompt_template cannot be empty"
+}
+```
+
+403 Forbidden:
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+404 Not Found:
+```json
+{
+  "success": false,
+  "message": "Prompt not found"
+}
+```
+
+**Features:**
+- Partial updates supported (update only the fields you need)
+- Model validation ensures only supported Gemini models
+- Cannot set prompt_template to empty string
+- Returns updated prompt data immediately
+- Changes take effect for next generation task
+
+**Important Notes:**
+- Editing an active prompt affects all future generation tasks immediately
+- Consider deactivating old prompts before activating new versions
+- Prompt templates use Python `.format()` syntax with placeholders like `{topic_name}`, `{paper_name}`, `{course_title}`
+- Use double braces `{{}}` for literal JSON examples in templates
+- Test prompt changes on a small generation task first
+
+**Available Models:**
+- `gemini-2.5-flash` (recommended) - Latest, fastest, best quality
+- `gemini-2.0-flash-exp` - Experimental features
+- `gemini-1.5-pro` - Most capable, slower, higher cost
+- `gemini-1.5-flash` - Fast, good quality
+- `gemini-1.5-flash-8b` - Fastest, lowest cost
 
 **Note:** Cancellation is not instant. The task will complete its current operation (generating notes or questions for one topic) before stopping. This typically takes 5-10 seconds.
 

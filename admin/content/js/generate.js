@@ -425,9 +425,9 @@ const GenerateSection = {
         if (!modalContent) return;
         
         modalContent.innerHTML = `
-            <div style="text-align: center; padding: 3rem 1rem;">
-                <div class="spinner" style="width: 48px; height: 48px; margin: 0 auto 1.5rem;"></div>
-                <p style="font-size: 1.125rem; color: var(--color-text-primary); margin: 0;">${message}</p>
+            <div class="content-loading" style="padding: 3rem 1rem;">
+                <div class="spinner"></div>
+                <p>${message}</p>
             </div>
         `;
     },
