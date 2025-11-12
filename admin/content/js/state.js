@@ -25,6 +25,9 @@ const AppState = {
     // Generate prompts
     generatePrompts: [],
     
+    // AI Models
+    models: [],
+    
     // Question selection state
     selectedQuestionIds: [],
     
@@ -150,6 +153,10 @@ const AppState = {
     
     setGeneratePrompts(prompts) {
         this.generatePrompts = prompts;
+    },
+    
+    setModels(models) {
+        this.models = models;
     },
     
     // Question selection management

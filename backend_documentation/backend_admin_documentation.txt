@@ -5130,6 +5130,7 @@ The following admin endpoints are planned for future implementation:
 - ✅ GET /admin/generate/status - Check generation progress - COMPLETE
 - ✅ GET /admin/generate/list - List all generation tasks - COMPLETE
 - ✅ DELETE /admin/generate/cancel - Cancel running task - COMPLETE
+- ✅ DELETE /admin/generate/delete - Delete task (with optional content deletion) - COMPLETE
 - ✅ GET /admin/generate/prompts/fetch - Fetch AI prompts - COMPLETE
 - ✅ PUT /admin/generate/prompts/edit - Edit AI prompts - COMPLETE
 
@@ -5145,7 +5146,7 @@ See `ADMIN_API_PLAN.md` for complete implementation plan.
 
 ### POST /admin/generate/info
 
-Extract course information from specification document using AI (Gemini API).
+Extract course information from specification document using AI (supports multiple providers: Google Gemini, Cerebras).
 
 **Authentication:** Admin or Owner required
 
@@ -5167,11 +5168,13 @@ Extract course information from specification document using AI (Gemini API).
 1. Verifies admin authentication
 2. Validates URL is a PDF (must end with .pdf)
 3. Retrieves available years and subjects from database
-4. Gets course_info prompt from `generation_prompts` table
-5. Calls Gemini API to extract course information from PDF
-6. Parses JSON response and matches year/subject to existing data
-7. Creates `generation_task` record with status 'info_complete'
-8. Returns extracted information for admin review/editing
+4. Gets course_info prompt from `generation_prompts` table (includes model_id)
+5. Fetches model details (model_name + provider) from `models` table
+6. Routes to appropriate AI provider (Google Gemini or Cerebras) based on model's provider
+7. Calls AI API to extract course information from PDF
+8. Parses JSON response and matches year/subject to existing data
+9. Creates `generation_task` record with status 'info_complete'
+10. Returns extracted information for admin review/editing
 
 **Success Response (201 Created):**
 ```json
@@ -5241,7 +5244,7 @@ Extract course information from specification document using AI (Gemini API).
 }
 ```
 
-500 Internal Server Error (Gemini API):
+500 Internal Server Error (AI API):
 ```json
 {
   "success": false,
@@ -5250,18 +5253,11 @@ Extract course information from specification document using AI (Gemini API).
 }
 ```
 
-503 Service Unavailable:
-```json
-{
-  "success": false,
-  "message": "Gemini API not available. Install google-genai package."
-}
-```
-
 **Features:**
+- **Multi-Provider Support**: Automatically routes to correct AI provider (Google/Cerebras) based on prompt's model
 - **URL-Based**: Frontend only needs the URL, no need to track file_id
 - **Automatic Matching**: Fuzzy matching of years and subjects to existing database records
-- **Rate Limiting**: Respects Gemini API limits (10 RPM for Gemini 2.5 Flash, configurable)
+- **Rate Limiting**: Respects provider-specific API limits (configurable per model in database)
 - **JSON Validation**: Handles responses with or without markdown code blocks
 - **New Subject Flag**: Indicates when a new subject should be created
 - **Task Tracking**: Creates generation_task record for status monitoring
@@ -5271,14 +5267,17 @@ Extract course information from specification document using AI (Gemini API).
 - URL must point to a publicly accessible PDF file
 - URL must start with http:// or https://
 - URL must end with .pdf
-- Gemini API key must be configured in environment (`GEMINI_API_KEY`)
-- `google-genai` and `httpx` packages must be installed
+- API keys must be configured in environment:
+  - `GEMINI_API_KEY` for Google Gemini models
+  - `CEREBRAS_API_KEY` for Cerebras models
+- Required packages: `google-genai`, `cerebras-cloud-sdk`, `httpx`, `PyPDF2`
 
 **Rate Limiting:**
-- Default: 15 requests per minute (free tier)
-- Minimum delay: 4 seconds between requests
-- Configurable via `GEMINI_RPM_LIMIT` environment variable
+- Provider-specific limits stored in database (RPM/RPD per model)
+- Google Gemini: Typically 10 RPM (free tier), 1000 RPM (lite models)
+- Cerebras: Typically 30 RPM, 14.4K RPD (free tier)
 - Thread-safe implementation
+- Automatic waiting between requests
 
 **Database Changes:**
 - Creates new record in `generation_tasks` table
@@ -5286,6 +5285,15 @@ Extract course information from specification document using AI (Gemini API).
 - Records specification URL and course metadata
 - Sets `specification_file_id` to NULL (no longer required)
 - Tracks API call count (increments by 1)
+
+**Provider Routing:**
+The system automatically determines which AI provider to use:
+1. Fetches active `course_info` prompt from `generation_prompts` table
+2. JOINs with `models` table to get `model_name` and `provider`
+3. Routes through `utils/ai_router.py` to appropriate provider:
+   - `provider='google'` → `utils/gemini_utils.py` (native PDF support)
+   - `provider='cerebras'` → `utils/cerebras_utils.py` (PDF text extraction with PyPDF2)
+4. Returns standardized response format
 
 **Next Steps:**
 After receiving and reviewing the extracted information, admin can:
@@ -5374,10 +5382,12 @@ Start full AI-powered course content generation (Step 2).
 
 **Background Generation (automatic):**
 The background worker processes the task through these stages:
-1. **Generating Papers/Topics**: Extracts paper structure and all topics
-2. **Generating Notes**: Creates comprehensive notes for each topic
-3. **Generating Questions**: Creates practice questions for each topic
+1. **Generating Papers/Topics**: Extracts paper structure and all topics using AI
+2. **Generating Notes**: Creates comprehensive notes for each topic using AI
+3. **Generating Questions**: Creates practice questions for each topic using AI
 4. **Completed**: Marks task as complete
+
+Each stage uses the active prompt for that stage (papers_topics, notes, questions) from the `generation_prompts` table, which references a model in the `models` table. The system automatically routes to the appropriate AI provider (Google Gemini or Cerebras) based on the model's provider field.
 
 **Success Response (201 Created):**
 ```json
@@ -5456,20 +5466,31 @@ The background worker processes the task through these stages:
 ```
 
 **Features:**
+- **Multi-Provider Support**: Each generation stage can use different AI providers
 - **Subject Creation**: Automatically creates new subjects if not exists
 - **Subject Matching**: Finds existing subjects by name or code
 - **Background Processing**: Long-running generation doesn't block request
 - **Progress Tracking**: Updates task status and counters throughout
 - **Error Handling**: Logs errors to task record without stopping
-- **Cancellation Support**: Tasks can be cancelled mid-generation (future)
+- **Cancellation Support**: Tasks can be cancelled mid-generation
 
 **Generation Timing Estimates:**
-- **Papers/Topics Structure**: ~5 seconds (1 API call)
-- **Notes per Topic**: ~11 seconds each (API call + 6s rate limit delay)
-- **Questions per Topic**: ~11 seconds each (API call + 6s rate limit delay)
+- **Papers/Topics Structure**: ~5-10 seconds (1 API call)
+- **Notes per Topic**: ~5-15 seconds each (depends on provider rate limits)
+- **Questions per Topic**: ~5-15 seconds each (depends on provider rate limits)
 
-Example for 24 topics:
-- Structure: 5s
+Timing varies by provider:
+- **Google Gemini**: 10 RPM = ~6 seconds between calls
+- **Cerebras**: 30 RPM = ~2 seconds between calls
+
+Example for 24 topics using Cerebras (30 RPM):
+- Structure: 10s
+- Notes: 24 × 5s = 120s (2 minutes)
+- Questions: 24 × 5s = 120s (2 minutes)
+- **Total: ~4-5 minutes**
+
+Example for 24 topics using Gemini (10 RPM):
+- Structure: 10s
 - Notes: 24 × 11s = 264s (4.4 minutes)
 - Questions: 24 × 11s = 264s (4.4 minutes)
 - **Total: ~9-10 minutes**
@@ -5481,9 +5502,26 @@ Example for 24 topics:
 - Background: Creates papers, topics, notes, questions, options
 
 **Rate Limiting:**
-- Respects Gemini API limits (10 RPM for Gemini 2.5 Flash)
-- 6-second minimum delay between API calls
+- Provider-specific limits stored in database per model (RPM/RPD)
+- Google Gemini: Typically 10 RPM (free tier)
+- Cerebras: Typically 30 RPM (free tier) - 3x faster!
 - Thread-safe rate limiter shared across all generation tasks
+- Automatically manages delays between API calls
+
+**AI Provider Routing:**
+Each generation stage (papers_topics, notes, questions) can use a different model/provider:
+1. Fetches active prompt for the stage from `generation_prompts`
+2. JOINs with `models` table to get model details (model_name, provider, rate limits)
+3. Routes through `utils/ai_router.py`:
+   - `provider='google'` → Uses Google Gemini (native PDF support)
+   - `provider='cerebras'` → Uses Cerebras (PDF text extraction with PyPDF2)
+4. Applies provider-specific rate limiting
+5. Returns standardized response
+
+This allows mixing providers for optimal cost/speed trade-offs:
+- Use Cerebras for high-volume generation (30 RPM)
+- Use Gemini for complex reasoning tasks (superior quality)
+- Configure per-stage in the admin panel
 
 **Background Worker:**
 - Runs as daemon thread, started on app startup
@@ -5889,6 +5927,177 @@ Cancel a running generation task.
 
 ---
 
+### DELETE /admin/generate/delete
+
+Delete a generation task and optionally all its generated content.
+
+**Authentication:** Admin or Owner required
+
+**Purpose:** Permanently delete a generation task record, with option to cascade delete all generated course content.
+
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "task_id": "uuid",
+  "delete_content": false  // Optional: if true, also deletes generated content
+}
+```
+
+**Required Fields:**
+- `token`: Admin session token
+- `task_id`: UUID of generation task to delete
+
+**Optional Fields:**
+- `delete_content`: Boolean (default: false)
+  - `false`: Only deletes the task record (generated content remains)
+  - `true`: Deletes task AND all generated content (course, papers, topics, notes, questions, etc.)
+
+**Deletion Options:**
+
+**Option 1: Delete Task Only (delete_content=false)**
+- Removes generation_tasks record
+- Keeps all generated content (course, papers, topics, notes, questions)
+- Use this when you want to clean up task history but keep the content
+
+**Option 2: Delete Task + Content (delete_content=true)**
+- Removes generation_tasks record
+- Cascades deletion through all generated content in order:
+  1. Question options
+  2. Questions
+  3. Notes
+  4. Podcasts
+  5. Past papers
+  6. Topics
+  7. Papers
+  8. Course enrollments
+  9. Course
+- Use this for complete cleanup (e.g., test generations, failed generations)
+
+**Success Response (200 OK):**
+
+Delete task only:
+```json
+{
+  "success": true,
+  "message": "Generation task deleted successfully",
+  "data": {
+    "task_id": "e7a330a4-f558-41e3-a675-7338649905fd",
+    "deleted_content": false,
+    "course_id": "course-uuid-or-null"
+  }
+}
+```
+
+Delete with content:
+```json
+{
+  "success": true,
+  "message": "Generation task deleted successfully (including all generated content)",
+  "data": {
+    "task_id": "e7a330a4-f558-41e3-a675-7338649905fd",
+    "deleted_content": true,
+    "course_id": "course-uuid"
+  }
+}
+```
+
+**Error Responses:**
+
+400 Bad Request (missing fields):
+```json
+{
+  "success": false,
+  "message": "Missing required fields: token, task_id"
+}
+```
+
+400 Bad Request (invalid task_id):
+```json
+{
+  "success": false,
+  "message": "Invalid task_id"
+}
+```
+
+403 Forbidden:
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+404 Not Found:
+```json
+{
+  "success": false,
+  "message": "Generation task not found"
+}
+```
+
+500 Internal Server Error:
+```json
+{
+  "success": false,
+  "message": "Failed to delete generation task",
+  "error": "Detailed error message"
+}
+```
+
+**Features:**
+- **Hard Delete**: Permanently removes records (not soft delete)
+- **Cascade Delete**: Optional deletion of all generated content
+- **Safe by Default**: Keeps content unless explicitly requested to delete
+- **Transactional**: All deletions happen atomically
+- **Dependency-Aware**: Deletes in correct order to respect foreign key constraints
+
+**Use Cases:**
+
+1. **Clean up task history** (delete_content=false):
+   - Remove old completed task records
+   - Clean up failed generation attempts
+   - Reduce task list clutter
+   - Keep generated content intact
+
+2. **Complete cleanup** (delete_content=true):
+   - Remove test generations
+   - Delete failed/incomplete courses
+   - Clean up duplicate generations
+   - Full reset before regenerating
+
+**Important Notes:**
+- This is a **permanent deletion** - cannot be undone
+- Use `delete_content=true` with caution - it deletes the entire course
+- If `delete_content=true` but no course was created, only task is deleted
+- Deletion respects foreign key constraints by deleting in dependency order
+- Students enrolled in the course will lose access if content is deleted
+
+**Example Usage:**
+
+```bash
+# Delete just the task record (keep content)
+DELETE /admin/generate/delete
+{
+  "token": "admin_token",
+  "task_id": "e7a330a4-f558-41e3-a675-7338649905fd",
+  "delete_content": false
+}
+
+# Delete task and all generated content
+DELETE /admin/generate/delete
+{
+  "token": "admin_token",
+  "task_id": "e7a330a4-f558-41e3-a675-7338649905fd",
+  "delete_content": true
+}
+```
+
+**Testing:**
+See `tests/test_admin_generate_delete.py` for comprehensive test suite (3 tests, all passing).
+
+---
+
 ### GET /admin/generate/prompts/fetch
 
 Fetch all AI generation prompts with optional filtering by stage.
@@ -5931,7 +6140,15 @@ GET /admin/generate/prompts/fetch?token=admin_session_token&include_inactive=tru
         "name": "Course Info Extraction",
         "stage": "course_info",
         "prompt_template": "Analyze this course specification document...",
-        "model": "gemini-2.5-flash",
+        "model_id": "e076cceb-c7c4-457a-b65b-cd3a4de59b71",
+        "model": {
+          "id": "e076cceb-c7c4-457a-b65b-cd3a4de59b71",
+          "title": "Gemini 2.5 Flash",
+          "model_name": "gemini-2.5-flash",
+          "provider": "google",
+          "rpm": 10,
+          "rpd": null
+        },
         "is_active": true,
         "created_at": "2025-11-10T15:30:00Z",
         "created_by_user_id": "admin-user-id"
@@ -5941,7 +6158,15 @@ GET /admin/generate/prompts/fetch?token=admin_session_token&include_inactive=tru
         "name": "Papers and Topics Structure",
         "stage": "papers_topics",
         "prompt_template": "Extract the course structure...",
-        "model": "gemini-2.5-flash",
+        "model_id": "e076cceb-c7c4-457a-b65b-cd3a4de59b71",
+        "model": {
+          "id": "e076cceb-c7c4-457a-b65b-cd3a4de59b71",
+          "title": "Gemini 2.5 Flash",
+          "model_name": "gemini-2.5-flash",
+          "provider": "google",
+          "rpm": 10,
+          "rpd": null
+        },
         "is_active": true,
         "created_at": "2025-11-10T15:31:00Z",
         "created_by_user_id": "admin-user-id"
@@ -6006,7 +6231,7 @@ Update an existing AI generation prompt's template, model, or active status.
   "token": "admin_session_token",
   "prompt_id": "6422bbde-4013-4fce-b7b2-27cca313794b",
   "prompt_template": "Updated prompt text...",
-  "model": "gemini-1.5-flash",
+  "model_id": "e076cceb-c7c4-457a-b65b-cd3a4de59b71",
   "is_active": false
 }
 ```
@@ -6017,7 +6242,7 @@ Update an existing AI generation prompt's template, model, or active status.
 
 **Optional Fields (at least one required):**
 - `prompt_template`: New prompt template text
-- `model`: AI model to use - one of: `gemini-2.0-flash-exp`, `gemini-1.5-flash`, `gemini-1.5-flash-8b`, `gemini-1.5-pro`, `gemini-2.5-flash`
+- `model_id`: UUID of AI model from models table (see Models Management section)
 - `is_active`: Boolean to activate/deactivate prompt
 
 **Example Requests:**
@@ -6036,7 +6261,7 @@ Change model:
 {
   "token": "admin_session_token",
   "prompt_id": "6422bbde-4013-4fce-b7b2-27cca313794b",
-  "model": "gemini-1.5-pro"
+  "model_id": "0ef6067a-6ed0-41a1-bfa3-36b8a299a444"
 }
 ```
 
@@ -6132,9 +6357,9 @@ Update multiple fields:
 
 **Features:**
 - Partial updates supported (update only the fields you need)
-- Model validation ensures only supported Gemini models
+- Model must be a valid model_id from the models table
 - Cannot set prompt_template to empty string
-- Returns updated prompt data immediately
+- Returns updated prompt data immediately with model details
 - Changes take effect for next generation task
 
 **Important Notes:**
@@ -6143,13 +6368,403 @@ Update multiple fields:
 - Prompt templates use Python `.format()` syntax with placeholders like `{topic_name}`, `{paper_name}`, `{course_title}`
 - Use double braces `{{}}` for literal JSON examples in templates
 - Test prompt changes on a small generation task first
+- See Models Management section below for available models
 
-**Available Models:**
-- `gemini-2.5-flash` (recommended) - Latest, fastest, best quality
-- `gemini-2.0-flash-exp` - Experimental features
-- `gemini-1.5-pro` - Most capable, slower, higher cost
-- `gemini-1.5-flash` - Fast, good quality
-- `gemini-1.5-flash-8b` - Fastest, lowest cost
+---
+
+## Models Management
+
+Models define the AI configurations used for content generation. Each model includes provider details, rate limits, and metadata. Prompts reference models via `model_id`.
+
+### GET /admin/models/fetch
+
+Fetch all AI model configurations with optional filtering.
+
+**Authentication:** Admin or Owner required
+
+**Query Parameters:**
+- `token`: Admin session token (required)
+- `provider`: Filter by provider (optional) - e.g., `google`, `cerebras`, `openai`
+- `include_inactive`: Include inactive models (optional, default: `false`)
+
+**Example Requests:**
+
+Fetch all active models:
+```
+GET /admin/models/fetch?token=admin_session_token
+```
+
+Fetch only Google models:
+```
+GET /admin/models/fetch?token=admin_session_token&provider=google
+```
+
+Fetch all models including inactive:
+```
+GET /admin/models/fetch?token=admin_session_token&include_inactive=true
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "models": [
+      {
+        "id": "e076cceb-c7c4-457a-b65b-cd3a4de59b71",
+        "title": "Gemini 2.5 Flash",
+        "model_name": "gemini-2.5-flash",
+        "provider": "google",
+        "rpm": 10,
+        "rpd": null,
+        "description": "Best price-performance ratio, recommended for most tasks",
+        "is_active": true,
+        "added_by_user_id": null,
+        "added_by_username": null,
+        "created_at": "2025-11-12T15:16:32.541971+00:00",
+        "updated_at": "2025-11-12T15:16:32.541971+00:00"
+      },
+      {
+        "id": "7ef13cad-791d-45bd-af54-e41e864c924b",
+        "title": "Cerebras Llama 3.1 70B",
+        "model_name": "llama-3.1-70b",
+        "provider": "cerebras",
+        "rpm": 60,
+        "rpd": 10000,
+        "description": "Fast inference with Cerebras WSE",
+        "is_active": true,
+        "added_by_user_id": "admin-uuid",
+        "added_by_username": "admin_user",
+        "created_at": "2025-11-12T16:00:00Z",
+        "updated_at": "2025-11-12T16:00:00Z"
+      }
+    ],
+    "count": 2
+  }
+}
+```
+
+**Error Responses:**
+- `400`: Missing token
+- `403`: User is not admin/owner
+- `500`: Server error
+
+**Notes:**
+- Models are sorted by provider, then title
+- Default models (added during migration) have `added_by_user_id` = null
+- RPM (requests per minute) is always required
+- RPD (requests per day) is optional (null if unlimited)
+- `model_name` is the exact string used in API calls
+
+---
+
+### POST /admin/models/create
+
+Create a new AI model configuration.
+
+**Authentication:** Admin or Owner required
+
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "title": "Cerebras Llama 3.1 70B",
+  "model_name": "llama-3.1-70b",
+  "provider": "cerebras",
+  "rpm": 60,
+  "rpd": 10000,
+  "description": "Fast inference with Cerebras WSE"
+}
+```
+
+**Required Fields:**
+- `token`: Admin session token
+- `title`: Human-readable model name
+- `model_name`: Exact API model identifier (must be unique)
+- `provider`: Provider name (e.g., `google`, `cerebras`, `openai`, `anthropic`)
+- `rpm`: Requests per minute limit (positive integer)
+
+**Optional Fields:**
+- `rpd`: Requests per day limit (positive integer or null for unlimited)
+- `description`: Model description/capabilities
+
+**Success Response (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Model created successfully",
+  "data": {
+    "model": {
+      "id": "7ef13cad-791d-45bd-af54-e41e864c924b",
+      "title": "Cerebras Llama 3.1 70B",
+      "model_name": "llama-3.1-70b",
+      "provider": "cerebras",
+      "rpm": 60,
+      "rpd": 10000,
+      "description": "Fast inference with Cerebras WSE",
+      "is_active": true,
+      "added_by_user_id": "admin-uuid",
+      "created_at": "2025-11-12T16:00:00Z",
+      "updated_at": "2025-11-12T16:00:00Z"
+    }
+  }
+}
+```
+
+**Error Responses:**
+- `400`: Missing required fields or invalid values
+- `403`: User is not admin/owner
+- `409`: Model with same `model_name` already exists
+- `500`: Server error
+
+**Validation:**
+- `rpm` must be positive integer
+- `rpd` must be positive integer or null
+- `model_name` must be unique across all models
+- `title`, `model_name`, and `provider` cannot be empty
+
+**Notes:**
+- New models are active by default
+- Model is immediately available for use in prompts
+- Use descriptive titles to help identify models in UI
+
+---
+
+### PUT /admin/models/edit
+
+Update an existing AI model configuration.
+
+**Authentication:** Admin or Owner required
+
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "model_id": "7ef13cad-791d-45bd-af54-e41e864c924b",
+  "title": "Updated Cerebras Llama 3.1 70B",
+  "rpm": 120,
+  "rpd": 20000,
+  "description": "Updated description",
+  "is_active": true
+}
+```
+
+**Required Fields:**
+- `token`: Admin session token
+- `model_id`: UUID of model to update
+
+**Optional Fields (at least one required):**
+- `title`: New model title
+- `model_name`: New API model identifier (must be unique)
+- `provider`: New provider name
+- `rpm`: New requests per minute limit
+- `rpd`: New requests per day limit (or null)
+- `description`: New description
+- `is_active`: Boolean to activate/deactivate
+
+**Example Requests:**
+
+Update rate limits:
+```json
+{
+  "token": "admin_session_token",
+  "model_id": "7ef13cad-791d-45bd-af54-e41e864c924b",
+  "rpm": 120,
+  "rpd": 20000
+}
+```
+
+Deactivate model:
+```json
+{
+  "token": "admin_session_token",
+  "model_id": "7ef13cad-791d-45bd-af54-e41e864c924b",
+  "is_active": false
+}
+```
+
+Update multiple fields:
+```json
+{
+  "token": "admin_session_token",
+  "model_id": "7ef13cad-791d-45bd-af54-e41e864c924b",
+  "title": "Cerebras Llama 3.1 70B (Optimized)",
+  "rpm": 100,
+  "description": "Optimized for production workloads"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Model updated successfully",
+  "data": {
+    "model": {
+      "id": "7ef13cad-791d-45bd-af54-e41e864c924b",
+      "title": "Updated Cerebras Llama 3.1 70B",
+      "model_name": "llama-3.1-70b",
+      "provider": "cerebras",
+      "rpm": 120,
+      "rpd": 20000,
+      "description": "Updated description",
+      "is_active": true,
+      "added_by_user_id": "admin-uuid",
+      "created_at": "2025-11-12T16:00:00Z",
+      "updated_at": "2025-11-12T16:30:00Z"
+    }
+  }
+}
+```
+
+**Error Responses:**
+- `400`: Missing required fields, invalid values, or no fields to update
+- `403`: User is not admin/owner
+- `404`: Model not found
+- `409`: New `model_name` conflicts with existing model
+- `500`: Server error
+
+**Validation:**
+- Same validation as create endpoint
+- At least one field to update must be provided
+- `updated_at` timestamp is automatically updated
+- Cannot set required text fields to empty string
+
+**Notes:**
+- Partial updates supported (only provide fields you want to change)
+- Deactivating a model doesn't affect existing prompts using it
+- Rate limit changes take effect immediately for new generation tasks
+
+---
+
+### DELETE /admin/models/delete
+
+Soft delete an AI model (sets `is_active` to false).
+
+**Authentication:** Admin or Owner required
+
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "model_id": "7ef13cad-791d-45bd-af54-e41e864c924b"
+}
+```
+
+**Required Fields:**
+- `token`: Admin session token
+- `model_id`: UUID of model to delete
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Model deleted successfully",
+  "data": {
+    "model_id": "7ef13cad-791d-45bd-af54-e41e864c924b",
+    "title": "Cerebras Llama 3.1 70B",
+    "model_name": "llama-3.1-70b"
+  }
+}
+```
+
+**Error Responses:**
+- `400`: Missing required fields or model already inactive
+- `403`: User is not admin/owner
+- `404`: Model not found
+- `409`: Active prompts are using this model (must deactivate/reassign prompts first)
+- `500`: Server error
+
+**Important Notes:**
+- This is a **soft delete** - model record remains in database with `is_active = false`
+- Deleted models do not appear in active lists (unless `include_inactive=true`)
+- Foreign key relationships are preserved (prompts keep their `model_id` reference)
+- Cannot delete a model if any **active** prompts are using it
+- Must first deactivate or reassign those prompts before deleting the model
+- This prevents breaking active generation workflows
+
+**Workflow for Deleting a Model:**
+1. Check which prompts use the model: `GET /admin/generate/prompts/fetch`
+2. For each active prompt using this model:
+   - Either deactivate it: `PUT /admin/generate/prompts/edit` with `is_active: false`
+   - Or reassign to different model: `PUT /admin/generate/prompts/edit` with new `model_id`
+3. Then delete the model: `DELETE /admin/models/delete`
+
+**Example Protection Scenario:**
+```json
+// Attempting to delete a model in use:
+DELETE /admin/models/delete
+{
+  "token": "...",
+  "model_id": "e076cceb-c7c4-457a-b65b-cd3a4de59b71"
+}
+
+// Response if prompts are using it:
+{
+  "success": false,
+  "message": "Cannot delete model: 4 active prompt(s) are using this model. Please deactivate or reassign those prompts first."
+}
+```
+
+---
+
+## Default Models
+
+The following models are included by default (from migration):
+
+**Gemini 2.5 Series (Latest - Recommended):**
+- **Gemini 2.5 Flash** (`gemini-2.5-flash`) - Best price-performance ratio ⭐
+- Gemini 2.5 Pro (`gemini-2.5-pro`) - State-of-the-art thinking model
+- Gemini 2.5 Flash Lite (`gemini-2.5-flash-lite`) - Ultra fast, cost-efficient
+
+**Gemini 2.0 Series:**
+- Gemini 2.0 Flash Experimental (`gemini-2.0-flash-exp`) - Experimental features
+- Gemini 2.0 Flash (`gemini-2.0-flash`) - Second generation workhorse
+- Gemini 2.0 Flash Lite (`gemini-2.0-flash-lite`) - Fast model
+
+**Gemini 1.5 Series (Legacy):**
+- Gemini 1.5 Flash (`gemini-1.5-flash`) - First generation flash
+- Gemini 1.5 Flash 8B (`gemini-1.5-flash-8b`) - Lightweight 8B parameters
+- Gemini 1.5 Pro (`gemini-1.5-pro`) - First generation pro
+
+**Aliases:**
+- Gemini Pro Latest (`gemini-pro-latest`) - Points to latest pro model
+- Gemini Flash Latest (`gemini-flash-latest`) - Points to latest flash model
+
+All default models have:
+- Provider: `google`
+- RPM: 10 (free tier) or 1000 (lite variants)
+- RPD: null (unlimited)
+- `added_by_user_id`: null
+
+---
+
+## Database Schema Changes
+
+**New Table: `models`**
+```sql
+CREATE TABLE models (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    model_name VARCHAR(255) NOT NULL UNIQUE,
+    provider VARCHAR(100) NOT NULL,
+    rpd INTEGER,
+    rpm INTEGER NOT NULL DEFAULT 10,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    added_by_user_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (added_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+```
+
+**Updated Table: `generation_prompts`**
+- **Removed:** `model VARCHAR(50)` column
+- **Added:** `model_id UUID NOT NULL` column
+- **Foreign Key:** `model_id` references `models(id)`
+
+Migration file: `MODELS_MIGRATION.sql` (includes rollback instructions)
 
 **Note:** Cancellation is not instant. The task will complete its current operation (generating notes or questions for one topic) before stopping. This typically takes 5-10 seconds.
 
@@ -6159,7 +6774,7 @@ Update multiple fields:
 
 For issues or questions regarding admin endpoints:
 1. Check this documentation
-2. Review test suite examples
+2. Review test suite examples (see `tests/test_admin_models.py` for models management)
 3. Consult `ADMIN_API_PLAN.md` for implementation details
 4. Check regular user docs in `backend_documentation.txt`
 Intellectual Property of Hugisoft (hugisoft.com)

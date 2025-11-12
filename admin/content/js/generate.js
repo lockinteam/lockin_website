@@ -3,7 +3,7 @@
 const GenerateSection = {
     pollInterval: null,
     pollIntervalMs: 5000, // Poll every 5 seconds
-    currentView: 'tasks', // 'tasks' or 'prompts'
+    currentView: 'tasks', // 'tasks', 'prompts', or 'models'
     
     async load() {
         if (this.currentView === 'tasks') {
@@ -20,10 +20,20 @@ const GenerateSection = {
             UI.showLoading('Loading AI prompts...');
             try {
                 await this.loadPrompts();
+                await this.loadModels(); // Load models for dropdown
                 this.renderPrompts();
             } catch (error) {
                 console.error('Load error:', error);
                 UI.showToast('Failed to load AI prompts', 'error');
+            }
+        } else if (this.currentView === 'models') {
+            UI.showLoading('Loading AI models...');
+            try {
+                await this.loadModels();
+                this.renderModels();
+            } catch (error) {
+                console.error('Load error:', error);
+                UI.showToast('Failed to load AI models', 'error');
             }
         }
     },
@@ -31,6 +41,11 @@ const GenerateSection = {
     async loadPrompts() {
         const data = await API.getGeneratePrompts();
         AppState.setGeneratePrompts(data.prompts);
+    },
+    
+    async loadModels() {
+        const data = await API.getModels();
+        AppState.setModels(data.models);
     },
     
     switchView(view) {
@@ -119,6 +134,10 @@ const GenerateSection = {
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         AI Prompts
                     </button>
+                    <button class="action-btn ${this.currentView === 'models' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('models')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6m9.66-9H16m-8 0H1.34M17.66 17.66l-4.24-4.24m-2.83 0l-4.24 4.24M17.66 6.34l-4.24 4.24m-2.83 0l-4.24-4.24"></path></svg>
+                        AI Models
+                    </button>
                 </div>
             </div>
         `;
@@ -195,6 +214,10 @@ const GenerateSection = {
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                     Start Generation
                 </button>
+                <button class="card-action-btn destructive" onclick="GenerateSection.handleDeleteTask('${task.task_id}', false)" title="Delete Task">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Delete
+                </button>
             `;
         } else if (['content_generating', 'generating_papers', 'generating_notes', 'generating_questions'].some(s => task.status === s || task.status.includes(s))) {
             actionsHTML = `
@@ -205,6 +228,17 @@ const GenerateSection = {
                 <button class="card-action-btn destructive" onclick="GenerateSection.handleCancel('${task.task_id}')" title="Cancel Generation">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     Cancel
+                </button>
+            `;
+        } else if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
+            actionsHTML = `
+                <button class="card-action-btn" onclick="GenerateSection.viewTaskDetails('${task.task_id}')" title="View Details">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    Details
+                </button>
+                <button class="card-action-btn destructive" onclick="GenerateSection.handleDeleteTask('${task.task_id}', ${task.course_id ? 'true' : 'false'})" title="Delete Task${task.course_id ? ' & Content' : ''}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Delete
                 </button>
             `;
         } else {
@@ -810,6 +844,81 @@ const GenerateSection = {
         }
     },
     
+    async handleDeleteTask(taskId, hasContent) {
+        const task = AppState.generateTasks.find(t => t.task_id === taskId);
+        const taskTitle = task ? (task.course_title || 'this task') : 'this task';
+        
+        if (hasContent) {
+            // Show modal with option to delete content
+            const formHTML = `
+                <form id="deleteTaskForm" onsubmit="GenerateSection.confirmDeleteTask('${taskId}'); return false;">
+                    <h2>Delete Generation Task</h2>
+                    <p class="form-description">
+                        This task has generated a course: <strong>${UI.escapeHtml(taskTitle)}</strong>
+                    </p>
+                    
+                    <div style="margin: 1.5rem 0;">
+                        <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; padding: 1rem; background: rgba(245, 86, 86, 0.1); border-radius: 8px; border: 2px solid rgba(245, 86, 86, 0.3);">
+                            <input type="checkbox" id="deleteContentCheckbox" style="margin-top: 0.25rem;">
+                            <div>
+                                <div style="font-weight: 600; color: var(--color-error); margin-bottom: 0.25rem;">Also delete all generated content</div>
+                                <div style="font-size: 0.875rem; color: var(--color-grey-text);">
+                                    This will permanently delete the course, papers, topics, notes, questions, and all related content. This action cannot be undone.
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <p style="font-size: 0.875rem; color: var(--color-grey-text); margin-top: 1rem;">
+                        If you uncheck this option, only the task record will be deleted. The generated content will remain in the system.
+                    </p>
+                    
+                    ${UI.createModalActions(
+                        'UI.closeModal()',
+                        'document.getElementById("deleteTaskForm").requestSubmit()',
+                        'Delete Task',
+                        false
+                    )}
+                </form>
+            `;
+            
+            UI.openModal('Delete Generation Task', formHTML);
+        } else {
+            // Simple deletion without content
+            if (!UI.confirm(`Are you sure you want to delete the task for "${taskTitle}"?`)) {
+                return;
+            }
+            
+            await this.executeDeleteTask(taskId, false);
+        }
+    },
+    
+    async confirmDeleteTask(taskId) {
+        const deleteContent = document.getElementById('deleteContentCheckbox')?.checked || false;
+        UI.closeModal();
+        await this.executeDeleteTask(taskId, deleteContent);
+    },
+    
+    async executeDeleteTask(taskId, deleteContent) {
+        try {
+            await API.deleteGenerationTask(taskId, deleteContent);
+            UI.showToast(
+                deleteContent 
+                    ? 'Task and all generated content deleted successfully' 
+                    : 'Task deleted successfully',
+                'success'
+            );
+            
+            // Reload tasks
+            await this.loadTasks();
+            this.render();
+            
+        } catch (error) {
+            console.error('Delete error:', error);
+            UI.showToast(error.message || 'Failed to delete task', 'error');
+        }
+    },
+    
     // Prompts Management
     renderPrompts() {
         const prompts = AppState.generatePrompts;
@@ -824,6 +933,10 @@ const GenerateSection = {
                     <button class="action-btn ${this.currentView === 'prompts' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('prompts')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         AI Prompts
+                    </button>
+                    <button class="action-btn ${this.currentView === 'models' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('models')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6m9.66-9H16m-8 0H1.34M17.66 17.66l-4.24-4.24m-2.83 0l-4.24 4.24M17.66 6.34l-4.24 4.24m-2.83 0l-4.24-4.24"></path></svg>
+                        AI Models
                     </button>
                 </div>
             </div>
@@ -886,6 +999,8 @@ const GenerateSection = {
         
         const createdDate = new Date(prompt.created_at).toLocaleString();
         const previewText = prompt.prompt_template.substring(0, 150) + (prompt.prompt_template.length > 150 ? '...' : '');
+        const modelTitle = prompt.model ? prompt.model.title : 'Unknown Model';
+        const modelProvider = prompt.model ? prompt.model.provider : '';
         
         return `
             <div class="content-card">
@@ -898,7 +1013,7 @@ const GenerateSection = {
                 <div class="card-meta">
                     <div class="meta-row">
                         <span class="meta-label">Model:</span>
-                        <span class="meta-value">${UI.escapeHtml(prompt.model)}</span>
+                        <span class="meta-value">${UI.escapeHtml(modelTitle)}${modelProvider ? ` <span style="color: var(--color-grey-text); text-transform: capitalize;">(${UI.escapeHtml(modelProvider)})</span>` : ''}</span>
                     </div>
                     <div class="meta-row">
                         <span class="meta-label">Stage:</span>
@@ -941,13 +1056,14 @@ const GenerateSection = {
             return;
         }
         
-        const modelOptions = [
-            { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Recommended)' },
-            { value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash (Experimental)' },
-            { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-            { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
-            { value: 'gemini-1.5-flash-8b', label: 'Gemini 1.5 Flash 8B' }
-        ].map(opt => ({ ...opt, selected: opt.value === prompt.model }));
+        // Build model options from loaded models
+        const modelOptions = AppState.models
+            .filter(m => m.is_active)
+            .map(m => ({
+                value: m.id,
+                label: `${m.title} (${m.provider})`,
+                selected: m.id === prompt.model_id
+            }));
         
         const formHTML = `
             <form id="editPromptForm" onsubmit="GenerateSection.handleUpdatePrompt(event, '${promptId}'); return false;">
@@ -966,7 +1082,7 @@ const GenerateSection = {
                 
                 ${UI.createFormRow(
                     'AI Model',
-                    UI.createSelect('model', modelOptions, prompt.model)
+                    UI.createSelect('modelId', modelOptions, prompt.model_id)
                 )}
                 
                 ${UI.createFormRow(
@@ -1001,7 +1117,7 @@ const GenerateSection = {
         event.preventDefault();
         
         const form = event.target;
-        const model = form.model.value;
+        const modelId = form.modelId.value;
         const promptTemplate = form.promptTemplate.value.trim();
         
         if (!promptTemplate) {
@@ -1015,7 +1131,7 @@ const GenerateSection = {
             
             const data = await API.updateGeneratePrompt(promptId, {
                 prompt_template: promptTemplate,
-                model: model
+                model_id: modelId
             });
             
             UI.showToast('Prompt updated successfully', 'success');
@@ -1052,6 +1168,388 @@ const GenerateSection = {
         } catch (error) {
             console.error('Toggle prompt status error:', error);
             UI.showToast(`Failed to ${action} prompt: ` + error.message, 'error');
+        }
+    },
+    
+    // Models Management
+    renderModels() {
+        const models = AppState.models;
+        
+        const viewTabsHTML = `
+            <div class="content-filters" style="margin-bottom: 1rem;">
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="action-btn ${this.currentView === 'tasks' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('tasks')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        Generation Tasks
+                    </button>
+                    <button class="action-btn ${this.currentView === 'prompts' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('prompts')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        AI Prompts
+                    </button>
+                    <button class="action-btn ${this.currentView === 'models' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('models')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6m9.66-9H16m-8 0H1.34M17.66 17.66l-4.24-4.24m-2.83 0l-4.24 4.24M17.66 6.34l-4.24 4.24m-2.83 0l-4.24-4.24"></path></svg>
+                        AI Models
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        const createBtnHTML = UI.renderActionBtn(
+            'Create Model',
+            '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
+            'GenerateSection.openCreateModelModal()'
+        );
+        
+        const actionsHTML = `
+            <div class="content-filters">
+                <div style="margin-left: auto;">
+                    ${createBtnHTML}
+                </div>
+            </div>
+        `;
+        
+        let contentHTML = '';
+        
+        if (models.length === 0) {
+            contentHTML = `
+                <div class="content-empty">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 1v6m0 6v6m9.66-9H16m-8 0H1.34M17.66 17.66l-4.24-4.24m-2.83 0l-4.24 4.24M17.66 6.34l-4.24 4.24m-2.83 0l-4.24-4.24"></path>
+                    </svg>
+                    <h3>No AI Models Found</h3>
+                    <p>Configure AI models to use for content generation.</p>
+                </div>
+            `;
+        } else {
+            // Group models by provider
+            const providers = [...new Set(models.map(m => m.provider))].sort();
+            let sectionsHTML = '';
+            
+            providers.forEach(provider => {
+                const providerModels = models.filter(m => m.provider === provider);
+                const cardsHTML = providerModels.map(m => this.renderModelCard(m)).join('');
+                sectionsHTML += `
+                    <div style="margin-bottom: 2rem;">
+                        <h3 style="color: var(--color-text-primary); font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; text-transform: capitalize;">
+                            ${UI.escapeHtml(provider)} Models
+                        </h3>
+                        <div class="content-grid">${cardsHTML}</div>
+                    </div>
+                `;
+            });
+            
+            contentHTML = sectionsHTML;
+        }
+        
+        UI.elements.contentArea.innerHTML = viewTabsHTML + actionsHTML + contentHTML;
+    },
+    
+    renderModelCard(model) {
+        const statusBadge = model.is_active 
+            ? '<span class="card-badge badge-active">Active</span>'
+            : '<span class="card-badge badge-inactive">Inactive</span>';
+        
+        const createdDate = new Date(model.created_at).toLocaleString();
+        const rpdText = model.rpd ? model.rpd.toLocaleString() : 'Unlimited';
+        
+        return `
+            <div class="content-card">
+                <div class="card-header">
+                    <div>
+                        <h3 class="card-title">${UI.escapeHtml(model.title)}</h3>
+                        ${statusBadge}
+                    </div>
+                </div>
+                <div class="card-meta">
+                    <div class="meta-row">
+                        <span class="meta-label">Model Name:</span>
+                        <span class="meta-value"><code>${UI.escapeHtml(model.model_name)}</code></span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">Provider:</span>
+                        <span class="meta-value" style="text-transform: capitalize;">${UI.escapeHtml(model.provider)}</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">RPM Limit:</span>
+                        <span class="meta-value">${model.rpm} requests/min</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">RPD Limit:</span>
+                        <span class="meta-value">${rpdText}</span>
+                    </div>
+                    ${model.added_by_username ? `
+                        <div class="meta-row">
+                            <span class="meta-label">Added By:</span>
+                            <span class="meta-value">${UI.escapeHtml(model.added_by_username)}</span>
+                        </div>
+                    ` : ''}
+                    <div class="meta-row">
+                        <span class="meta-label">Created:</span>
+                        <span class="meta-value">${createdDate}</span>
+                    </div>
+                </div>
+                ${model.description ? `
+                    <div class="card-description">
+                        ${UI.escapeHtml(model.description)}
+                    </div>
+                ` : ''}
+                <div class="card-actions">
+                    <button class="card-action-btn" onclick="GenerateSection.openEditModelModal('${model.id}')" title="Edit Model">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        Edit
+                    </button>
+                    ${model.is_active ? `
+                        <button class="card-action-btn destructive" onclick="GenerateSection.handleDeleteModel('${model.id}')" title="Delete Model">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            Delete
+                        </button>
+                    ` : `
+                        <button class="card-action-btn" onclick="GenerateSection.handleToggleModelStatus('${model.id}', true)" title="Reactivate Model">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            Reactivate
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+    },
+    
+    openCreateModelModal() {
+        const formHTML = `
+            <form id="createModelForm" onsubmit="GenerateSection.handleCreateModel(event); return false;">
+                <h2>Create AI Model</h2>
+                <p class="form-description">Add a new AI model configuration for content generation.</p>
+                
+                ${UI.createFormRow(
+                    'Model Title',
+                    UI.createTextInput('title', '', 'e.g., Gemini 2.5 Flash', true)
+                )}
+                
+                ${UI.createFormRow(
+                    'Model Name',
+                    UI.createTextInput('modelName', '', 'e.g., gemini-2.5-flash', true),
+                    'Exact API model identifier (must be unique)'
+                )}
+                
+                ${UI.createFormRow(
+                    'Provider',
+                    UI.createTextInput('provider', '', 'e.g., google, openai, anthropic', true)
+                )}
+                
+                ${UI.createFormRow(
+                    'RPM (Requests Per Minute)',
+                    UI.createNumberInput('rpm', '', 'e.g., 10', 1, null, 1),
+                    'Rate limit for requests per minute'
+                )}
+                
+                ${UI.createFormRow(
+                    'RPD (Requests Per Day)',
+                    UI.createNumberInput('rpd', '', 'Leave blank for unlimited', 0, null, 1),
+                    'Optional daily request limit'
+                )}
+                
+                ${UI.createFormRow(
+                    'Description',
+                    UI.createTextarea('description', '', 'Model capabilities and use cases', 3)
+                )}
+                
+                ${UI.createModalActions(
+                    'UI.closeModal()',
+                    'document.getElementById("createModelForm").requestSubmit()',
+                    'Create Model',
+                    false
+                )}
+            </form>
+        `;
+        
+        UI.openModal('Create Model', formHTML);
+    },
+    
+    async handleCreateModel(event) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const title = form.title.value.trim();
+        const modelName = form.modelName.value.trim();
+        const provider = form.provider.value.trim();
+        const rpm = parseInt(form.rpm.value);
+        const rpd = form.rpd.value ? parseInt(form.rpd.value) : null;
+        const description = form.description.value.trim();
+        
+        if (!title || !modelName || !provider || !rpm) {
+            UI.showToast('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        try {
+            UI.closeModal();
+            UI.showLoading('Creating model...');
+            
+            await API.createModel({
+                title,
+                model_name: modelName,
+                provider,
+                rpm,
+                rpd,
+                description: description || undefined
+            });
+            
+            UI.showToast('Model created successfully', 'success');
+            
+            // Reload models
+            await this.loadModels();
+            this.renderModels();
+            
+        } catch (error) {
+            console.error('Create model error:', error);
+            UI.showToast('Failed to create model: ' + error.message, 'error');
+        }
+    },
+    
+    openEditModelModal(modelId) {
+        const model = AppState.models.find(m => m.id === modelId);
+        if (!model) {
+            UI.showToast('Model not found', 'error');
+            return;
+        }
+        
+        const formHTML = `
+            <form id="editModelForm" onsubmit="GenerateSection.handleUpdateModel(event, '${modelId}'); return false;">
+                <h2>Edit AI Model</h2>
+                <p class="form-description">Update model configuration. Changes take effect immediately.</p>
+                
+                ${UI.createFormRow(
+                    'Model Title',
+                    UI.createTextInput('title', model.title, 'e.g., Gemini 2.5 Flash', true)
+                )}
+                
+                ${UI.createFormRow(
+                    'Model Name',
+                    UI.createTextInput('modelName', model.model_name, 'e.g., gemini-2.5-flash', true),
+                    'Exact API model identifier (must be unique)'
+                )}
+                
+                ${UI.createFormRow(
+                    'Provider',
+                    UI.createTextInput('provider', model.provider, 'e.g., google, openai, anthropic', true)
+                )}
+                
+                ${UI.createFormRow(
+                    'RPM (Requests Per Minute)',
+                    UI.createNumberInput('rpm', model.rpm, 'e.g., 10', 1, null, 1),
+                    'Rate limit for requests per minute'
+                )}
+                
+                ${UI.createFormRow(
+                    'RPD (Requests Per Day)',
+                    UI.createNumberInput('rpd', model.rpd || '', 'Leave blank for unlimited', 0, null, 1),
+                    'Optional daily request limit'
+                )}
+                
+                ${UI.createFormRow(
+                    'Description',
+                    UI.createTextarea('description', model.description || '', 'Model capabilities and use cases', 3)
+                )}
+                
+                ${UI.createModalActions(
+                    'UI.closeModal()',
+                    'document.getElementById("editModelForm").requestSubmit()',
+                    'Save Changes',
+                    false
+                )}
+            </form>
+        `;
+        
+        UI.openModal('Edit Model', formHTML);
+    },
+    
+    async handleUpdateModel(event, modelId) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const title = form.title.value.trim();
+        const modelName = form.modelName.value.trim();
+        const provider = form.provider.value.trim();
+        const rpm = parseInt(form.rpm.value);
+        const rpd = form.rpd.value ? parseInt(form.rpd.value) : null;
+        const description = form.description.value.trim();
+        
+        if (!title || !modelName || !provider || !rpm) {
+            UI.showToast('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        try {
+            UI.closeModal();
+            UI.showLoading('Updating model...');
+            
+            await API.updateModel(modelId, {
+                title,
+                model_name: modelName,
+                provider,
+                rpm,
+                rpd,
+                description: description || undefined
+            });
+            
+            UI.showToast('Model updated successfully', 'success');
+            
+            // Reload models
+            await this.loadModels();
+            this.renderModels();
+            
+        } catch (error) {
+            console.error('Update model error:', error);
+            UI.showToast('Failed to update model: ' + error.message, 'error');
+        }
+    },
+    
+    async handleDeleteModel(modelId) {
+        const model = AppState.models.find(m => m.id === modelId);
+        if (!model) {
+            UI.showToast('Model not found', 'error');
+            return;
+        }
+        
+        if (!UI.confirm(`Are you sure you want to delete "${model.title}"? Make sure no active prompts are using this model.`)) {
+            return;
+        }
+        
+        try {
+            UI.showLoading('Deleting model...');
+            
+            await API.deleteModel(modelId);
+            
+            UI.showToast('Model deleted successfully', 'success');
+            
+            // Reload models
+            await this.loadModels();
+            this.renderModels();
+            
+        } catch (error) {
+            console.error('Delete model error:', error);
+            UI.showToast('Failed to delete model: ' + error.message, 'error');
+        }
+    },
+    
+    async handleToggleModelStatus(modelId, newStatus) {
+        try {
+            UI.showLoading(`${newStatus ? 'Reactivating' : 'Deactivating'} model...`);
+            
+            await API.updateModel(modelId, {
+                is_active: newStatus
+            });
+            
+            UI.showToast(`Model ${newStatus ? 'reactivated' : 'deactivated'} successfully`, 'success');
+            
+            // Reload models
+            await this.loadModels();
+            this.renderModels();
+            
+        } catch (error) {
+            console.error('Toggle model status error:', error);
+            UI.showToast('Failed to update model status: ' + error.message, 'error');
         }
     },
     

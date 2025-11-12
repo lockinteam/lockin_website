@@ -444,6 +444,56 @@ const API = {
             prompt_id: promptId,
             ...updates
         });
+    },
+    
+    // Models Management
+    async getModels(filters = {}) {
+        const token = AppState.getToken();
+        const params = new URLSearchParams({ token });
+        
+        if (filters.provider) params.append('provider', filters.provider);
+        if (filters.includeInactive !== undefined) params.append('include_inactive', filters.includeInactive);
+        
+        const response = await fetch(`${this.baseUrl}/admin/models/fetch?${params.toString()}`, {
+            method: 'GET'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
+            throw new Error(errorData.message || 'Failed to fetch models');
+        }
+        
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Failed to fetch models');
+        }
+        
+        return data.data;
+    },
+    
+    async createModel(modelData) {
+        return await this.request('/admin/models/create', 'POST', modelData);
+    },
+    
+    async updateModel(modelId, updates) {
+        return await this.request('/admin/models/edit', 'PUT', {
+            model_id: modelId,
+            ...updates
+        });
+    },
+    
+    async deleteModel(modelId) {
+        return await this.request('/admin/models/delete', 'DELETE', {
+            model_id: modelId
+        });
+    },
+    
+    // Generation Tasks Management
+    async deleteGenerationTask(taskId, deleteContent = false) {
+        return await this.request('/admin/generate/delete', 'DELETE', {
+            task_id: taskId,
+            delete_content: deleteContent
+        });
     }
 };
 
