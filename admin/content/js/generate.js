@@ -4,6 +4,7 @@ const GenerateSection = {
     pollInterval: null,
     pollIntervalMs: 5000, // Poll every 5 seconds
     currentView: 'tasks', // 'tasks', 'prompts', or 'models'
+    modelSearchQuery: '', // Search query for models
     
     async load() {
         if (this.currentView === 'tasks') {
@@ -52,6 +53,10 @@ const GenerateSection = {
         this.currentView = view;
         if (view === 'tasks') {
             this.stopPolling();
+        }
+        // Clear search when leaving models view
+        if (view !== 'models') {
+            this.modelSearchQuery = '';
         }
         this.load();
     },
@@ -1291,7 +1296,19 @@ const GenerateSection = {
     
     // Models Management
     renderModels() {
-        const models = AppState.models;
+        const allModels = AppState.models;
+        
+        // Filter models based on search query
+        const searchQuery = this.modelSearchQuery.toLowerCase();
+        const models = allModels.filter(model => {
+            if (!searchQuery) return true;
+            return (
+                model.title.toLowerCase().includes(searchQuery) ||
+                model.model_name.toLowerCase().includes(searchQuery) ||
+                model.provider.toLowerCase().includes(searchQuery) ||
+                (model.description && model.description.toLowerCase().includes(searchQuery))
+            );
+        });
         
         const viewTabsHTML = `
             <div class="content-filters" style="margin-bottom: 1rem;">
@@ -1320,6 +1337,10 @@ const GenerateSection = {
         
         const actionsHTML = `
             <div class="content-filters">
+                <div class="filter-group" style="flex: 2;">
+                    <label class="filter-label">Search</label>
+                    <input type="text" class="filter-select" id="modelSearchInput" placeholder="Search models..." value="${UI.escapeHtml(this.modelSearchQuery)}" oninput="GenerateSection.onModelSearchChange()">
+                </div>
                 <div style="margin-left: auto;">
                     ${createBtnHTML}
                 </div>
@@ -1329,16 +1350,34 @@ const GenerateSection = {
         let contentHTML = '';
         
         if (models.length === 0) {
-            contentHTML = `
-                <div class="content-empty">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M12 1v6m0 6v6m9.66-9H16m-8 0H1.34M17.66 17.66l-4.24-4.24m-2.83 0l-4.24 4.24M17.66 6.34l-4.24 4.24m-2.83 0l-4.24-4.24"></path>
-                    </svg>
-                    <h3>No AI Models Found</h3>
-                    <p>Configure AI models to use for content generation.</p>
-                </div>
-            `;
+            if (this.modelSearchQuery) {
+                // No search results
+                contentHTML = `
+                    <div class="content-empty">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                        <h3>No Models Found</h3>
+                        <p>No models match your search query "${UI.escapeHtml(this.modelSearchQuery)}"</p>
+                        <button class="action-btn" onclick="GenerateSection.modelSearchQuery = ''; GenerateSection.renderModels();">
+                            Clear Search
+                        </button>
+                    </div>
+                `;
+            } else {
+                // No models at all
+                contentHTML = `
+                    <div class="content-empty">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M12 1v6m0 6v6m9.66-9H16m-8 0H1.34M17.66 17.66l-4.24-4.24m-2.83 0l-4.24 4.24M17.66 6.34l-4.24 4.24m-2.83 0l-4.24-4.24"></path>
+                        </svg>
+                        <h3>No AI Models Found</h3>
+                        <p>Configure AI models to use for content generation.</p>
+                    </div>
+                `;
+            }
         } else {
             // Group models by provider
             const providers = [...new Set(models.map(m => m.provider))].sort();
@@ -1361,6 +1400,21 @@ const GenerateSection = {
         }
         
         UI.elements.contentArea.innerHTML = viewTabsHTML + actionsHTML + contentHTML;
+    },
+    
+    onModelSearchChange() {
+        const input = document.getElementById('modelSearchInput');
+        if (!input) return;
+        this.modelSearchQuery = input.value;
+        this.renderModels();
+        // Restore focus after re-render
+        setTimeout(() => {
+            const newInput = document.getElementById('modelSearchInput');
+            if (newInput) {
+                newInput.focus();
+                newInput.setSelectionRange(input.value.length, input.value.length);
+            }
+        }, 0);
     },
     
     renderModelCard(model) {
