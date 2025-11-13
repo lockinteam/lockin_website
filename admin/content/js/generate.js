@@ -539,7 +539,9 @@ const GenerateSection = {
             
         } catch (error) {
             console.error('Upload/Generate error details:', error);
-            UI.showToast('Failed to upload specification: ' + error.message, 'error');
+            // Format error message for better readability
+            const errorMessage = error.message.replace(/\n\n/g, '\n').replace(/Details: /, '\n');
+            UI.showToast(errorMessage, 'error', 8000); // Show for 8 seconds due to longer message
             UI.closeModal();
         }
     },

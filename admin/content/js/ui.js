@@ -222,7 +222,7 @@ const UI = {
     },
     
     // Toast notification
-    showToast(message, type = 'info') {
+    showToast(message, type = 'info', duration = 3000) {
         if (!this.elements.toast) return;
         
         this.elements.toast.textContent = message;
@@ -231,7 +231,7 @@ const UI = {
         
         setTimeout(() => {
             this.elements.toast.hidden = true;
-        }, 3000);
+        }, duration);
     },
     
     // Form helpers

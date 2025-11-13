@@ -27,7 +27,12 @@ const API = {
             const data = await response.json();
             
             if (!data.success) {
-                throw new Error(data.message || 'Request failed');
+                // Include detailed error information if available
+                let errorMessage = data.message || 'Request failed';
+                if (data.error) {
+                    errorMessage += '\n\nDetails: ' + data.error;
+                }
+                throw new Error(errorMessage);
             }
             
             return data;
