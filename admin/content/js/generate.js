@@ -927,18 +927,24 @@ const GenerateSection = {
         
         const viewTabsHTML = `
             <div class="content-filters" style="margin-bottom: 1rem;">
-                <div style="display: flex; gap: 0.5rem;">
-                    <button class="action-btn ${this.currentView === 'tasks' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('tasks')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                        Generation Tasks
-                    </button>
-                    <button class="action-btn ${this.currentView === 'prompts' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('prompts')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                        AI Prompts
-                    </button>
-                    <button class="action-btn ${this.currentView === 'models' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('models')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6m9.66-9H16m-8 0H1.34M17.66 17.66l-4.24-4.24m-2.83 0l-4.24 4.24M17.66 6.34l-4.24 4.24m-2.83 0l-4.24-4.24"></path></svg>
-                        AI Models
+                <div style="display: flex; gap: 0.5rem; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="action-btn ${this.currentView === 'tasks' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('tasks')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            Generation Tasks
+                        </button>
+                        <button class="action-btn ${this.currentView === 'prompts' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('prompts')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            AI Prompts
+                        </button>
+                        <button class="action-btn ${this.currentView === 'models' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('models')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6m9.66-9H16m-8 0H1.34M17.66 17.66l-4.24-4.24m-2.83 0l-4.24 4.24M17.66 6.34l-4.24 4.24m-2.83 0l-4.24-4.24"></path></svg>
+                            AI Models
+                        </button>
+                    </div>
+                    <button class="action-btn" onclick="GenerateSection.openBulkChangeModelModal()" title="Change model for all prompts">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                        Bulk Change Model
                     </button>
                 </div>
             </div>
@@ -1170,6 +1176,116 @@ const GenerateSection = {
         } catch (error) {
             console.error('Toggle prompt status error:', error);
             UI.showToast(`Failed to ${action} prompt: ` + error.message, 'error');
+        }
+    },
+    
+    openBulkChangeModelModal() {
+        const activePrompts = AppState.generatePrompts.filter(p => p.is_active);
+        
+        if (activePrompts.length === 0) {
+            UI.showToast('No active prompts to update', 'info');
+            return;
+        }
+        
+        // Build model options from active models
+        const modelOptions = AppState.models
+            .filter(m => m.is_active)
+            .map(m => ({
+                value: m.id,
+                label: `${m.title} (${m.provider})`
+            }));
+        
+        if (modelOptions.length === 0) {
+            UI.showToast('No active models available', 'error');
+            return;
+        }
+        
+        const formHTML = `
+            <form id="bulkChangeModelForm" onsubmit="GenerateSection.handleBulkChangeModel(event); return false;">
+                <h2>Bulk Change Model</h2>
+                <p class="form-description">Change the AI model for all active prompts at once. This affects future generation tasks.</p>
+                
+                <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 1.5rem;">
+                    <strong>Active Prompts (${activePrompts.length}):</strong>
+                    <ul style="margin: 0.5rem 0 0 1.5rem; line-height: 1.8;">
+                        ${activePrompts.map(p => `<li>${UI.escapeHtml(p.name)} - Currently using ${UI.escapeHtml(p.model.title)}</li>`).join('')}
+                    </ul>
+                </div>
+                
+                ${UI.createFormRow(
+                    'New Model',
+                    UI.createSelect('modelId', modelOptions, '', true),
+                    'All active prompts will be updated to use this model'
+                )}
+                
+                <div style="padding: 1rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px; margin-top: 1rem; border-left: 4px solid rgb(245, 158, 11);">
+                    <strong style="color: rgb(245, 158, 11);">⚠️ Warning:</strong>
+                    <p style="margin: 0.5rem 0 0; font-size: 0.875rem;">This will update all ${activePrompts.length} active prompts. Make sure you've tested the new model before applying this change to production prompts.</p>
+                </div>
+                
+                ${UI.createModalActions(
+                    'UI.closeModal()',
+                    'document.getElementById("bulkChangeModelForm").requestSubmit()',
+                    'Update All Prompts',
+                    false
+                )}
+            </form>
+        `;
+        
+        UI.openModal('Bulk Change Model', formHTML);
+    },
+    
+    async handleBulkChangeModel(event) {
+        event.preventDefault();
+        
+        const form = event.target;
+        const modelId = form.modelId.value;
+        
+        if (!modelId) {
+            UI.showToast('Please select a model', 'error');
+            return;
+        }
+        
+        const activePrompts = AppState.generatePrompts.filter(p => p.is_active);
+        
+        if (!UI.confirm(`Are you sure you want to update all ${activePrompts.length} active prompts to use this model?`)) {
+            return;
+        }
+        
+        try {
+            UI.closeModal();
+            UI.showLoading(`Updating ${activePrompts.length} prompts...`);
+            
+            let successCount = 0;
+            let failCount = 0;
+            
+            // Update each prompt
+            for (const prompt of activePrompts) {
+                try {
+                    await API.updateGeneratePrompt(prompt.id, {
+                        model_id: modelId
+                    });
+                    successCount++;
+                } catch (error) {
+                    console.error(`Failed to update prompt ${prompt.id}:`, error);
+                    failCount++;
+                }
+            }
+            
+            // Show results
+            if (failCount === 0) {
+                UI.showToast(`Successfully updated all ${successCount} prompts`, 'success');
+            } else {
+                UI.showToast(`Updated ${successCount} prompts, ${failCount} failed`, 'error');
+            }
+            
+            // Reload prompts
+            await this.loadPrompts();
+            this.renderPrompts();
+            
+        } catch (error) {
+            console.error('Bulk change model error:', error);
+            UI.showToast('Failed to update prompts: ' + error.message, 'error');
         }
     },
     
