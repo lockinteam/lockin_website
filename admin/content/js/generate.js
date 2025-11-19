@@ -371,131 +371,56 @@ const GenerateSection = {
         const formHTML = `
             <form id="generateCreateForm" onsubmit="GenerateSection.handleUploadSpec(event); return false;">
                 <h2>Create New Generation Task</h2>
-                <p class="form-description">Upload a course specification PDF to extract course information and generate content using AI.</p>
+                <p class="form-description">Upload a course specification PDF or provide a URL to extract course information and generate content using AI.</p>
                 
                 <div style="margin-bottom: 1.5rem;">
                     <label class="filter-label" style="margin-bottom: 0.5rem; display: block;">Specification PDF</label>
-                    <input type="file" id="specFileInput" accept="application/pdf" style="display: none;" onchange="GenerateSection.onSpecFileSelected()">
-                    <div id="specDropZone" class="csv-drop-zone" onclick="document.getElementById('specFileInput').click()">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                        </svg>
-                        <div class="csv-drop-zone-text">
-                            <strong>Click to browse</strong> or drag and drop your PDF file here
-                        </div>
-                        <div class="csv-drop-zone-hint">Maximum file size: 100MB (admin limit)</div>
-                    </div>
-                    <div id="specFilePreview" style="display: none; margin-top: 1rem; padding: 0.75rem; background: rgba(54, 120, 174, 0.1); border-radius: 8px; align-items: center; gap: 0.5rem;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                        </svg>
-                        <div style="flex: 1;">
-                            <div id="specFileName" style="font-weight: 600; color: var(--color-primary-blue);"></div>
-                            <div id="specFileSize" style="font-size: 0.875rem; color: var(--color-grey-text); margin-top: 0.25rem;"></div>
-                        </div>
-                        <button type="button" onclick="GenerateSection.clearSpecFile()" style="background: none; border: none; color: var(--color-grey-text); cursor: pointer; padding: 0.25rem;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                        </button>
-                    </div>
+                    ${UI.createFileOrUrlInput('specInput', '', 'application/pdf', 'https://example.com/specification.pdf')}
                 </div>
                 
                 ${UI.createModalActions(
                     'UI.closeModal()',
                     'document.getElementById("generateCreateForm").requestSubmit()',
-                    'Upload & Extract Info',
+                    'Extract Info',
                     false
                 )}
             </form>
         `;
         
         UI.openModal('Create Generation Task', formHTML);
+    },
+    
+    async handleUploadSpec(event) {
+        event.preventDefault();
         
-        // Setup drag and drop
-        setTimeout(() => {
-            const dropZone = document.getElementById('specDropZone');
-            if (dropZone) {
-                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                    dropZone.addEventListener(eventName, (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    });
-                });
-                
-                ['dragenter', 'dragover'].forEach(eventName => {
-                    dropZone.addEventListener(eventName, () => {
-                        dropZone.classList.add('drag-over');
-                    });
-                });
-                
-                ['dragleave', 'drop'].forEach(eventName => {
-                    dropZone.addEventListener(eventName, () => {
-                        dropZone.classList.remove('drag-over');
-                    });
-                });
-                
-                dropZone.addEventListener('drop', (e) => {
-                    const files = e.dataTransfer.files;
-                    if (files.length > 0) {
-                        document.getElementById('specFileInput').files = files;
-                        GenerateSection.onSpecFileSelected();
-                    }
-                });
+        try {
+            // Get specification URL (either from file upload or direct URL input)
+            const specificationUrl = await UI.getFileOrUrlValue('specInput');
+            
+            if (!specificationUrl) {
+                UI.showToast('Please provide a specification file or URL', 'error');
+                return;
             }
-        }, 100);
-    },
-    
-    onSpecFileSelected() {
-        const fileInput = document.getElementById('specFileInput');
-        const filePreview = document.getElementById('specFilePreview');
-        const fileName = document.getElementById('specFileName');
-        const fileSize = document.getElementById('specFileSize');
-        const dropZone = document.getElementById('specDropZone');
-        const file = fileInput.files[0];
-        
-        if (!file) {
-            filePreview.style.display = 'none';
-            if (dropZone) dropZone.style.display = 'flex';
-            return;
+            
+            // Show loading state in modal (don't close it)
+            this.showModalLoading('Extracting course information with AI...');
+            
+            // Extract course info using the specification URL
+            const infoData = await API.generateInfo(specificationUrl);
+            
+            // Reload tasks in background
+            await this.loadTasks();
+            
+            // Show the editable form in the same modal with the extracted info
+            this.openStartGenerationModal(infoData.data.task_id, infoData.data);
+            
+        } catch (error) {
+            console.error('Generate info error details:', error);
+            // Format error message for better readability
+            const errorMessage = error.message.replace(/\n\n/g, '\n').replace(/Details: /, '\n');
+            UI.showToast(errorMessage, 'error', 8000); // Show for 8 seconds due to longer message
+            UI.closeModal();
         }
-        
-        // Validate file type
-        if (file.type !== 'application/pdf') {
-            UI.showToast('Please select a PDF file', 'error');
-            fileInput.value = '';
-            return;
-        }
-        
-        // Validate file size (100MB for admins)
-        const maxSize = 100 * 1024 * 1024; // 100MB
-        if (file.size > maxSize) {
-            UI.showToast('File size exceeds 100MB limit', 'error');
-            fileInput.value = '';
-            return;
-        }
-        
-        // Show preview
-        fileName.textContent = file.name;
-        fileSize.textContent = this.formatFileSize(file.size);
-        filePreview.style.display = 'flex';
-        if (dropZone) dropZone.style.display = 'none';
-    },
-    
-    formatFileSize(bytes) {
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-    },
-    
-    clearSpecFile() {
-        const fileInput = document.getElementById('specFileInput');
-        const filePreview = document.getElementById('specFilePreview');
-        const dropZone = document.getElementById('specDropZone');
-        
-        fileInput.value = '';
-        filePreview.style.display = 'none';
-        if (dropZone) dropZone.style.display = 'flex';
     },
     
     showModalLoading(message) {
@@ -508,47 +433,6 @@ const GenerateSection = {
                 <p>${message}</p>
             </div>
         `;
-    },
-    
-    async handleUploadSpec(event) {
-        event.preventDefault();
-        
-        const fileInput = document.getElementById('specFileInput');
-        const file = fileInput.files[0];
-        
-        if (!file) {
-            UI.showToast('Please select a file', 'error');
-            return;
-        }
-        
-        try {
-            // Show loading state in modal (don't close it)
-            this.showModalLoading('Uploading specification...');
-            
-            // Use the same upload method as other sections
-            const uploadResult = await API.uploadFile(file);
-            
-            console.log('Upload result in generate.js:', uploadResult);
-            
-            // Update loading message
-            this.showModalLoading('Extracting course information with AI...');
-            
-            // Extract course info using the file_url from upload
-            const infoData = await API.generateInfo(uploadResult.file_url);
-            
-            // Reload tasks in background
-            await this.loadTasks();
-            
-            // Show the editable form in the same modal with the extracted info
-            this.openStartGenerationModal(infoData.data.task_id, infoData.data);
-            
-        } catch (error) {
-            console.error('Upload/Generate error details:', error);
-            // Format error message for better readability
-            const errorMessage = error.message.replace(/\n\n/g, '\n').replace(/Details: /, '\n');
-            UI.showToast(errorMessage, 'error', 8000); // Show for 8 seconds due to longer message
-            UI.closeModal();
-        }
     },
     
     async openStartGenerationModal(taskId, taskData = null) {

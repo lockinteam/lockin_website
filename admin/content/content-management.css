@@ -1347,6 +1347,30 @@
     transform: scale(1.1);
 }
 
+/* URL input styling within file-or-url component */
+.file-or-url-input .form-input {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(187, 202, 220, 0.7);
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 1rem;
+    color: var(--color-deep-blue);
+    font-family: inherit;
+    transition: all 0.3s ease;
+}
+
+.file-or-url-input .form-input:focus {
+    outline: none;
+    border-color: var(--color-primary-blue);
+    box-shadow: 0 0 0 3px rgba(54, 120, 174, 0.1);
+}
+
+.file-or-url-input .form-input::placeholder {
+    color: var(--color-grey-text);
+    opacity: 0.6;
+}
+
 /* CSV Drop Zone */
 .csv-drop-zone {
     border: 2px dashed rgba(54, 120, 174, 0.3);
