@@ -19,9 +19,23 @@ const PastPapersSection = {
                 return;
             }
             
-            // Load papers for selected course if not loaded
+            // Load tiers for the selected course
+            const tiersData = await API.getTiers(AppState.filters.pastPapers.courseId, true);
+            AppState.setTiers(tiersData.data.tiers || []);
+            
+            // Check if we need to show tier selection
+            if (AppState.tiers.length > 0 && !AppState.filters.pastPapers.tierId) {
+                this.renderTierSelection();
+                return;
+            }
+            
+            // Load papers for selected course/tier if not loaded
             if (AppState.papers.length === 0 || AppState.papers[0]?.course_id !== AppState.filters.pastPapers.courseId) {
-                const papersData = await API.getPapers(AppState.filters.pastPapers.courseId, false);
+                const papersData = await API.getPapers(
+                    AppState.filters.pastPapers.courseId,
+                    AppState.filters.pastPapers.tierId,
+                    false
+                );
                 AppState.setPapers(papersData.data.papers || []);
             }
             
@@ -68,8 +82,8 @@ const PastPapersSection = {
         UI.elements.contentArea.innerHTML = selectionHTML;
     },
     
-    renderPaperSelection() {
-        const papers = AppState.papers;
+    renderTierSelection() {
+        const tiers = AppState.tiers.filter(t => t.is_active);
         const courses = AppState.courses;
         
         const courseOptions = courses.map(c => ({ 
@@ -77,7 +91,7 @@ const PastPapersSection = {
             label: `${c.title} (${c.year_name})` 
         }));
         
-        const paperOptions = papers.map(p => ({ value: p.id, label: p.name }));
+        const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
         
         const selectionHTML = `
             <div class="content-filters">
@@ -87,6 +101,59 @@ const PastPapersSection = {
                         ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.pastPapers.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
                 </div>
+                <div class="filter-group" style="flex: 1;">
+                    <label class="filter-label">Select Tier</label>
+                    <select class="filter-select" id="pastPapersTierFilter" onchange="PastPapersSection.onTierChange()">
+                        <option value="">-- Choose a tier --</option>
+                        ${tierOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div class="content-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <h3>Select a Tier</h3>
+                <p>Choose a tier from the dropdown above to view past papers.</p>
+            </div>
+        `;
+        
+        UI.elements.contentArea.innerHTML = selectionHTML;
+    },
+    
+    renderPaperSelection() {
+        const papers = AppState.papers;
+        const courses = AppState.courses;
+        const tiers = AppState.tiers.filter(t => t.is_active);
+        
+        const courseOptions = courses.map(c => ({ 
+            value: c.id, 
+            label: `${c.title} (${c.year_name})` 
+        }));
+        
+        const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
+        
+        const paperOptions = papers.map(p => ({ value: p.id, label: p.name }));
+        
+        const tierFilterHTML = tiers.length > 0 ? `
+            <div class="filter-group" style="flex: 1;">
+                <label class="filter-label">Tier</label>
+                <select class="filter-select" id="pastPapersTierFilter" onchange="PastPapersSection.onTierChange()">
+                    ${tierOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.pastPapers.tierId ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+            </div>
+        ` : '';
+        
+        const selectionHTML = `
+            <div class="content-filters">
+                <div class="filter-group" style="flex: 1;">
+                    <label class="filter-label">Course</label>
+                    <select class="filter-select" id="pastPapersCourseFilter" onchange="PastPapersSection.onCourseChange()">
+                        ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.pastPapers.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                    </select>
+                </div>
+                ${tierFilterHTML}
                 <div class="filter-group" style="flex: 1;">
                     <label class="filter-label">Select Paper</label>
                     <select class="filter-select" id="pastPapersPaperFilter" onchange="PastPapersSection.onPaperChange()">
@@ -127,6 +194,9 @@ const PastPapersSection = {
             label: `${c.title} (${c.year_name})` 
         }));
         
+        const tiers = AppState.tiers.filter(t => t.is_active);
+        const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
+        
         const paperOptions = papers.map(p => ({ value: p.id, label: p.name }));
         
         const createBtnHTML = UI.renderActionBtn(
@@ -134,6 +204,15 @@ const PastPapersSection = {
             '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
             'PastPapersSection.openCreateModal()'
         );
+        
+        const tierFilterHTML = tiers.length > 0 ? `
+            <div class="filter-group" style="flex: 1;">
+                <label class="filter-label">Tier</label>
+                <select class="filter-select" id="pastPapersTierFilter" onchange="PastPapersSection.onTierChange()">
+                    ${tierOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.pastPapers.tierId ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+            </div>
+        ` : '';
         
         const filtersHTML = `
             <div class="content-filters">
@@ -147,6 +226,7 @@ const PastPapersSection = {
                         ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.pastPapers.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
                 </div>
+                ${tierFilterHTML}
                 <div class="filter-group" style="flex: 1;">
                     <label class="filter-label">Paper</label>
                     <select class="filter-select" id="pastPapersPaperFilter" onchange="PastPapersSection.onPaperChange()">
@@ -249,7 +329,14 @@ const PastPapersSection = {
     async onCourseChange() {
         const courseId = document.getElementById('pastPapersCourseFilter').value || null;
         AppState.setPastPapersCourseFilter(courseId);
+        AppState.setPastPapersTierFilter(null);
         AppState.setPastPapersPaperFilter(null);
+        this.load();
+    },
+    
+    async onTierChange() {
+        const tierId = document.getElementById('pastPapersTierFilter').value || null;
+        AppState.setPastPapersTierFilter(tierId);
         this.load();
     },
     

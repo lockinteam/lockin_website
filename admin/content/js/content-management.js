@@ -97,6 +97,9 @@ const ContentManagement = {
                 case 'papers':
                     await PapersSection.load();
                     break;
+                case 'tiers':
+                    await TiersSection.load();
+                    break;
                 case 'topics':
                     await TopicsSection.load();
                     break;

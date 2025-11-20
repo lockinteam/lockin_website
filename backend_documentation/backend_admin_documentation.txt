@@ -6,6 +6,38 @@ This document describes the admin endpoints for the Lockin.tech backend. These e
 
 **For regular user endpoints, see**: `backend_documentation.txt`
 
+## Rate Limiting
+
+**All admin endpoints are rate limited to prevent abuse.**
+
+**How it works:**
+Admin endpoints are rate limited **per user account** (based on the admin's session token). Each admin user has their own separate rate limits.
+
+Rate limits for admin endpoints:
+- **User management (list/get)**: 30 requests per minute (per admin user)
+- **User management (modify)**: 20 requests per minute (per admin user)
+- **Sensitive operations (promote/demote/reset password/delete user)**: 5-10 requests per minute (per admin user)
+- **Content management (list/get)**: 30 requests per minute (per admin user)
+- **Content management (create/update/delete)**: 20 requests per minute (per admin user)
+- **Bulk operations**: 10 requests per minute (per admin user)
+- **AI generation (info)**: 10 requests per minute (per admin user)
+- **AI generation (content)**: 5 requests per minute (very resource-intensive, per admin user)
+- **Upload operations**: 20 requests per minute (per admin user)
+
+When rate limit is exceeded, you'll receive a `429 Too Many Requests` response:
+```json
+{
+  "success": false,
+  "message": "Rate limit exceeded. Please try again later.",
+  "error": "too_many_requests"
+}
+```
+
+All responses include rate limit headers:
+- `X-RateLimit-Limit`: Maximum requests allowed in the time window
+- `X-RateLimit-Remaining`: Number of requests remaining
+- `X-RateLimit-Reset`: Unix timestamp when the limit resets
+
 ```
 backend_url = https://backend.lockin.tech
 ```
@@ -1845,6 +1877,8 @@ curl -X DELETE ${backend_url}/admin/subjects/delete \
 
 ## Admin Courses Management Endpoints
 
+> **Tier-aware reminder**: Papers belong directly to courses (required `course_id`) and optionally to tiers (optional `tier_id` for grouping/filtering). Manage tiers for any course before assigning papers to them by using the `/admin/tiers/*` endpoints documented later in this guide.
+
 ### 1. List All Courses
 
 **Endpoint**: `POST /admin/courses`
@@ -2423,75 +2457,741 @@ python3 tests/test_admin_courses.py
 
 ---
 
+## Admin Tiers Management Endpoints
+
+**Content Hierarchy**: Years → Subjects → Courses → Papers (with optional Tier grouping) → Topics → Content
+
+Tiers represent qualification levels within courses. Examples:
+- **GCSE**: Foundation / Higher
+- **A-Level**: AS Level / A2 Level  
+- **IGCSE**: Core / Extended
+- **Single-tier courses**: Full Course
+
+**Key Concepts:**
+- Users enroll in **courses** (not tiers)
+- Optional `tier_id` in enrollment filters content to specific tier
+- NULL tier = user sees content from ALL tiers
+- Papers belong to courses (required `course_id`) and optionally to tiers (`tier_id` optional for grouping/filtering)
+- Tiers use **two-stage delete** (soft → permanent) with CASCADE to papers
+
+**Endpoints:**
+1. `POST /admin/tiers` - List tiers for a course
+2. `POST /admin/tiers/get` - Get single tier with papers
+3. `POST /admin/tiers/create` - Create new tier
+4. `PUT /admin/tiers/update` - Update tier details
+5. `DELETE /admin/tiers/delete` - Two-stage delete
+6. `POST /admin/tiers/get_with_context` - Get tier with full hierarchy
+
+---
+
+### 1. List Tiers for Course
+
+**Endpoint**: `POST /admin/tiers`
+
+**Auth**: Admin or Owner
+
+**Description**: List all tiers for a specific course with paper counts.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "course_id": "uuid",
+  "include_inactive": false  // Optional: include inactive tiers (default false)
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Tiers fetched successfully",
+  "data": {
+    "course": {
+      "id": "uuid",
+      "title": "Mathematics GCSE"
+    },
+    "tiers": [
+      {
+        "id": "uuid",
+        "title": "Foundation",
+        "code": "FOUND",
+        "sort_order": 0,
+        "is_active": true,
+        "created_at": "2025-11-19T10:00:00.000000",
+        "added_by_user_id": "uuid",
+        "paper_count": 5
+      },
+      {
+        "id": "uuid",
+        "title": "Higher",
+        "code": "HIGH",
+        "sort_order": 1,
+        "is_active": true,
+        "created_at": "2025-11-19T10:00:00.000000",
+        "added_by_user_id": "uuid",
+        "paper_count": 7
+      }
+    ],
+    "tier_count": 2
+  }
+}
+```
+
+**Error Cases**:
+- Missing required fields (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Course not found (404)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// List all active tiers for a course
+const response = await fetch(`${backend_url}/admin/tiers`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: courseId
+  })
+});
+
+// Include inactive tiers
+const allTiers = await fetch(`${backend_url}/admin/tiers`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: courseId,
+    include_inactive: true
+  })
+});
+```
+
+```bash
+# cURL - list tiers
+curl -X POST https://backend.lockin.tech/admin/tiers \
+  -H "Content-Type: application/json" \
+  -d '{"token":"admin_token","course_id":"course-uuid"}'
+```
+
+---
+
+### 2. Get Single Tier
+
+**Endpoint**: `POST /admin/tiers/get`
+
+**Auth**: Admin or Owner
+
+**Description**: Get detailed information about a single tier including all papers and hierarchy context.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "tier_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Tier fetched successfully",
+  "data": {
+    "tier": {
+      "id": "uuid",
+      "title": "Foundation",
+      "code": "FOUND",
+      "sort_order": 0,
+      "is_active": true,
+      "created_at": "2025-11-19T10:00:00.000000",
+      "added_by_user_id": "uuid",
+      "course_id": "uuid"
+    },
+    "course": {
+      "id": "uuid",
+      "title": "Mathematics GCSE",
+      "year_id": "uuid"
+    },
+    "subject": {
+      "id": "uuid",
+      "name": "Mathematics"
+    },
+    "year": {
+      "name": "Year 11"
+    },
+    "papers": [
+      {
+        "id": "uuid",
+        "name": "Paper 1: Non-Calculator",
+        "code": "P1",
+        "percentage_of_grade": 33.33,
+        "is_active": true,
+        "created_at": "2025-11-19T10:00:00.000000",
+        "topic_count": 12
+      }
+    ],
+    "paper_count": 1
+  }
+}
+```
+
+**Usage Examples**:
+
+```javascript
+const tierDetails = await fetch(`${backend_url}/admin/tiers/get`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    tier_id: tierId
+  })
+});
+```
+
+---
+
+### 3. Create Tier
+
+**Endpoint**: `POST /admin/tiers/create`
+
+**Auth**: Admin or Owner
+
+**Description**: Create a new tier for a course.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "course_id": "uuid",          // Required
+  "title": "Foundation",         // Required
+  "code": "FOUND",               // Optional
+  "sort_order": 0                // Optional (default 0)
+}
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Tier created successfully",
+  "data": {
+    "tier": {
+      "id": "uuid",
+      "title": "Foundation",
+      "code": "FOUND",
+      "sort_order": 0,
+      "is_active": true,
+      "created_at": "2025-11-19T10:00:00.000000",
+      "course_id": "uuid"
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing required fields (400)
+- Invalid course_id format (400)
+- Cannot create tier for inactive course (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Course not found (404)
+- Duplicate tier title for course (409)
+- Server error (500)
+
+**Validation Rules**:
+- `title` must be unique within the course (case-insensitive)
+- `course_id` must reference an active course
+- `code` is optional but recommended
+- `sort_order` determines display order (lower = first)
+
+**Usage Examples**:
+
+```javascript
+// Create Foundation tier
+const foundation = await fetch(`${backend_url}/admin/tiers/create`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: courseId,
+    title: "Foundation",
+    code: "FOUND",
+    sort_order: 0
+  })
+});
+
+// Create Higher tier
+const higher = await fetch(`${backend_url}/admin/tiers/create`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: courseId,
+    title: "Higher",
+    code: "HIGH",
+    sort_order: 1
+  })
+});
+```
+
+```bash
+# cURL - create tier
+curl -X POST https://backend.lockin.tech/admin/tiers/create \
+  -H "Content-Type: application/json" \
+  -d '{"token":"admin_token","course_id":"course-uuid","title":"Foundation","code":"FOUND","sort_order":0}'
+```
+
+---
+
+### 4. Update Tier
+
+**Endpoint**: `PUT /admin/tiers/update`
+
+**Auth**: Admin or Owner
+
+**Description**: Update an existing tier's details. All fields are optional except token and tier_id.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "tier_id": "uuid",             // Required
+  "title": "Foundation Tier",    // Optional
+  "code": "FOUNDATION",          // Optional
+  "sort_order": 5,               // Optional
+  "is_active": false             // Optional
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Tier updated successfully",
+  "data": {
+    "tier": {
+      "id": "uuid",
+      "title": "Foundation Tier",
+      "code": "FOUNDATION",
+      "sort_order": 5,
+      "is_active": false,
+      "created_at": "2025-11-19T10:00:00.000000",
+      "course_id": "uuid"
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing tier_id (400)
+- No valid fields to update (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Tier not found (404)
+- Duplicate title for course (409)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// Update tier title
+const updateTitle = await fetch(`${backend_url}/admin/tiers/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    tier_id: tierId,
+    title: "Foundation Tier"
+  })
+});
+
+// Update multiple fields
+const updateMultiple = await fetch(`${backend_url}/admin/tiers/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    tier_id: tierId,
+    title: "Higher Tier",
+    code: "HIGHER",
+    sort_order: 10
+  })
+});
+
+// Deactivate tier
+const deactivate = await fetch(`${backend_url}/admin/tiers/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    tier_id: tierId,
+    is_active: false
+  })
+});
+```
+
+---
+
+### 5. Delete Tier (Two-Stage)
+
+**Endpoint**: `DELETE /admin/tiers/delete`
+
+**Auth**: Admin or Owner
+
+**Description**: Two-stage delete for tiers to prevent accidental data loss.
+
+**Stage 1 (Soft Delete)**: First call sets `is_active = false` on the tier and all its papers.
+
+**Stage 2 (Permanent Delete)**: Second call permanently deletes the tier with CASCADE to:
+- Papers
+- Topics  
+- Notes
+- Questions
+- Podcasts
+- Past Papers
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "tier_id": "uuid"
+}
+```
+
+**Stage 1 Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Tier soft-deleted successfully. Call again to permanently delete.",
+  "data": {
+    "tier": {
+      "id": "uuid",
+      "title": "Foundation",
+      "is_active": false
+    },
+    "affected_papers": 5,
+    "deletion_stage": "soft"
+  }
+}
+```
+
+**Stage 2 Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Tier permanently deleted",
+  "data": {
+    "tier_id": "uuid",
+    "deletion_stage": "permanent",
+    "cascade_deletions": {
+      "papers": 5,
+      "topics": 45,
+      "notes": 120,
+      "questions": 300
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing tier_id (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Tier not found (404)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+// Stage 1: Soft delete
+const softDelete = await fetch(`${backend_url}/admin/tiers/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    tier_id: tierId
+  })
+});
+
+// Response check
+if (softDelete.ok) {
+  const data = await softDelete.json();
+  if (data.data.deletion_stage === 'soft') {
+    console.log(`Soft deleted. ${data.data.affected_papers} papers affected.`);
+    // User confirms permanent deletion
+  }
+}
+
+// Stage 2: Permanent delete (call endpoint again)
+const permanentDelete = await fetch(`${backend_url}/admin/tiers/delete`, {
+  method: 'DELETE',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    tier_id: tierId
+  })
+});
+
+if (permanentDelete.ok) {
+  const data = await permanentDelete.json();
+  console.log('Permanently deleted:', data.data.cascade_deletions);
+}
+```
+
+```bash
+# cURL - soft delete (first call)
+curl -X DELETE https://backend.lockin.tech/admin/tiers/delete \
+  -H "Content-Type: application/json" \
+  -d '{"token":"admin_token","tier_id":"tier-uuid"}'
+
+# cURL - permanent delete (second call)
+curl -X DELETE https://backend.lockin.tech/admin/tiers/delete \
+  -H "Content-Type: application/json" \
+  -d '{"token":"admin_token","tier_id":"tier-uuid"}'
+```
+
+---
+
+### 6. Get Tier with Context
+
+**Endpoint**: `POST /admin/tiers/get_with_context`
+
+**Auth**: Admin or Owner
+
+**Description**: Get tier with complete hierarchy context for breadcrumb navigation and UI display.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "tier_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Tier context fetched successfully",
+  "data": {
+    "tier": {
+      "id": "uuid",
+      "title": "Foundation",
+      "code": "FOUND",
+      "sort_order": 0,
+      "is_active": true,
+      "created_at": "2025-11-19T10:00:00.000000"
+    },
+    "course": {
+      "id": "uuid",
+      "title": "Mathematics GCSE",
+      "description": "GCSE Mathematics course",
+      "is_active": true
+    },
+    "subject": {
+      "id": "uuid",
+      "name": "Mathematics",
+      "code": "MATH"
+    },
+    "year": {
+      "id": "uuid",
+      "name": "Year 11",
+      "sort_order": 11
+    }
+  }
+}
+```
+
+**Usage Examples**:
+
+```javascript
+// Get full context for breadcrumbs
+const context = await fetch(`${backend_url}/admin/tiers/get_with_context`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    tier_id: tierId
+  })
+});
+
+const data = await context.json();
+// Build breadcrumb: Year > Subject > Course > Tier
+const breadcrumb = `${data.data.year.name} > ${data.data.subject.name} > ${data.data.course.title} > ${data.data.tier.title}`;
+```
+
+---
+
+### Tier Management Tests
+
+**Test Coverage**: 18 comprehensive tests
+
+**Test File**: `tests/test_admin_tiers.py`
+
+**Test Categories**:
+1. **Create Tests** (5 tests)
+   - Valid tier creation
+   - Second tier creation
+   - Missing required fields
+   - Duplicate title validation
+   - Invalid course validation
+
+2. **List Tests** (2 tests)
+   - List tiers for course
+   - Invalid course handling
+
+3. **Get Tests** (2 tests)
+   - Get single tier with context
+   - Invalid tier handling
+
+4. **Context Tests** (1 test)
+   - Get tier with full hierarchy
+
+5. **Update Tests** (5 tests)
+   - Update title
+   - Update code
+   - Update sort order
+   - Duplicate title validation
+   - Invalid tier handling
+
+6. **Delete Tests** (3 tests)
+   - Soft delete (stage 1)
+   - Permanent delete (stage 2)
+   - Invalid tier handling
+
+**Run Tests**:
+```bash
+python3 tests/test_admin_tiers.py
+```
+
+**Expected Output**: ✓ ALL TESTS PASSED (18/18)
+
+---
+
 ## Admin Papers Management Endpoints
 
-Papers are components of courses that organize topics. Each paper belongs to one course and can contain multiple topics. Papers have optional code and percentage_of_grade fields. Papers use **soft delete** (can be reactivated) with CASCADE to topics.
+**Content Hierarchy**: Years → Subjects → Courses → Papers (with optional Tier grouping) → Topics → Content
+
+Papers are exam components that organize topics within a course. Each paper belongs to one course (required `course_id`) and may optionally belong to a tier (`tier_id` optional) for grouping/filtering. Papers have optional code and percentage_of_grade fields. Papers use **two-stage delete** (soft → permanent) with CASCADE to topics.
+
+**Key Points**:
+- Papers belong to courses (required `course_id`) and optionally to tiers (`tier_id` optional)
+- All paper endpoints require `course_id`; `tier_id` is optional for filtering
+- Hierarchy: Years → Subjects → Courses → Papers (with optional Tier grouping) → Topics
+- Full context includes tier information in responses
+
+**Working with tiers**: Use `/admin/tiers` (list) or `/admin/tiers/get` to fetch tier options for a course. When creating/updating papers, you can optionally assign them to a tier using `tier_id`, or leave it null to have papers visible across all tiers.
 
 ### 1. List Papers by Course
 
 **Endpoint**: `POST /admin/papers`
 
-List all papers for a specific course with topic counts.
+**Auth**: Admin or Owner
 
-**Request**:
+**Description**: List all papers for a course with optional tier filtering. Papers now have a direct course_id reference.
+
+**Request Body**:
 ```json
 {
   "token": "admin_session_token",
-  "course_id": "uuid-of-course",
+  "course_id": "uuid-of-course",  // Required: course to list papers from
+  "tier_id": "uuid-of-tier",  // Optional: filter to specific tier
   "include_inactive": false
 }
 ```
 
-**Response** (200 OK):
+**Success Response** (200 OK):
 ```json
 {
   "success": true,
-  "message": "Retrieved 3 papers for course 'Introduction to Computer Science'",
+  "message": "Papers fetched successfully",
   "data": {
     "course": {
       "id": "uuid",
-      "title": "Introduction to Computer Science",
-      "code": "CS101",
-      "year_name": "Year 1",
-      "subject_name": "Computer Science"
+      "title": "GCSE Mathematics",
+      "year_name": "Year 11",
+      "subject_name": "Mathematics"
     },
     "papers": [
       {
         "id": "uuid",
         "course_id": "uuid",
-        "name": "Paper 1",
+        "tier_id": "uuid",  // Can be null if paper not assigned to tier
+        "tier_title": "Foundation",  // Can be null
+        "tier_code": "FOUND",  // Can be null
+        "name": "Paper 1 (Non-Calculator)",
         "code": "P1",
-        "percentage_of_grade": 50.0,
+        "percentage_of_grade": 33.33,
         "is_active": true,
-        "topics_count": 12,
-        "created_at": "2024-01-15T10:30:00",
-        "added_by_user_id": "uuid"
+        "created_at": "2024-01-15T10:30:00.000000",
+        "added_by_user_id": "uuid",
+        "topics_count": 12
       },
       {
         "id": "uuid",
         "course_id": "uuid",
-        "name": "Paper 2",
-        "code": "P2",
-        "percentage_of_grade": 50.0,
+        "tier_id": "uuid",
+        "tier_title": "Higher",
+        "tier_code": "HIGH",
+        "name": "Paper 1 (Non-Calculator)",
+        "code": "P1",
+        "percentage_of_grade": 33.33,
         "is_active": true,
-        "topics_count": 10,
-        "created_at": "2024-01-15T10:31:00",
-        "added_by_user_id": "uuid"
+        "created_at": "2024-01-15T10:40:00.000000",
+        "added_by_user_id": "uuid",
+        "topics_count": 18
       }
-    ]
+    ],
+    "count": 2
   }
 }
 ```
 
 **Parameters**:
 - `token` (required): Admin session token
-- `course_id` (required): UUID of the course
-- `include_inactive` (optional, default: false): Include soft-deleted papers in results
+- `course_id` (required): UUID of the course - returns all papers for this course
+- `tier_id` (optional): UUID of tier - if provided, filters to papers assigned to that tier only
+- `include_inactive` (optional, default: false): Include soft-deleted papers
 
-**JavaScript Example**:
+**Filtering Behavior**:
+- With `course_id` only: Returns ALL papers for the course (across all tiers, plus papers without tier assignment)
+- With `course_id` + `tier_id`: Returns only papers assigned to that specific tier within the course
+
+**Error Responses**:
+- Missing required fields (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Tier/Course not found (404)
+- Server error (500)
+
+**Usage Examples**:
+
 ```javascript
-// Get only active papers (default)
-const response = await fetch(`${baseUrl}/admin/papers`, {
+// Get papers for a specific tier
+const responseTier = await fetch(`${baseUrl}/admin/papers`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    tier_id: tierId
+  })
+});
+
+const dataTier = await responseTier.json();
+if (dataTier.success) {
+  console.log(`Tier: ${dataTier.data.tier.title} (${dataTier.data.tier.course_title})`);
+  console.log(`Papers: ${dataTier.data.count}`);
+  dataTier.data.papers.forEach(paper => {
+    console.log(`- ${paper.name}: ${paper.topics_count} topics, ${paper.percentage_of_grade}%`);
+  });
+}
+
+// Get papers for all tiers in a course
+const responseCourse = await fetch(`${baseUrl}/admin/papers`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -2500,31 +3200,27 @@ const response = await fetch(`${baseUrl}/admin/papers`, {
   })
 });
 
-// Get all papers including soft-deleted
-const responseAll = await fetch(`${baseUrl}/admin/papers`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    token: adminToken,
-    course_id: courseId,
-    include_inactive: true
-  })
-});
-
-const data = await responseAll.json();
-if (data.success) {
-  console.log(`Course: ${data.data.course.title}`);
-  console.log(`Papers: ${data.data.papers.length}`);
-  data.data.papers.forEach(paper => {
-    const status = paper.is_active ? '✓' : '✗ (inactive)';
-    console.log(`- ${paper.name} (${paper.topics_count} topics) ${status}`);
+const dataCourse = await responseCourse.json();
+if (dataCourse.success) {
+  console.log(`Course: ${dataCourse.data.course.title}`);
+  console.log(`Papers across all tiers: ${dataCourse.data.count}`);
+  dataCourse.data.papers.forEach(paper => {
+    console.log(`- [${paper.tier_title}] ${paper.name}: ${paper.topics_count} topics`);
   });
 }
 ```
 
-**Database Optimization**: 2 trips
-- Trip 1: Verify course exists and get course/year/subject info
-- Trip 2: Get all papers with LEFT JOIN to topics for COUNT aggregation
+```bash
+# cURL example - Get all papers for a course
+curl -X POST https://backend.lockin.tech/admin/papers \
+  -H "Content-Type: application/json" \
+  -d '{"token":"admin_token","course_id":"course-uuid"}'
+
+# cURL example - Get papers for a specific tier within a course
+curl -X POST https://backend.lockin.tech/admin/papers \
+  -H "Content-Type: application/json" \
+  -d '{"token":"admin_token","course_id":"course-uuid","tier_id":"tier-uuid"}'
+```
 
 ---
 
@@ -2532,9 +3228,11 @@ if (data.success) {
 
 **Endpoint**: `POST /admin/papers/get`
 
-Get detailed information about a specific paper including all topics.
+**Auth**: Admin or Owner
 
-**Request**:
+**Description**: Get detailed information about a specific paper including course context, optional tier information, and all topics.
+
+**Request Body**:
 ```json
 {
   "token": "admin_session_token",
@@ -2542,40 +3240,44 @@ Get detailed information about a specific paper including all topics.
 }
 ```
 
-**Response** (200 OK):
+**Success Response** (200 OK):
 ```json
 {
   "success": true,
-  "message": "Paper retrieved successfully",
+  "message": "Paper fetched successfully",
   "data": {
     "paper": {
       "id": "uuid",
       "course_id": "uuid",
-      "name": "Paper 1",
+      "course_title": "GCSE Mathematics",
+      "tier_id": "uuid",  // Can be null
+      "tier_title": "Foundation",  // Can be null
+      "tier_code": "FOUND",  // Can be null
+      "year_name": "Year 11",
+      "subject_name": "Mathematics",
+      "subject_code": "MATH",
+      "name": "Paper 1 (Non-Calculator)",
       "code": "P1",
-      "percentage_of_grade": 50.0,
-      "created_at": "2024-01-15T10:30:00",
+      "percentage_of_grade": 33.33,
+      "is_active": true,
+      "created_at": "2024-01-15T10:30:00.000000",
       "added_by_user_id": "uuid",
-      "course_title": "Introduction to Computer Science",
-      "course_code": "CS101",
-      "year_name": "Year 1",
-      "subject_name": "Computer Science",
       "topics": [
         {
           "id": "uuid",
           "paper_id": "uuid",
-          "name": "Introduction to Programming",
+          "name": "Number Operations",
           "sort_order": 1,
           "is_active": true,
-          "created_at": "2024-01-15T11:00:00"
+          "created_at": "2024-01-15T11:00:00.000000"
         },
         {
           "id": "uuid",
           "paper_id": "uuid",
-          "name": "Variables and Data Types",
+          "name": "Fractions and Decimals",
           "sort_order": 2,
           "is_active": true,
-          "created_at": "2024-01-15T11:05:00"
+          "created_at": "2024-01-15T11:05:00.000000"
         }
       ]
     }
@@ -2583,7 +3285,14 @@ Get detailed information about a specific paper including all topics.
 }
 ```
 
-**JavaScript Example**:
+**Error Responses**:
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Paper not found (404)
+- Server error (500)
+
+**Usage Examples**:
+
 ```javascript
 const response = await fetch(`${baseUrl}/admin/papers/get`, {
   method: 'POST',
@@ -2598,14 +3307,13 @@ const data = await response.json();
 if (data.success) {
   const paper = data.data.paper;
   console.log(`Paper: ${paper.name} (${paper.code})`);
-  console.log(`Course: ${paper.course_title}`);
+  console.log(`Tier: ${paper.tier_title} | Course: ${paper.course_title}`);
   console.log(`Topics: ${paper.topics.length}`);
+  
+  // Build breadcrumb
+  const breadcrumb = `${paper.year_name} > ${paper.subject_name} > ${paper.course_title} > ${paper.tier_title} > ${paper.name}`;
 }
 ```
-
-**Database Optimization**: 2 trips
-- Trip 1: Get paper details with LEFT JOINs to courses/years/subjects
-- Trip 2: Get all topics for the paper (ordered by sort_order, name)
 
 ---
 
@@ -2613,40 +3321,46 @@ if (data.success) {
 
 **Endpoint**: `POST /admin/papers/create`
 
-Create a new paper for a course.
+**Auth**: Admin or Owner
 
-**Request**:
+**Description**: Create a new paper for a course with optional tier assignment.
+
+**Request Body**:
 ```json
 {
   "token": "admin_session_token",
-  "course_id": "uuid-of-course",
-  "name": "Paper 1",
+  "course_id": "uuid-of-course",  // Required
+  "tier_id": "uuid-of-tier",  // Optional: assign to specific tier
+  "name": "Paper 1 (Non-Calculator)",
   "code": "P1",
-  "percentage_of_grade": 50.0
+  "percentage_of_grade": 33.33
 }
 ```
 
 **Required Fields**:
 - `course_id`: UUID of the parent course
-- `name`: Paper name (unique within course)
+- `name`: Paper name (unique within course+tier combination)
 
 **Optional Fields**:
+- `tier_id`: UUID of tier (must belong to the specified course if provided)
 - `code`: Short code for the paper
 - `percentage_of_grade`: Numeric value between 0 and 100
 
-**Response** (201 Created):
+**Success Response** (201 Created):
 ```json
 {
   "success": true,
-  "message": "Paper 'Paper 1' created successfully",
+  "message": "Paper 'Paper 1 (Non-Calculator)' created successfully",
   "data": {
     "paper": {
       "id": "uuid",
       "course_id": "uuid",
-      "name": "Paper 1",
+      "tier_id": "uuid",  // Can be null
+      "name": "Paper 1 (Non-Calculator)",
       "code": "P1",
-      "percentage_of_grade": 50.0,
-      "created_at": "2024-01-15T10:30:00",
+      "percentage_of_grade": 33.33,
+      "is_active": true,
+      "created_at": "2024-01-15T10:30:00.000000",
       "added_by_user_id": "uuid"
     }
   }
@@ -2655,49 +3369,69 @@ Create a new paper for a course.
 
 **Validation Rules**:
 - Course must exist and be active
-- Paper name must be unique within course
+- If tier_id provided, tier must exist, be active, and belong to the specified course
+- Paper name must be unique within course+tier combination (case-insensitive)
 - percentage_of_grade must be between 0 and 100 (if provided)
 - Sets added_by_user_id to admin's user ID
 
-**JavaScript Example**:
+**Error Responses**:
+- Missing required fields (400)
+- Invalid course_id or name format (400)
+- tier_id does not belong to specified course (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Course not found or inactive (404)
+- Duplicate paper name within course+tier (409)
+- Server error (500)
+
+**Usage Examples**:
+
 ```javascript
+// Create paper without tier assignment
 const response = await fetch(`${baseUrl}/admin/papers/create`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     token: adminToken,
     course_id: courseId,
-    name: "Paper 1",
-    code: "P1",
-    percentage_of_grade: 50.0
+    name: "General Paper",
+    code: "GP",
+    percentage_of_grade: 100
   })
 });
 
-const data = await response.json();
+// Create paper with tier assignment
+const response2 = await fetch(`${baseUrl}/admin/papers/create`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    course_id: courseId,
+    tier_id: tierId,
+    name: "Paper 1 (Non-Calculator)",
+    code: "P1",
+    percentage_of_grade: 33.33
+  })
+});
+
+const data = await response2.json();
 if (data.success) {
-  console.log(`Created paper: ${data.data.paper.name}`);
+  console.log(`Created paper: ${data.data.paper.name} (ID: ${data.data.paper.id})`);
 }
 ```
 
-**cURL Example**:
 ```bash
-curl -X POST http://localhost:5000/admin/papers/create \
+# cURL example
+curl -X POST https://backend.lockin.tech/admin/papers/create \
   -H "Content-Type: application/json" \
   -d '{
-    "token": "your-admin-token",
-    "course_id": "course-uuid",
-    "name": "Paper 1",
+    "token": "admin_token",
+    "tier_id": "tier-uuid",
+    "name": "Paper 1 (Non-Calculator)",
     "code": "P1",
-    "percentage_of_grade": 50.0
+    "percentage_of_grade": 33.33
   }'
 ```
-
-**Database Optimization**: 3 trips
-- Trip 1: Verify course exists and is active
-- Trip 2: Check for duplicate paper name within course
-- Trip 3: INSERT new paper with RETURNING
-
-**Potential Optimization**: Could combine trips 1 and 2 into single validation query using EXISTS.
 
 ---
 
@@ -2705,24 +3439,37 @@ curl -X POST http://localhost:5000/admin/papers/create \
 
 **Endpoint**: `PUT /admin/papers/update`
 
-Update an existing paper's details.
+**Auth**: Admin or Owner
 
-**Request**:
+**Description**: Update an existing paper's details. Papers cannot change their course_id.
+
+**Request Body**:
 ```json
 {
   "token": "admin_session_token",
   "paper_id": "uuid-of-paper",
-  "name": "Updated Paper Name",
-  "code": "UP1",
-  "percentage_of_grade": 60.0
+  "name": "Paper 1 (Updated)",
+  "code": "P1-NEW",
+  "tier_id": "uuid-of-tier",  // Optional: assign to different tier (must belong to same course)
+  "percentage_of_grade": 35.0,
+  "is_active": true
 }
 ```
 
 **Required Fields**:
 - `paper_id`: UUID of paper to update
-- At least one field to update (`name`, `code`, or `percentage_of_grade`)
+- At least one field to update
 
-**Response** (200 OK):
+**Updatable Fields**:
+- `name`: New paper name (must be unique within course+tier)
+- `code`: New paper code
+- `tier_id`: New tier assignment (must belong to paper's existing course, or null to unassign)
+- `percentage_of_grade`: New percentage (0-100)
+- `is_active`: Reactivate soft-deleted papers
+
+**Note**: `course_id` cannot be updated (would break referential integrity)
+
+**Success Response** (200 OK):
 ```json
 {
   "success": true,
@@ -2731,10 +3478,12 @@ Update an existing paper's details.
     "paper": {
       "id": "uuid",
       "course_id": "uuid",
-      "name": "Updated Paper Name",
-      "code": "UP1",
-      "percentage_of_grade": 60.0,
-      "created_at": "2024-01-15T10:30:00",
+      "tier_id": "uuid",  // Can be null
+      "name": "Paper 1 (Updated)",
+      "code": "P1-NEW",
+      "percentage_of_grade": 35.0,
+      "is_active": true,
+      "created_at": "2024-01-15T10:30:00.000000",
       "added_by_user_id": "uuid"
     }
   }
@@ -2743,33 +3492,57 @@ Update an existing paper's details.
 
 **Validation Rules**:
 - Paper must exist
-- If updating name, new name must not duplicate existing paper in same course
+- If updating tier_id, tier must belong to paper's existing course
+- If updating name, new name must not duplicate existing paper in same course+tier
 - percentage_of_grade must be between 0 and 100 (if provided)
 
-**JavaScript Example**:
+**Error Responses**:
+- Missing paper_id (400)
+- No fields to update (400)
+- Invalid percentage (400)
+- tier_id does not belong to paper's course (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Paper not found (404)
+- Duplicate paper name within course+tier (409)
+- Server error (500)
+
+**Usage Examples**:
+
 ```javascript
+// Update paper name
 const response = await fetch(`${baseUrl}/admin/papers/update`, {
   method: 'PUT',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     token: adminToken,
     paper_id: paperId,
-    name: "Updated Name"
+    name: "Paper 1 (Updated)"
   })
 });
 
-const data = await response.json();
-if (data.success) {
-  console.log(`Updated paper: ${data.data.paper.name}`);
-}
+// Move paper to different tier
+const moveTier = await fetch(`${baseUrl}/admin/papers/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    paper_id: paperId,
+    tier_id: newTierId  // Must belong to same course
+  })
+});
+
+// Reactivate soft-deleted paper
+const reactivate = await fetch(`${baseUrl}/admin/papers/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: adminToken,
+    paper_id: paperId,
+    is_active: true
+  })
+});
 ```
-
-**Database Optimization**: 3 trips
-- Trip 1: Verify paper exists and get current course_id
-- Trip 2: Check for duplicate name (only if name is being changed)
-- Trip 3: UPDATE paper with RETURNING
-
-**Potential Optimization**: Could skip trip 2 if name hasn't changed, or combine trips 1-2.
 
 ---
 
@@ -2777,11 +3550,13 @@ if (data.success) {
 
 **Endpoint**: `DELETE /admin/papers/delete`
 
-**Description**: Papers use a **two-stage delete pattern** like topics:
+**Auth**: Admin or Owner
+
+**Description**: Papers use a **two-stage delete pattern**:
 1. **First DELETE call**: Soft delete (sets `is_active = false`)
 2. **Second DELETE call**: Permanent delete (CASCADE removes all topics)
 
-**Request**:
+**Request Body**:
 ```json
 {
   "token": "admin_session_token",
@@ -2789,7 +3564,7 @@ if (data.success) {
 }
 ```
 
-**Response - First Call** (200 OK - Soft Delete):
+**Stage 1 Response** (200 OK - Soft Delete):
 ```json
 {
   "success": true,
@@ -2803,7 +3578,7 @@ if (data.success) {
 }
 ```
 
-**Response - Second Call** (200 OK - Permanent Delete):
+**Stage 2 Response** (200 OK - Permanent Delete):
 ```json
 {
   "success": true,
@@ -2816,22 +3591,28 @@ if (data.success) {
 }
 ```
 
-**Response - Third Call** (404 Not Found):
-```json
-{
-  "success": false,
-  "message": "Paper not found"
-}
-```
+**Two-Stage Delete Workflow**:
+- **Stage 1 (Soft Delete)**: 
+  - Sets `is_active = false`
+  - Paper and topics no longer appear in list endpoints
+  - Can be reactivated via update endpoint
+  
+- **Stage 2 (Permanent Delete)**: 
+  - Physically removes paper from database
+  - CASCADE deletes all topics
+  - Cannot be reversed
 
-**Two-Stage Delete Behavior**:
-- **Stage 1 (Soft Delete)**: Sets `is_active = false`, paper and topics no longer appear in list endpoints
-- **Stage 2 (Permanent Delete)**: Physically removes paper from database, CASCADE deletes all topics
-- **Reactivation**: Before permanent delete, use update endpoint with `is_active: true`
+**Error Responses**:
+- Missing paper_id (400)
+- Invalid/expired token (401)
+- Not admin or owner (403)
+- Paper not found (404)
+- Server error (500)
 
-**JavaScript Example**:
+**Usage Examples**:
+
 ```javascript
-// First call - soft delete
+// Stage 1: Soft delete
 const response1 = await fetch(`${baseUrl}/admin/papers/delete`, {
   method: 'DELETE',
   headers: { 'Content-Type': 'application/json' },
@@ -2843,8 +3624,9 @@ const response1 = await fetch(`${baseUrl}/admin/papers/delete`, {
 
 const data1 = await response1.json();
 console.log(data1.message); // "Paper deactivated successfully"
+console.log('Paper can still be reactivated');
 
-// Second call - permanent delete
+// Stage 2: Permanent delete
 const response2 = await fetch(`${baseUrl}/admin/papers/delete`, {
   method: 'DELETE',
   headers: { 'Content-Type': 'application/json' },
@@ -2855,49 +3637,70 @@ const response2 = await fetch(`${baseUrl}/admin/papers/delete`, {
 });
 
 const data2 = await response2.json();
-console.log(data2.message); // "Paper permanently removed from database"
+console.log(data2.message); // "Paper permanently removed"
+console.log('All topics CASCADE deleted');
 ```
 
-**Database Optimization**: 1 trip per call
-- First call: Single UPDATE query
-- Second call: Single DELETE...RETURNING query (CASCADE handled by database)
+```bash
+# cURL - Stage 1 (soft delete)
+curl -X DELETE https://backend.lockin.tech/admin/papers/delete \
+  -H "Content-Type: application/json" \
+  -d '{"token":"admin_token","paper_id":"paper-uuid"}'
+
+# cURL - Stage 2 (permanent delete)
+curl -X DELETE https://backend.lockin.tech/admin/papers/delete \
+  -H "Content-Type: application/json" \
+  -d '{"token":"admin_token","paper_id":"paper-uuid"}'
+```
 
 ---
 
 ### Papers Management Tests
 
-**Test Coverage** (23/23 passing):
-- ✅ Authentication & authorization
-- ✅ Create paper with required fields only
-- ✅ Create paper with all optional fields
-- ✅ Duplicate name prevention within course
-- ✅ Percentage validation (0-100 range)
-- ✅ is_active field included in responses
-- ✅ List papers filters by is_active=true
-- ✅ Get paper includes is_active field
-- ✅ Update paper name
-- ✅ Update all paper fields including is_active
-- ✅ Duplicate name prevention on update
-- ✅ Soft delete paper (Stage 1)
-- ✅ Soft delete sets is_active = false
-- ✅ Soft delete filters from list endpoint
-- ✅ Permanent delete paper (Stage 2)
-- ✅ Permanent delete removes from database
-- ✅ Permanent delete cascades to topics
-- ✅ Delete already-deleted paper returns 404
-- ✅ Reactivate soft-deleted paper via update
-- ✅ Two-stage delete workflow complete cycle
-- ✅ Reactivation prevents cascade deletion
-- ✅ Papers maintain creation order across CRUD
-- ✅ Permission levels (Admin vs Owner)
+**Test Coverage**: 12 comprehensive tests
+
+**Test File**: `tests/test_admin_papers.py`
+
+**Test Categories**:
+1. **Authentication Tests** (2 tests)
+   - List papers requires authentication
+   - Create paper requires authentication
+
+2. **Create Tests** (4 tests)
+   - Create basic paper (required fields only)
+   - Create paper with all fields
+   - Duplicate name validation within tier
+   - Invalid percentage validation
+
+3. **List Tests** (1 test)
+   - List multiple papers with topics_count
+
+4. **Get Tests** (1 test)
+   - Get single paper with tier and course context
+
+5. **Update Tests** (3 tests)
+   - Update paper name
+   - Update all paper fields
+   - Duplicate name validation on update
+
+6. **Delete Tests** (1 test)
+   - Two-stage delete workflow (soft → permanent)
 
 **Run Tests**:
 ```bash
-python3 tests/test_admin_papers_is_active.py
+python3 tests/test_admin_papers.py
 ```
 
----
+**Expected Output**: ✓ ALL TESTS PASSED (12/12)
 
+**Migration Notes**:
+- All existing paper endpoints updated to use `tier_id` instead of `course_id`
+- Papers now belong to tiers in the hierarchy
+- Responses include tier context (tier_title, tier_code)
+- Full hierarchy: Year → Subject → Course → Tier → Paper → Topics
+- Two-stage delete pattern preserved with CASCADE to topics
+
+---
 ## Topics Management
 
 Topics are subject areas within papers. Topics use **soft delete** (can be reactivated).
@@ -2929,9 +3732,17 @@ Topics are subject areas within papers. Topics use **soft delete** (can be react
       "id": "uuid",
       "name": "Paper 1",
       "code": "P1",
-      "course_title": "Mathematics",
-      "year_name": "A-Level (12/13)",
-      "subject_name": "Mathematics"
+      "tier": {
+        "id": "uuid",
+        "title": "Higher",
+        "code": "HIGH"
+      },
+      "course": {
+        "id": "uuid",
+        "title": "Mathematics",
+        "year_name": "A-Level (12/13)",
+        "subject_name": "Mathematics"
+      }
     },
     "topics": [
       {
@@ -3005,12 +3816,22 @@ const data = await response.json();
       "is_active": true,
       "created_at": "2025-10-01T12:00:00.000000",
       "added_by_user_id": "uuid",
-      "paper_name": "Paper 1",
-      "paper_code": "P1",
-      "course_id": "uuid",
-      "course_title": "Mathematics",
-      "year_name": "A-Level (12/13)",
-      "subject_name": "Mathematics",
+      "paper": {
+        "id": "uuid",
+        "name": "Paper 1",
+        "code": "P1",
+        "tier": {
+          "id": "uuid",
+          "title": "Higher",
+          "code": "HIGH"
+        },
+        "course": {
+          "id": "uuid",
+          "title": "Mathematics",
+          "year_name": "A-Level (12/13)",
+          "subject_name": "Mathematics"
+        }
+      },
       "notes": [
         {
           "id": "uuid",
@@ -3271,10 +4092,22 @@ Questions are quiz items within topics with multiple choice options. Questions u
   "data": {
     "topic": {
       "id": "uuid",
-      "paper_id": "uuid",
       "name": "Algebra",
       "sort_order": 1,
-      "is_active": true
+      "is_active": true,
+      "paper": {
+        "id": "uuid",
+        "name": "Paper 1",
+        "tier": {
+          "id": "uuid",
+          "title": "Higher",
+          "code": "HIGH"
+        },
+        "course": {
+          "id": "uuid",
+          "title": "Mathematics"
+        }
+      }
     },
     "questions": [
       {
@@ -3354,10 +4187,19 @@ const data = await response.json();
       "id": "uuid",
       "topic_id": "uuid",
       "topic_name": "Algebra",
-      "paper_id": "uuid",
-      "paper_name": "Paper 1",
-      "course_id": "uuid",
-      "course_title": "Mathematics",
+      "paper": {
+        "id": "uuid",
+        "name": "Paper 1",
+        "tier": {
+          "id": "uuid",
+          "title": "Higher",
+          "code": "HIGH"
+        },
+        "course": {
+          "id": "uuid",
+          "title": "Mathematics"
+        }
+      },
       "title": "What is the square root of 16?",
       "sort_order": 1,
       "is_active": true,
@@ -4114,10 +4956,19 @@ Admin endpoints for managing notes content within topics. Notes contain the prim
       "id": "uuid",
       "name": "Cell Structure",
       "is_active": true,
-      "paper_id": "uuid",
-      "paper_name": "Paper 1",
-      "course_id": "uuid",
-      "course_title": "GCSE Biology"
+      "paper": {
+        "id": "uuid",
+        "name": "Paper 1",
+        "tier": {
+          "id": "uuid",
+          "title": "Foundation",
+          "code": "FOUND"
+        },
+        "course": {
+          "id": "uuid",
+          "title": "GCSE Biology"
+        }
+      }
     },
     "notes": [
       {
@@ -4251,7 +5102,7 @@ console.log(`Active notes: ${data.data.active_notes_count}`);
 ```json
 {
   "token": "session_token",
-  "notes_id": "uuid",
+  "note_id": "uuid",
   "content": "Updated notes content...",  // Optional
   "is_active": true                      // Optional
 }
@@ -4289,10 +5140,10 @@ console.log(`Active notes: ${data.data.active_notes_count}`);
 - `is_active` must be boolean if provided
 
 **Use Cases**:
-- Update content only: `{"notes_id": "uuid", "content": "new content"}`
-- Deactivate: `{"notes_id": "uuid", "is_active": false}`
-- Reactivate: `{"notes_id": "uuid", "is_active": true}`
-- Both: `{"notes_id": "uuid", "content": "new", "is_active": true}`
+- Update content only: `{"note_id": "uuid", "content": "new content"}`
+- Deactivate: `{"note_id": "uuid", "is_active": false}`
+- Reactivate: `{"note_id": "uuid", "is_active": true}`
+- Both: `{"note_id": "uuid", "content": "new", "is_active": true}`
 
 **Database Optimization**: 2 trips
 - Query 1: Verify notes exist (with topic name for response)
@@ -4312,7 +5163,7 @@ console.log(`Active notes: ${data.data.active_notes_count}`);
 ```json
 {
   "token": "session_token",
-  "notes_id": "uuid"
+  "note_id": "uuid"
 }
 ```
 
@@ -4322,7 +5173,7 @@ console.log(`Active notes: ${data.data.active_notes_count}`);
   "success": true,
   "message": "Notes deactivated successfully",
   "data": {
-    "notes_id": "uuid",
+    "note_id": "uuid",
     "topic_id": "uuid",
     "is_active": false,
     "note": "Call delete again to permanently remove from database. To reactivate, use the update endpoint with is_active: true."
@@ -4336,7 +5187,7 @@ console.log(`Active notes: ${data.data.active_notes_count}`);
   "success": true,
   "message": "Notes permanently removed from database",
   "data": {
-    "notes_id": "uuid",
+    "note_id": "uuid",
     "note": "Notes have been permanently deleted from the database. This action cannot be reversed."
   }
 }
@@ -4424,10 +5275,22 @@ python3 tests/test_admin_notes.py
   "data": {
     "topic": {
       "id": "uuid",
-      "paper_id": "uuid",
       "name": "Cell Biology",
       "sort_order": 1,
-      "is_active": true
+      "is_active": true,
+      "paper": {
+        "id": "uuid",
+        "name": "Paper 1",
+        "tier": {
+          "id": "uuid",
+          "title": "Foundation",
+          "code": "FOUND"
+        },
+        "course": {
+          "id": "uuid",
+          "title": "GCSE Biology"
+        }
+      }
     },
     "podcasts": [
       {
@@ -4507,7 +5370,21 @@ python3 tests/test_admin_notes.py
       "created_at": "2025-01-01T12:00:00.000000"
     },
     "topic": {
-      "name": "Cell Biology"
+      "id": "uuid",
+      "name": "Cell Biology",
+      "paper": {
+        "id": "uuid",
+        "name": "Paper 1",
+        "tier": {
+          "id": "uuid",
+          "title": "Foundation",
+          "code": "FOUND"
+        },
+        "course": {
+          "id": "uuid",
+          "title": "GCSE Biology"
+        }
+      }
     }
   }
 }
@@ -4750,13 +5627,20 @@ python3 tests/test_admin_podcasts.py
   "data": {
     "paper": {
       "id": "uuid",
-      "course_id": "uuid",
       "name": "Paper 1",
       "code": "P1",
       "percentage_of_grade": 40.00,
-      "course_title": "GCSE Biology",
-      "subject_name": "Biology",
-      "year_name": "GCSE (10/11)"
+      "tier": {
+        "id": "uuid",
+        "title": "Foundation",
+        "code": "FOUND"
+      },
+      "course": {
+        "id": "uuid",
+        "title": "GCSE Biology",
+        "subject_name": "Biology",
+        "year_name": "GCSE (10/11)"
+      }
     },
     "past_papers": [
       {
@@ -4833,8 +5717,17 @@ python3 tests/test_admin_podcasts.py
       "created_at": "2025-01-01T12:00:00.000000"
     },
     "paper": {
+      "id": "uuid",
       "name": "Paper 1",
-      "course_title": "GCSE Biology"
+      "tier": {
+        "id": "uuid",
+        "title": "Foundation",
+        "code": "FOUND"
+      },
+      "course": {
+        "id": "uuid",
+        "title": "GCSE Biology"
+      }
     }
   }
 }
@@ -5020,9 +5913,361 @@ python3 tests/test_admin_podcasts.py
 
 ---
 
+### 5. Bulk Create Past Papers
+
+**Endpoint**: `POST /admin/past_papers/bulk_create`
+
+**Auth**: Admin or Owner
+
+**Description**: Bulk create multiple past papers for a single paper in one transaction. Efficient batch operation for adding multiple years of past papers at once.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "paper_id": "uuid",
+  "past_papers": [
+    {
+      "year": 2024,
+      "url": "https://cdn.lockin.tech/2024-may-june.pdf",
+      "file_size": 1048576  // Optional: file size in bytes
+    },
+    {
+      "year": 2023,
+      "url": "https://cdn.lockin.tech/2023-may-june.pdf",
+      "file_size": 2097152
+    },
+    {
+      "year": 2022,
+      "url": "https://cdn.lockin.tech/2022-specimen.pdf"
+      // file_size is optional
+    }
+  ]
+}
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "success": true,
+  "message": "3 past papers created successfully",
+  "data": {
+    "past_papers": [
+      {
+        "id": "uuid1",
+        "paper_id": "uuid",
+        "year": 2024,
+        "url": "https://cdn.lockin.tech/2024-may-june.pdf",
+        "file_size": 1048576,
+        "is_active": true,
+        "added_by_user_id": "admin_uuid",
+        "created_at": "2024-11-19T10:30:00Z"
+      },
+      {
+        "id": "uuid2",
+        "paper_id": "uuid",
+        "year": 2023,
+        "url": "https://cdn.lockin.tech/2023-may-june.pdf",
+        "file_size": 2097152,
+        "is_active": true,
+        "added_by_user_id": "admin_uuid",
+        "created_at": "2024-11-19T10:30:00Z"
+      },
+      {
+        "id": "uuid3",
+        "paper_id": "uuid",
+        "year": 2022,
+        "url": "https://cdn.lockin.tech/2022-specimen.pdf",
+        "file_size": null,
+        "is_active": true,
+        "added_by_user_id": "admin_uuid",
+        "created_at": "2024-11-19T10:30:00Z"
+      }
+    ],
+    "count": 3,
+    "paper": {
+      "id": "uuid",
+      "name": "Paper 1",
+      "code": "P1",
+      "course_title": "Computer Science A-Level"
+    }
+  }
+}
+```
+
+**Error Responses**:
+
+*400 Bad Request* - Empty array:
+```json
+{
+  "success": false,
+  "message": "At least 1 past paper is required"
+}
+```
+
+*400 Bad Request* - Missing required fields:
+```json
+{
+  "success": false,
+  "message": "Past paper 1: Missing required field 'year'"
+}
+```
+
+*400 Bad Request* - Invalid year:
+```json
+{
+  "success": false,
+  "message": "Past paper 2: year must be a valid integer"
+}
+```
+
+*400 Bad Request* - Negative file_size:
+```json
+{
+  "success": false,
+  "message": "Past paper 3: file_size must be a non-negative integer"
+}
+```
+
+*404 Not Found* - Paper doesn't exist:
+```json
+{
+  "success": false,
+  "message": "Paper not found or inactive"
+}
+```
+
+**Database Queries**: 2 (in transaction)
+1. Verify paper exists and is active
+2. Batch insert all past papers with executemany()
+
+**Optimization**: OPTIMAL - constant 2 trips regardless of number of past papers
+
+**Rate Limiting**: 10 requests per minute (per admin user)
+
+**Use Cases**:
+- Upload multiple years of past papers at once
+- Migrate historical past papers efficiently
+- Batch import from external source
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${backend_url}/admin/past_papers/bulk_create`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    token: sessionToken,
+    paper_id: paperId,
+    past_papers: [
+      {year: 2024, url: "https://cdn.lockin.tech/2024.pdf", file_size: 1048576},
+      {year: 2023, url: "https://cdn.lockin.tech/2023.pdf", file_size: 2097152},
+      {year: 2022, url: "https://cdn.lockin.tech/2022.pdf"}
+    ]
+  })
+});
+const data = await response.json();
+console.log(`Created ${data.data.count} past papers`);
+```
+
+**cURL Example**:
+```bash
+curl -X POST ${backend_url}/admin/past_papers/bulk_create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "session_token",
+    "paper_id": "uuid",
+    "past_papers": [
+      {"year": 2024, "url": "https://cdn.lockin.tech/2024.pdf", "file_size": 1048576},
+      {"year": 2023, "url": "https://cdn.lockin.tech/2023.pdf", "file_size": 2097152}
+    ]
+  }'
+```
+
+---
+
+### 6. Bulk Delete Past Papers
+
+**Endpoint**: `DELETE /admin/past_papers/bulk_delete`
+
+**Auth**: Admin or Owner
+
+**Description**: Bulk delete multiple past papers using two-stage delete pattern. All past papers must have the same `is_active` state.
+
+**Two-Stage Delete**:
+- **Stage 1** (all active): Soft delete - sets `is_active = false` for all
+- **Stage 2** (all inactive): Permanent delete - removes from database
+
+**Important**: All past papers must have the same `is_active` state. Mixed states will return 400 error.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "past_paper_ids": ["uuid1", "uuid2", "uuid3"]
+}
+```
+
+**Success Response - Stage 1 (Soft Delete)** (200 OK):
+```json
+{
+  "success": true,
+  "message": "3 past papers deactivated successfully",
+  "data": {
+    "past_paper_ids": ["uuid1", "uuid2", "uuid3"],
+    "count": 3,
+    "is_active": false,
+    "note": "Call delete again with the same past_paper_ids to permanently remove from database. To reactivate, use the update endpoint with is_active: true."
+  }
+}
+```
+
+**Success Response - Stage 2 (Permanent Delete)** (200 OK):
+```json
+{
+  "success": true,
+  "message": "3 past papers permanently removed from database",
+  "data": {
+    "past_paper_ids": ["uuid1", "uuid2", "uuid3"],
+    "count": 3,
+    "note": "Past papers have been permanently deleted from the database. This action cannot be reversed."
+  }
+}
+```
+
+**Error Responses**:
+
+*400 Bad Request* - Empty array:
+```json
+{
+  "success": false,
+  "message": "At least 1 past_paper_id is required"
+}
+```
+
+*400 Bad Request* - Mixed active/inactive states:
+```json
+{
+  "success": false,
+  "message": "All past papers must have the same is_active state. Found 2 active and 1 inactive past papers. Please separate them into different requests."
+}
+```
+
+*404 Not Found* - Past papers not found:
+```json
+{
+  "success": false,
+  "message": "Past papers not found: uuid1, uuid2"
+}
+```
+
+*404 Not Found* - After permanent delete:
+```json
+{
+  "success": false,
+  "message": "No past papers found"
+}
+```
+
+**Database Queries**: 2
+1. Verify all past papers exist and check their states
+2. Batch UPDATE (soft delete) or DELETE (permanent) using ANY(%s::uuid[])
+
+**Optimization**: OPTIMAL - constant 2 trips regardless of number of past papers
+
+**Rate Limiting**: 10 requests per minute (per admin user)
+
+**Use Cases**:
+- Clean up old or incorrect past papers
+- Remove multiple specimen papers at once
+- Archive historical content
+
+**Implementation Notes**:
+- **Two-stage delete** - requires two explicit calls
+- **First call**: Sets `is_active = false` (soft delete)
+- **Second call**: Permanently deletes records from database
+- All past papers in the request must have the same `is_active` state
+- Mixed states must be separated into different requests
+
+**JavaScript Example**:
+```javascript
+// Stage 1: Soft Delete
+const response1 = await fetch(`${backend_url}/admin/past_papers/bulk_delete`, {
+  method: 'DELETE',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    token: sessionToken,
+    past_paper_ids: [pastPaperId1, pastPaperId2, pastPaperId3]
+  })
+});
+const data1 = await response1.json();
+console.log(data1.message); // "3 past papers deactivated successfully"
+
+// Stage 2: Permanent Delete (call again with same IDs)
+const response2 = await fetch(`${backend_url}/admin/past_papers/bulk_delete`, {
+  method: 'DELETE',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    token: sessionToken,
+    past_paper_ids: [pastPaperId1, pastPaperId2, pastPaperId3]
+  })
+});
+const data2 = await response2.json();
+console.log(data2.message); // "3 past papers permanently removed from database"
+```
+
+**cURL Example**:
+```bash
+# Stage 1: Soft delete
+curl -X DELETE ${backend_url}/admin/past_papers/bulk_delete \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token", "past_paper_ids": ["uuid1", "uuid2", "uuid3"]}'
+
+# Stage 2: Permanent delete (call again)
+curl -X DELETE ${backend_url}/admin/past_papers/bulk_delete \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token", "past_paper_ids": ["uuid1", "uuid2", "uuid3"]}'
+```
+
+**Handling Mixed States**:
+If you have 8 past papers (5 active, 3 inactive) to delete:
+1. Bulk delete the 5 active ones (deactivate)
+2. Bulk delete the 3 inactive ones (permanent delete)
+3. Bulk delete the 5 from step 1 (permanent delete)
+
+Or use a script to separate them:
+```javascript
+// Get all past papers for a paper
+const response = await fetch(`${backend_url}/admin/past_papers`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({token: sessionToken, paper_id: paperId})
+});
+const pastPapers = await response.json().data.past_papers;
+
+// Separate by state
+const activeIds = pastPapers.filter(pp => pp.is_active).map(pp => pp.id);
+const inactiveIds = pastPapers.filter(pp => !pp.is_active).map(pp => pp.id);
+
+// Delete in separate batches
+if (activeIds.length > 0) {
+  await fetch(`${backend_url}/admin/past_papers/bulk_delete`, {
+    method: 'DELETE',
+    body: JSON.stringify({token: sessionToken, past_paper_ids: activeIds})
+  });
+}
+if (inactiveIds.length > 0) {
+  await fetch(`${backend_url}/admin/past_papers/bulk_delete`, {
+    method: 'DELETE',
+    body: JSON.stringify({token: sessionToken, past_paper_ids: inactiveIds})
+  });
+}
+```
+
+---
+
 ### Past Papers Management Tests
 
-**Test Coverage** (29/29 passing):
+**Test Coverage** (29/29 passing - Individual CRUD):
 - ✅ Authentication & authorization (regular blocked, admin/owner allowed)
 - ✅ Create past paper with all fields
 - ✅ Create past paper without optional fields (file_size)
@@ -5046,17 +6291,46 @@ python3 tests/test_admin_podcasts.py
 - ✅ Edge case: historical year (1990)
 - ✅ Edge case: zero file size
 
+**Bulk Operations Test Coverage** (33/33 passing):
+- ✅ Bulk create 5 past papers with all fields
+- ✅ Bulk create 3 more past papers (different years)
+- ✅ Verify all past papers created
+- ✅ Empty past_papers array validation
+- ✅ Missing required field: year
+- ✅ Missing required field: url
+- ✅ Invalid year (not an integer)
+- ✅ Negative file_size validation
+- ✅ Invalid paper_id handling
+- ✅ Bulk soft delete (Stage 1) - deactivate 3 past papers
+- ✅ Verify deactivation
+- ✅ Bulk permanent delete (Stage 2) - remove 3 past papers
+- ✅ Verify permanent deletion (404)
+- ✅ Deactivate single past paper for mixed state test
+- ✅ Mixed state validation (active + inactive rejected)
+- ✅ Edge case: Historical year (1990)
+- ✅ Edge case: Large file size (1GB)
+- ✅ Edge case: Very long URL
+- ✅ Bulk delete with non-existent IDs
+- ✅ Bulk delete with empty array
+
 **Run Tests**:
 ```bash
+# Individual CRUD operations
 python3 tests/test_admin_past_papers.py
+
+# Bulk operations
+python3 tests/test_admin_past_papers_bulk.py
 ```
 
 **Test Features**:
 - Comprehensive role-based access control testing
 - Full CRUD operation validation
+- Bulk create and bulk delete (two-stage)
+- Mixed state validation
 - Edge cases for URLs, file sizes, and years
 - Soft delete and reactivation verification
 - All error cases and validation rules
+- Complete cleanup after tests
 
 ---
 

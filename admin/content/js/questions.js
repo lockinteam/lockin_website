@@ -22,9 +22,23 @@ const QuestionsSection = {
                 return;
             }
             
-            // Load papers for selected course if not loaded
+            // Load tiers for the selected course
+            const tiersData = await API.getTiers(AppState.filters.questions.courseId, true);
+            AppState.setTiers(tiersData.data.tiers || []);
+            
+            // Check if we need to show tier selection
+            if (AppState.tiers.length > 0 && !AppState.filters.questions.tierId) {
+                this.renderTierSelection();
+                return;
+            }
+            
+            // Load papers for selected course/tier if not loaded
             if (AppState.papers.length === 0 || AppState.papers[0]?.course_id !== AppState.filters.questions.courseId) {
-                const papersData = await API.getPapers(AppState.filters.questions.courseId, false);
+                const papersData = await API.getPapers(
+                    AppState.filters.questions.courseId,
+                    AppState.filters.questions.tierId,
+                    false
+                );
                 AppState.setPapers(papersData.data.papers || []);
             }
             
@@ -84,8 +98,8 @@ const QuestionsSection = {
         UI.elements.contentArea.innerHTML = selectionHTML;
     },
     
-    renderPaperSelection() {
-        const papers = AppState.papers;
+    renderTierSelection() {
+        const tiers = AppState.tiers.filter(t => t.is_active);
         const courses = AppState.courses;
         
         const courseOptions = courses.map(c => ({ 
@@ -93,7 +107,7 @@ const QuestionsSection = {
             label: `${c.title} (${c.year_name})` 
         }));
         
-        const paperOptions = papers.map(p => ({ value: p.id, label: p.name }));
+        const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
         
         const selectionHTML = `
             <div class="content-filters">
@@ -103,6 +117,60 @@ const QuestionsSection = {
                         ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.questions.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
                 </div>
+                <div class="filter-group" style="flex: 1;">
+                    <label class="filter-label">Select Tier</label>
+                    <select class="filter-select" id="questionsTierFilter" onchange="QuestionsSection.onTierChange()">
+                        <option value="">-- Choose a tier --</option>
+                        ${tierOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div class="content-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <h3>Select a Tier</h3>
+                <p>Choose a tier from the dropdown above to view questions.</p>
+            </div>
+        `;
+        
+        UI.elements.contentArea.innerHTML = selectionHTML;
+    },
+    
+    renderPaperSelection() {
+        const papers = AppState.papers;
+        const courses = AppState.courses;
+        const tiers = AppState.tiers.filter(t => t.is_active);
+        
+        const courseOptions = courses.map(c => ({ 
+            value: c.id, 
+            label: `${c.title} (${c.year_name})` 
+        }));
+        
+        const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
+        
+        const paperOptions = papers.map(p => ({ value: p.id, label: p.name }));
+        
+        const tierFilterHTML = tiers.length > 0 ? `
+            <div class="filter-group" style="flex: 1;">
+                <label class="filter-label">Tier</label>
+                <select class="filter-select" id="questionsTierFilter" onchange="QuestionsSection.onTierChange()">
+                    ${tierOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.questions.tierId ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+            </div>
+        ` : '';
+        
+        const selectionHTML = `
+            <div class="content-filters">
+                <div class="filter-group" style="flex: 1;">
+                    <label class="filter-label">Course</label>
+                    <select class="filter-select" id="questionsCourseFilter" onchange="QuestionsSection.onCourseChange()">
+                        ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.questions.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                    </select>
+                </div>
+                ${tierFilterHTML}
                 <div class="filter-group" style="flex: 1;">
                     <label class="filter-label">Select Paper</label>
                     <select class="filter-select" id="questionsPaperFilter" onchange="QuestionsSection.onPaperChange()">
@@ -129,14 +197,26 @@ const QuestionsSection = {
         const topics = AppState.topics;
         const papers = AppState.papers;
         const courses = AppState.courses;
+        const tiers = AppState.tiers.filter(t => t.is_active);
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
             label: `${c.title} (${c.year_name})` 
         }));
         
+        const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
+        
         const paperOptions = papers.map(p => ({ value: p.id, label: p.name }));
         const topicOptions = topics.map(t => ({ value: t.id, label: t.name }));
+        
+        const tierFilterHTML = tiers.length > 0 ? `
+            <div class="filter-group" style="flex: 1;">
+                <label class="filter-label">Tier</label>
+                <select class="filter-select" id="questionsTierFilter" onchange="QuestionsSection.onTierChange()">
+                    ${tierOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.questions.tierId ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+            </div>
+        ` : '';
         
         const selectionHTML = `
             <div class="content-filters">
@@ -146,6 +226,7 @@ const QuestionsSection = {
                         ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.questions.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
                 </div>
+                ${tierFilterHTML}
                 <div class="filter-group" style="flex: 1;">
                     <label class="filter-label">Paper</label>
                     <select class="filter-select" id="questionsPaperFilter" onchange="QuestionsSection.onPaperChange()">
@@ -201,6 +282,9 @@ const QuestionsSection = {
             label: `${c.title} (${c.year_name})` 
         }));
         
+        const tiers = AppState.tiers.filter(t => t.is_active);
+        const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
+        
         const paperOptions = papers.map(p => ({ value: p.id, label: p.name }));
         const topicOptions = topics.map(t => ({ value: t.id, label: t.name }));
         
@@ -229,6 +313,15 @@ const QuestionsSection = {
                 true
             );
         
+        const tierFilterHTML = tiers.length > 0 ? `
+            <div class="filter-group" style="flex: 1;">
+                <label class="filter-label">Tier</label>
+                <select class="filter-select" id="questionsTierFilter" onchange="QuestionsSection.onTierChange()">
+                    ${tierOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.questions.tierId ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+            </div>
+        ` : '';
+        
         const filtersHTML = `
             <div class="content-filters">
                 <div class="filter-group" style="flex: 2;">
@@ -241,6 +334,7 @@ const QuestionsSection = {
                         ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.questions.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
                 </div>
+                ${tierFilterHTML}
                 <div class="filter-group" style="flex: 1;">
                     <label class="filter-label">Paper</label>
                     <select class="filter-select" id="questionsPaperFilter" onchange="QuestionsSection.onPaperChange()">
@@ -411,8 +505,15 @@ const QuestionsSection = {
     async onCourseChange() {
         const courseId = document.getElementById('questionsCourseFilter').value || null;
         AppState.setQuestionsCourseFilter(courseId);
+        AppState.setQuestionsTierFilter(null);
         AppState.setQuestionsPaperFilter(null);
         AppState.setQuestionsTopicFilter(null);
+        this.load();
+    },
+    
+    async onTierChange() {
+        const tierId = document.getElementById('questionsTierFilter').value || null;
+        AppState.setQuestionsTierFilter(tierId);
         this.load();
     },
     

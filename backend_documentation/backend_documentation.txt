@@ -10,6 +10,38 @@ This document describes the regular user API endpoints for the Lockin.tech backe
 backend_url = https://backend.lockin.tech
 ```
 
+## Rate Limiting
+
+**All endpoints are rate limited to prevent abuse and brute force attacks.**
+
+**How it works:**
+- **Authenticated endpoints** (with valid token): Rate limited **per user account**
+- **Authentication endpoints** (login/signup): Rate limited **per IP address** (prevents brute force)
+- **Unauthenticated requests**: Rate limited **per IP address**
+
+This means each authenticated user gets their own rate limits, while authentication endpoints are protected against brute force attacks from a single IP.
+
+Rate limits vary by endpoint type:
+- **Authentication endpoints**: 3-20 requests per minute (strictest limits, per IP)
+- **Fetch endpoints**: 30-60 requests per minute (per user)
+- **Update endpoints**: 5-20 requests per minute (per user)
+- **Upload endpoints**: 10 requests per minute (per user)
+- **Analytics endpoints**: 100 requests per minute (per user)
+
+When rate limit is exceeded, you'll receive a `429 Too Many Requests` response:
+```json
+{
+  "success": false,
+  "message": "Rate limit exceeded. Please try again later.",
+  "error": "too_many_requests"
+}
+```
+
+All responses include rate limit headers:
+- `X-RateLimit-Limit`: Maximum requests allowed in the time window
+- `X-RateLimit-Remaining`: Number of requests remaining
+- `X-RateLimit-Reset`: Unix timestamp when the limit resets
+
 ## Quick Endpoint Summary
 
 **Authentication**
@@ -22,10 +54,14 @@ backend_url = https://backend.lockin.tech
 **Fetch Data**
 - `POST /fetch/years` - List all available year levels
 - `POST /fetch/subjects_and_courses` - Get courses and subjects for a specific year
-- `POST /fetch/profile` - Get complete user profile with all enrollments, courses, papers, and topics
+- `POST /fetch/profile` - Get complete user profile with all enrollments, courses, papers, topics, and XP stats
+- `POST /fetch/tiers` - List tier options for a course (Foundation/Higher, AS/A2, etc.)
 - `POST /fetch/notes` - Get notes content for a specific topic
 - `POST /fetch/podcast` - Get podcast audio content for a specific topic
-- `POST /fetch/questions` - Get questions and answer options for a topic, paper, or course
+- `POST /fetch/questions` - Get questions and answer options for a topic, paper, or course (includes user performance data)
+- `GET /fetch/leaderboard/global` - Get global leaderboard with top users by total XP
+- `GET /fetch/leaderboard/weekly` - Get weekly leaderboard with top users by XP earned in last 7 days
+- `GET /fetch/stats` - Get comprehensive user statistics including XP, streaks, ranks, and performance
 
 **Update User Data**
 - `POST /update/change_year` - Set/change user's year level
@@ -36,6 +72,9 @@ backend_url = https://backend.lockin.tech
 - `POST /upload/presign` - Generate presigned URL for file upload to R2 (5MB limit)
 - `POST /upload/complete` - Save file metadata after successful upload
 
+**Analytics**
+- `POST /analytics/record_answer` - Record user's answer to a question, track performance, and award XP
+
 **System**
 - `GET /health` - Health check endpoint
 - `GET /` - API info and version
@@ -44,9 +83,17 @@ backend_url = https://backend.lockin.tech
 
 ## Authentication Endpoints
 
+**Rate Limits** (to prevent brute force attacks):
+- `POST /auth/signup`: **3 requests per minute**
+- `POST /auth/login`: **5 requests per minute**
+- `POST /auth/google_signin`: **5 requests per minute**
+- `POST /auth/verify_token`: **20 requests per minute**
+- `POST /auth/logout`: **10 requests per minute**
+
 ### 1. User Signup
 
 **Endpoint**: `POST backend_url/auth/signup`
+**Rate Limit**: 3 requests per minute
 
 **Request Body**:
 ```json
@@ -90,6 +137,7 @@ backend_url = https://backend.lockin.tech
 ### 2. User Login
 
 **Endpoint**: `POST backend_url/auth/login`
+**Rate Limit**: 5 requests per minute
 
 **Request Body**:
 ```json
@@ -123,6 +171,7 @@ backend_url = https://backend.lockin.tech
 ### 3. Google Sign-In
 
 **Endpoint**: `POST backend_url/auth/google_signin`
+**Rate Limit**: 5 requests per minute
 
 **Description**: Authenticate using Google Sign-In. The client (web, iOS, or Android) uses Google's authentication system to obtain an ID token, then sends that token to this endpoint. The backend verifies the token with Google and creates/logs in the user.
 
@@ -452,6 +501,8 @@ class LoginScreen extends StatelessWidget {
 
 ## Fetch Endpoints
 
+> **Tier-aware content reminder**: Papers now belong directly to courses and optionally to tiers for grouping (Years → Subjects → Courses → Papers, with optional Tier grouping → Topics). Papers always have a `course_id` (required) and may have a `tier_id` (optional) for filtering by difficulty level (Foundation/Higher, Core/Extended, etc.). When enrolling via `/update/enroll_courses`, you can optionally specify a `tier_id` to filter content to that tier only, or omit it to see all papers in the course. Use `/fetch/tiers` to show available tier options when a course has multiple difficulty levels.
+
 ### Fetch Years
 
 **Endpoint**: `POST backend_url/fetch/years`
@@ -529,6 +580,9 @@ class LoginScreen extends StatelessWidget {
 }
 ```
 
+**Tier Context**:
+- This payload is intentionally course-focused to keep the response lightweight. After a user picks a course (using its `course_id`), you can optionally call `/fetch/tiers` to check if the course has multiple tiers (Foundation/Higher, Core/Extended, etc.). If tiers exist and you want to filter content, capture the `tier_id` and pass it to `/update/enroll_courses`. If no tier is specified, the user will see all papers from all tiers in that course.
+
 **Error Cases**:
 - Missing token or year_id (400)
 - Invalid year_id format (400)
@@ -561,7 +615,11 @@ class LoginScreen extends StatelessWidget {
       "email": "john@example.com",
       "email_verified": false,
       "role": "user",
-      "profile_picture_url": "default"
+      "profile_picture_url": "default",
+      "total_xp": 150,
+      "current_streak": 5,
+      "longest_streak": 12,
+      "last_activity_date": "2025-01-15"
     },
     "token_expires_at": "2024-01-15T12:00:00.000000",
     "year": {
@@ -579,6 +637,12 @@ class LoginScreen extends StatelessWidget {
         "created_at": "2024-01-01T00:00:00.000000",
         "enrollment_date": "2024-01-08T15:30:00.000000",
         "year_id": "year_uuid",
+        "enrolled_tier": {
+          "id": "tier_uuid",
+          "title": "Foundation",
+          "code": "FOUND",
+          "sort_order": 0
+        },
         "subject": {
           "id": "subject_uuid",
           "name": "Biology",
@@ -592,6 +656,12 @@ class LoginScreen extends StatelessWidget {
             "code": "BIO-P1",
             "percentage_of_grade": 50.00,
             "created_at": "2024-01-01T00:00:00.000000",
+            "tier": {
+              "id": "tier_uuid",
+              "title": "Foundation",
+              "code": "FOUND",
+              "sort_order": 0
+            },
             "topics": [
               {
                 "id": "topic_uuid",
@@ -628,11 +698,100 @@ class LoginScreen extends StatelessWidget {
 - If a paper has no topics, `topics` will be `[]`
 - If a paper has no past papers, `past_papers` will be `[]`
 - Resource flags (`has_notes`, `has_questions`, `has_podcast`) are boolean indicators of content availability
+- **Tier Filtering**: 
+  - If `enrolled_tier` is `null`, user sees ALL papers from ALL tiers for that course
+  - If `enrolled_tier` is set, user only sees papers from that specific tier
+  - All papers include `tier` information showing which tier they belong to
+  - Users can change their tier preference by calling `/fetch/tiers` (to display options) and then `/update/enroll_courses` with the selected `tier_id`
 
 **Error Cases**:
 - Missing token (400)
 - Token not found, invalid, or expired (401)
 - Server error (500)
+
+### Fetch Tiers
+
+**Endpoint**: `POST backend_url/fetch/tiers`
+
+**Description**: Fetch all available tiers for a specific course with paper counts. This endpoint helps users see what tier options are available when enrolling in a course. Tiers represent difficulty levels or pathways within a qualification (e.g., Foundation/Higher for GCSE, Core/Extended for IGCSE).
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token",
+  "course_id": "course_uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Tiers fetched successfully",
+  "data": {
+    "tiers": [
+      {
+        "id": "tier_uuid_1",
+        "title": "Foundation",
+        "code": "FOUND",
+        "sort_order": 0,
+        "paper_count": 3,
+        "created_at": "2024-01-01T00:00:00.000000"
+      },
+      {
+        "id": "tier_uuid_2",
+        "title": "Higher",
+        "code": "HIGH",
+        "sort_order": 1,
+        "paper_count": 3,
+        "created_at": "2024-01-01T00:00:00.000000"
+      }
+    ],
+    "tiers_count": 2
+  }
+}
+```
+
+**Special Cases**:
+- If course has no tiers, `tiers` will be `[]` and `tiers_count` will be `0` (200 OK)
+- Tiers are sorted by `sort_order` first, then alphabetically by `title`
+- `paper_count` shows number of active papers in that tier
+- Tiers with 0 papers are still returned (may have papers added later)
+
+**Downstream Usage**:
+- If the user selects a specific tier (e.g., Foundation over Higher), persist the `tier_id` and send it to `/update/enroll_courses` alongside the `course_id` to filter content.
+- If the user wants to see all content (or the course has no tiers), omit `tier_id` in the enrollment request.
+- Admin/content workflows can assign papers to tiers when creating them, enabling tier-based filtering for end users.
+
+**Error Cases**:
+- Missing token or course_id (400)
+- Invalid course_id format (400)
+- Token not found, invalid, or expired (401)
+- Course not found or inactive (404)
+- Server error (500)
+
+**Usage Example**:
+```javascript
+// Fetch tiers for a course before enrolling
+fetch('https://backend.lockin.tech/fetch/tiers', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken,
+    course_id: selectedCourseId
+  })
+})
+.then(res => res.json())
+.then(data => {
+  if (data.success) {
+    // Show tier options to user
+    const tierOptions = data.data.tiers.map(tier => ({
+      id: tier.id,
+      label: `${tier.title} (${tier.paper_count} papers)`
+    }));
+  }
+});
+```
 
 ### Fetch Notes
 
@@ -670,79 +829,68 @@ class LoginScreen extends StatelessWidget {
 - Notes not found for this topic (404)
 - Server error (500)
 
-### Fetch Podcast
+### GET /fetch/leaderboard/global
 
-**Endpoint**: `POST backend_url/fetch/podcast`
+Get the global leaderboard showing top users by total XP earned all-time.
 
-**Description**: Fetch the podcast audio content for a specific topic. Returns a single podcast record associated with the topic.
+**Auth**: Required (valid session token)
 
-**Request Body**:
-```json
-{
-  "token": "your_session_token",
-  "topic_id": "topic_uuid"
-}
-```
+**Description**: Returns a ranked list of top users by total XP, along with the requesting user's own rank and XP. Leaderboard shows up to 100 users by default (configurable via `limit` query parameter up to 500).
 
-**Success Response** (200 OK):
+**Query Parameters:**
+- `token` (string, required): Valid session token
+- `limit` (integer, optional): Maximum number of leaderboard entries to return (1-500, default 100)
+
+**Success Response (200 OK):**
 ```json
 {
   "success": true,
-  "message": "Podcast fetched successfully",
-  "data": {
-    "id": "podcast_uuid",
-    "topic_id": "topic_uuid",
-    "name": "Introduction to Cell Biology",
-    "length_seconds": 1245,
-    "file_size": 5242880,
-    "url": "https://cdn.lockin.tech/podcasts/biology/cell-biology-intro.mp3",
-    "created_at": "2024-01-01T00:00:00.000000+00:00",
-    "is_active": true
+  "leaderboard": [
+    {
+      "user_id": "uuid",
+      "username": "study_master",
+      "profile_picture_url": "https://cdn...",
+      "total_xp": 5420,
+      "rank": 1
+    },
+    {
+      "user_id": "uuid",
+      "username": "bio_expert",
+      "profile_picture_url": "https://cdn...",
+      "total_xp": 4890,
+      "rank": 2
+    }
+  ],
+  "current_user": {
+    "user_id": "uuid",
+    "username": "you",
+    "profile_picture_url": "https://cdn...",
+    "total_xp": 1250,
+    "rank": 15
   }
 }
 ```
 
-**Error Cases**:
-- Missing token or topic_id (400)
-- Invalid topic_id format (400)
-- Token not found, invalid, or expired (401)
-- Podcast not found for this topic (404)
-- Server error (500)
+**Response Fields:**
+- `leaderboard` (array): Ranked users ordered by total XP (descending)
+  - `user_id`, `username`, `profile_picture_url`, `total_xp`, `rank`
+- `current_user` (object): Requesting user's info with the same fields
 
-### Fetch Questions
+**Error Responses:**
+- `400 Bad Request`: Missing token
+- `401 Unauthorized`: Invalid or expired token
+- `500 Internal Server Error`: Database error
 
-**Endpoint**: `POST backend_url/fetch/questions`
+**Usage Example:**
 
-**Description**: Fetch questions and their answer options for a specific topic, paper, or course. User must provide exactly ONE of: `topic_id`, `paper_id`, or `course_id`. Returns all questions with complete answer options including which answers are correct.
-
-**Request Body** (provide exactly one parameter):
-```json
-{
-  "token": "your_session_token",
-  "topic_id": "topic_uuid"  // OR paper_id OR course_id (only one)
-}
-```
-
-**Alternative Request Bodies**:
-```json
-// For all questions in a paper
-{"token": "your_session_token", "paper_id": "paper_uuid"}
-
-// For all questions in all papers of a course
-{"token": "your_session_token", "course_id": "course_uuid"}
-```
-
-**Success Response** (200 OK):
-```json
-{
-  "success": true,
-  "message": "Questions fetched successfully",
-  "data": {
-    "questions": [
-      {
-        "id": "question_uuid",
-        "topic_id": "topic_uuid",
+```javascript
+const response = await fetch(`${backend_url}/fetch/leaderboard/global?token=${sessionToken}&limit=10`);
+const data = await response.json();
+console.log(`You are rank #${data.current_user.rank} with ${data.current_user.total_xp} XP`);
         "title": "What is the word equation for photosynthesis?",
+  console.log(`${user.rank}. ${user.username} - ${user.total_xp} XP`);
+});
+```
         "sort_order": 1,
         "created_at": "2024-01-01T00:00:00.000000+00:00",
         "is_active": true,
@@ -770,14 +918,14 @@ class LoginScreen extends StatelessWidget {
 **Special Cases**:
 - If no questions found, returns empty array with count 0
 - `is_correct` field reveals the correct answer(s) for each question
-- Questions ordered by sort_order and created_at
-- When using `paper_id`, returns questions from all topics in that paper
-- When using `course_id`, returns questions from all topics in all papers of that course
+- Questions ordered by topic_id, then sort_order, then created_at
+- When using `topic_ids` array, returns questions from all specified topics in a single response
+- To get questions for an entire paper, first fetch the paper's topics from `/fetch/profile`, then pass all topic IDs to this endpoint
 
 **Error Cases**:
 - Missing token (400)
-- No ID parameter provided (400)
-- Multiple ID parameters provided (400)
+- No topic_id or topic_ids provided (400)
+- topic_ids is not an array (400)
 - Token not found, invalid, or expired (401)
 - Server error (500)
 
@@ -819,15 +967,49 @@ class LoginScreen extends StatelessWidget {
 
 **Endpoint**: `POST backend_url/update/enroll_courses`
 
-**Description**: Updates the user's course enrollments. The user sends all course_ids they want to be enrolled in. Courses not in the list will be deactivated, new courses will be enrolled, and existing enrollments will be kept.
+**Description**: Updates the user's course enrollments with optional tier preferences. Users can enroll in courses and optionally specify a tier (e.g., Foundation/Higher for GCSE) to filter content. Supports both legacy and new formats for backwards compatibility.
 
-**Request Body**:
+**Content Hierarchy**: Years → Subjects → Courses → Papers (with optional Tier grouping) → Topics → Content
+
+**Enrollment Model**:
+- Users enroll at the **course level**
+- Optionally specify a **tier_id** to filter content to specific tier (e.g., only Foundation papers)
+- If no tier_id specified (or NULL), user sees content from **all tiers** in the course
+- Tier preferences can be updated at any time
+
+**Tier Workflow (Optional)**:
+1. Use `/fetch/subjects_and_courses` so the learner can pick a course and capture its `course_id`.
+2. **Optional**: Call `/fetch/tiers` with that `course_id` to check if the course has tier options (Foundation/Higher, Core/Extended, etc.).
+3. Enroll via `/update/enroll_courses`:
+   - **With tier filtering**: Include both `course_id` and `tier_id` to show only that tier's content
+   - **Without filtering**: Include only `course_id` (or set `tier_id` to null) to show all papers in the course
+4. Want to switch tiers later? Call `/fetch/tiers` again and submit an updated enrollment payload with the new `tier_id`.
+
+**Request Body (New Format with Tier Support)**:
 ```json
 {
   "token": "your_session_token",
-  "course_ids": ["course_uuid_1", "course_uuid_2", "course_uuid_3"]
+  "enrollments": [
+    {
+      "course_id": "course_uuid_1",
+      "tier_id": "tier_uuid_1"
+    },
+    {
+      "course_id": "course_uuid_2"
+    }
+  ]
 }
 ```
+
+**Request Body (Legacy Format - Backwards Compatible)**:
+```json
+{
+  "token": "your_session_token",
+  "course_ids": ["course_uuid_1", "course_uuid_2"]
+}
+```
+
+> **Note**: The legacy `course_ids` array cannot capture tier preferences. Use the new `enrollments` format whenever you need to pair a `course_id` with a `tier_id`.
 
 **Success Response** (200 OK):
 ```json
@@ -837,25 +1019,116 @@ class LoginScreen extends StatelessWidget {
   "data": {
     "enrolled": [
       {
-        "id": "course_uuid_1",
-        "title": "Mathematics GCSE",
+        "course_id": "course_uuid_1",
+        "course_title": "Mathematics GCSE",
         "year_id": "year_uuid",
         "subject_id": "subject_uuid",
-        "description": "GCSE Mathematics course"
+        "description": "GCSE Mathematics course",
+        "tier_id": "tier_uuid_1",
+        "tier_title": "Foundation",
+        "tier_code": "FOUND"
       },
       {
-        "id": "course_uuid_2",
-        "title": "Physics A-Level",
+        "course_id": "course_uuid_2",
+        "course_title": "Physics A-Level",
         "year_id": "year_uuid",
         "subject_id": "subject_uuid",
         "description": "A-Level Physics course"
       }
     ],
     "deactivated_count": 1,
-    "created_count": 2,
-    "kept_count": 1
+    "created_count": 1,
+    "updated_count": 1,
+    "kept_count": 0
   }
 }
+```
+
+**Response Fields**:
+- `enrolled`: Array of current active enrollments with tier info (if applicable)
+- `deactivated_count`: Number of courses removed from enrollments
+- `created_count`: Number of new enrollments created (or reactivated)
+- `updated_count`: Number of enrollments where tier preference changed
+- `kept_count`: Number of enrollments unchanged
+
+**Tier Support Examples**:
+
+These examples show different enrollment scenarios. When using tier filtering, you would typically call `/fetch/tiers` first to show available options to the user.
+
+```javascript
+// Example 1: Enroll in GCSE Math Foundation tier only
+const response = await fetch(`${backend_url}/update/enroll_courses`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken,
+    enrollments: [
+      {
+        course_id: gcseMathCourseId,
+        tier_id: foundationTierId  // User only sees Foundation papers
+      }
+    ]
+  })
+});
+
+// Example 2: Enroll in A-Level (no tiers needed)
+const response = await fetch(`${backend_url}/update/enroll_courses`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken,
+    enrollments: [
+      {
+        course_id: aLevelPhysicsCourseId
+        // No tier_id = sees all papers in course
+      }
+    ]
+  })
+});
+
+// Example 3: Update from Foundation to Higher tier
+const response = await fetch(`${backend_url}/update/enroll_courses`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken,
+    enrollments: [
+      {
+        course_id: gcseMathCourseId,
+        tier_id: higherTierId  // Changed from Foundation to Higher
+      }
+    ]
+  })
+});
+// Returns: updated_count: 1
+
+// Example 4: Mixed enrollments (some with tiers, some without)
+const response = await fetch(`${backend_url}/update/enroll_courses`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken,
+    enrollments: [
+      {
+        course_id: gcseMathCourseId,
+        tier_id: foundationTierId  // GCSE with specific tier
+      },
+      {
+        course_id: aLevelPhysicsCourseId  // A-Level without tiers
+      }
+    ]
+  })
+});
+
+// Example 5: Legacy format still works (backwards compatible)
+const response = await fetch(`${backend_url}/update/enroll_courses`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken,
+    course_ids: [gcseMathCourseId, aLevelPhysicsCourseId]  // Old format
+  })
+});
 ```
 
 **Special Case - Empty Array** (200 OK):
@@ -868,16 +1141,28 @@ Passing an empty array `[]` will deactivate all current enrollments:
     "enrolled": [],
     "deactivated_count": 3,
     "created_count": 0,
+    "updated_count": 0,
     "kept_count": 0
   }
 }
 ```
 
+**Validation Rules**:
+- All course_ids must be valid and active courses
+- tier_id (if provided) must be valid, active, and belong to the specified course_id
+- Duplicate enrollments in same request are automatically deduplicated (last one wins)
+- Empty enrollments array deactivates all enrollments
+
 **Error Cases**:
-- Missing token or course_ids (400)
-- course_ids not a list (400)
-- Token not found, invalid, or expired (401)
+- Missing token (400)
+- Missing enrollments or course_ids (400)
+- enrollments/course_ids not a list (400)
+- Each enrollment missing course_id (400)
+- Invalid UUID format (404)
 - One or more course_ids invalid or inactive (404)
+- One or more tier_ids invalid or inactive (404)
+- Tier doesn't belong to specified course (400)
+- Token not found, invalid, or expired (401)
 - Update failed (500)
 
 ### Update Profile Picture
@@ -1142,6 +1427,16 @@ async function fetchProfile(token) {
   return await response.json();
 }
 
+// Fetch tiers for a course example
+async function fetchTiers(token, courseId) {
+  const response = await fetch(`${backend_url}/fetch/tiers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, course_id: courseId })
+  });
+  return await response.json();
+}
+
 // Fetch notes for a topic example
 async function fetchNotes(token, topicId) {
   const response = await fetch(`${backend_url}/fetch/notes`, {
@@ -1162,13 +1457,23 @@ async function fetchPodcast(token, topicId) {
   return await response.json();
 }
 
-// Fetch questions for a topic, paper, or course example
-async function fetchQuestions(token, params) {
-  // params should be an object with exactly one of: topic_id, paper_id, or course_id
+// Fetch questions for one or more topics
+async function fetchQuestions(token, topicIdOrIds) {
+  const params = { token };
+  
+  // Single topic
+  if (typeof topicIdOrIds === 'string') {
+    params.topic_id = topicIdOrIds;
+  }
+  // Multiple topics
+  else if (Array.isArray(topicIdOrIds)) {
+    params.topic_ids = topicIdOrIds;
+  }
+  
   const response = await fetch(`${backend_url}/fetch/questions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, ...params })
+    body: JSON.stringify(params)
   });
   return await response.json();
 }
@@ -1183,12 +1488,23 @@ async function changeYear(token, yearId) {
   return await response.json();
 }
 
-// Enroll in courses example
-async function enrollCourses(token, courseIds) {
+// Enroll in courses with optional tier preferences
+async function enrollCourses(token, enrollments, legacyCourseIds) {
+  // Provide tier IDs you previously collected via /fetch/tiers for courses that support tiers
+  const payload = { token };
+
+  if (Array.isArray(enrollments)) {
+    payload.enrollments = enrollments; // Preferred format with optional tier_id
+  } else if (Array.isArray(legacyCourseIds)) {
+    payload.course_ids = legacyCourseIds; // Backwards-compatible fallback
+  } else {
+    throw new Error('Provide enrollments array or legacy course_ids array');
+  }
+
   const response = await fetch(`${backend_url}/update/enroll_courses`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, course_ids: courseIds })
+    body: JSON.stringify(payload)
   });
   return await response.json();
 }
@@ -1242,6 +1558,11 @@ curl -X POST ${backend_url}/fetch/profile \
   -H "Content-Type: application/json" \
   -d '{"token": "your_token_here"}'
 
+# Fetch Tiers for a Course (grab tier_id before enrolling)
+curl -X POST ${backend_url}/fetch/tiers \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here", "course_id": "course_uuid_here"}'
+
 # Fetch Notes for a Topic
 curl -X POST ${backend_url}/fetch/notes \
   -H "Content-Type: application/json" \
@@ -1252,30 +1573,30 @@ curl -X POST ${backend_url}/fetch/podcast \
   -H "Content-Type: application/json" \
   -d '{"token": "your_token_here", "topic_id": "topic_uuid_here"}'
 
-# Fetch Questions for a Topic
+# Fetch Questions for a Single Topic
 curl -X POST ${backend_url}/fetch/questions \
   -H "Content-Type: application/json" \
   -d '{"token": "your_token_here", "topic_id": "topic_uuid_here"}'
 
-# Fetch Questions for a Paper (all topics in that paper)
+# Fetch Questions for Multiple Topics
 curl -X POST ${backend_url}/fetch/questions \
   -H "Content-Type: application/json" \
-  -d '{"token": "your_token_here", "paper_id": "paper_uuid_here"}'
-
-# Fetch Questions for a Course (all topics in all papers)
-curl -X POST ${backend_url}/fetch/questions \
-  -H "Content-Type: application/json" \
-  -d '{"token": "your_token_here", "course_id": "course_uuid_here"}'
+  -d '{"token": "your_token_here", "topic_ids": ["topic_uuid_1", "topic_uuid_2", "topic_uuid_3"]}'
 
 # Change User Year
 curl -X POST ${backend_url}/update/change_year \
   -H "Content-Type: application/json" \
   -d '{"token": "your_token_here", "year_id": "year_uuid_here"}'
 
-# Enroll in Courses
+# Enroll in Courses (pair each course_id with a tier_id from /fetch/tiers when applicable)
 curl -X POST ${backend_url}/update/enroll_courses \
   -H "Content-Type: application/json" \
-  -d '{"token": "your_token_here", "course_ids": ["course_uuid_1", "course_uuid_2"]}'
+  -d '{"token": "your_token_here", "enrollments": [{"course_id": "course_uuid_1", "tier_id": "tier_uuid_optional"}, {"course_id": "course_uuid_2"}]}'
+
+# Legacy format (still supported, but no tier_id support)
+# curl -X POST ${backend_url}/update/enroll_courses \
+#   -H "Content-Type: application/json" \
+#   -d '{"token": "your_token_here", "course_ids": ["course_uuid_1", "course_uuid_2"]}'
 
 # Update Profile Picture
 curl -X POST ${backend_url}/update/profile_picture \
@@ -1418,6 +1739,326 @@ Save file metadata to database after successful upload to R2.
 - Must be called after successful upload to R2
 - Stores file record linked to uploading user
 - File URL uses CDN domain (cdn.lockin.tech)
+
+---
+
+## Analytics Endpoints
+
+### POST /analytics/record_answer
+
+Record a user's answer to a question, update performance tracking metrics, and award XP.
+
+**Auth**: Required (valid session token)
+
+**Description**: This endpoint records whether a user answered a question correctly or incorrectly, updates their performance statistics, awards XP points, and tracks daily streaks. Performance data is tracked per user per question and includes metrics like times seen, times correct, times incorrect, accuracy percentage, and last seen timestamp.
+
+**XP System Rules**:
+- **Correct Answer (First Time)**: 15 XP (10 base + 5 first-time bonus)
+- **Correct Answer (Repeated)**: 10 XP
+- **Incorrect Answer**: 0 XP
+
+**Streak System Rules** (Consecutive Days of Activity):
+- **Same Day**: Maintains current streak (correct or incorrect doesn't matter)
+- **Consecutive Day + Correct Answer**: Increments streak by 1
+- **Consecutive Day + Incorrect Answer**: Maintains current streak (no penalty for mistakes)
+- **Missed Days (2+ days gap)**: Resets streak to 0
+- **Note**: Streaks encourage daily engagement, not perfection. You keep your streak as long as you show up every day, regardless of performance.
+
+**Request Body:**
+```json
+{
+  "token": "session_token_string",
+  "question_id": "uuid_of_question",
+  "answer_id": "uuid_of_selected_answer"
+}
+```
+
+**Parameters:**
+- `token` (string, required): Valid session token
+- `question_id` (string, required): UUID of the question being answered
+- `answer_id` (string, required): UUID of the answer option selected by the user
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Answer recorded successfully",
+  "data": {
+    "is_correct": true,
+    "xp_earned": 15,
+    "total_xp": 150,
+    "current_streak": 5,
+    "performance": {
+      "times_seen": 5,
+      "times_correct": 4,
+      "times_incorrect": 1,
+      "accuracy": 80.0,
+      "last_seen_at": "2025-11-12T10:30:00Z"
+    }
+  }
+}
+```
+
+**Response Fields:**
+- `is_correct` (boolean): Whether the selected answer was correct
+- `xp_earned` (integer): XP earned for this answer (0, 10, or 15)
+- `total_xp` (integer): User's total XP after this answer
+- `current_streak` (integer): Current consecutive days streak
+- `performance.times_seen` (integer): Total number of times user has attempted this question
+- `performance.times_correct` (integer): Number of correct attempts
+- `performance.times_incorrect` (integer): Number of incorrect attempts
+- `performance.accuracy` (float): Percentage of correct answers (times_correct / times_seen * 100)
+- `performance.last_seen_at` (string): ISO 8601 timestamp of this attempt
+
+**Error Responses:**
+- `400 Bad Request`: Missing required fields or invalid question/answer (question inactive)
+- `401 Unauthorized`: Invalid or expired token
+- `404 Not Found`: Question not found, or answer not found/doesn't belong to question
+- `500 Internal Server Error`: Database error
+
+**Usage Examples:**
+
+```javascript
+// Record a correct answer
+const response = await fetch(`${backend_url}/analytics/record_answer`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    question_id: "109da892-3758-4679-876c-015e1ad7ecc6",
+    answer_id: "e86c83bf-efa2-46cc-bba4-c6073cf2eea1"
+  })
+});
+
+const data = await response.json();
+console.log(`Correct: ${data.data.is_correct}`);
+console.log(`XP Earned: ${data.data.xp_earned}`);
+console.log(`Total XP: ${data.data.total_xp}`);
+console.log(`Current Streak: ${data.data.current_streak} days`);
+console.log(`Accuracy: ${data.data.performance.accuracy}%`);
+```
+
+```bash
+# cURL: Record an answer
+curl -X POST ${backend_url}/analytics/record_answer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your_session_token",
+    "question_id": "question_uuid",
+    "answer_id": "answer_uuid"
+  }'
+```
+
+**Implementation Details:**
+- Uses PostgreSQL UPSERT (INSERT ... ON CONFLICT ... DO UPDATE) for atomic counter updates
+- Performance records are unique per (user_id, question_id) pair
+- Counters are incremented automatically on each attempt
+- Accuracy is calculated in real-time based on current counters
+- XP is awarded immediately and added to user's total_xp
+- Daily XP tracking uses user_daily_xp table with composite key (user_id, date)
+- Streaks increment only when answering correctly on a new day
+- Streaks reset to 0 on incorrect answers or missed days
+- Records cascade delete when user or question is deleted
+
+**Integration Note:**
+The `/fetch/questions` endpoint automatically includes user performance data for each question. See the updated `/fetch/questions` documentation below for details on the `user_performance` field.
+
+---
+
+## Leaderboard & Statistics Endpoints
+
+### POST /fetch/leaderboard/global
+
+Get the global leaderboard showing top users by total XP earned all-time.
+
+**Auth**: Required (valid session token)
+
+**Description**: Returns a ranked list of top users by total XP, along with the requesting user's own rank and XP. Leaderboard shows top 100 users with their username, total XP, and rank position.
+
+**Request Body:**
+```json
+{
+  "token": "session_token_string"
+}
+```
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Global leaderboard fetched successfully",
+  "data": {
+    "leaderboard": [
+      {
+        "rank": 1,
+        "username": "study_master",
+        "total_xp": 5420
+      },
+      {
+        "rank": 2,
+        "username": "bio_expert",
+        "total_xp": 4890
+      },
+      {
+        "rank": 3,
+        "username": "quiz_pro",
+        "total_xp": 3750
+      }
+    ],
+    "user_rank": 15,
+    "user_xp": 1250
+  }
+}
+```
+
+**Response Fields:**
+- `leaderboard` (array): Top 100 users ranked by total XP
+  - `rank` (integer): User's position on leaderboard (1 = highest)
+  - `username` (string): User's username
+  - `total_xp` (integer): User's total XP earned all-time
+- `user_rank` (integer): Requesting user's current global rank
+- `user_xp` (integer): Requesting user's total XP
+
+**Error Responses:**
+- `400 Bad Request`: Missing token
+- `401 Unauthorized`: Invalid or expired token
+- `500 Internal Server Error`: Database error
+
+**Usage Example:**
+
+```javascript
+const response = await fetch(`${backend_url}/fetch/leaderboard/global`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: sessionToken })
+});
+
+const data = await response.json();
+console.log(`You are rank #${data.data.user_rank} with ${data.data.user_xp} XP`);
+data.data.leaderboard.forEach(user => {
+  console.log(`${user.rank}. ${user.username} - ${user.total_xp} XP`);
+});
+```
+
+---
+
+### GET /fetch/leaderboard/weekly
+
+Get the weekly leaderboard showing top users by XP earned in the last 7 days.
+
+**Auth**: Required (valid session token)
+
+**Description**: Returns a ranked list of top users by XP earned in the past 7 days, along with the requesting user's own weekly rank and XP. Resets weekly to show who's most active recently.
+
+**Query Parameters:**
+- `token` (string, required): Valid session token
+- `limit` (integer, optional): Maximum number of leaderboard entries to return (1-500, default 100)
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "leaderboard": [
+    {
+      "user_id": "uuid",
+      "username": "grind_mode",
+      "profile_picture_url": "https://cdn...",
+      "weekly_xp": 420,
+      "rank": 1
+    }
+  ],
+  "current_user": {
+    "user_id": "uuid",
+    "username": "you",
+    "profile_picture_url": "https://cdn...",
+    "weekly_xp": 145,
+    "rank": 8
+  }
+}
+```
+
+**Response Fields:**
+- `leaderboard` (array): Ranked users ordered by XP earned over the last 7 days
+- `current_user` (object): Requesting user's weekly stats (same fields)
+
+**Error Responses:**
+- `400 Bad Request`: Missing token
+- `401 Unauthorized`: Invalid or expired token
+- `500 Internal Server Error`: Database error
+
+**Usage Example:**
+
+```javascript
+const response = await fetch(`${backend_url}/fetch/leaderboard/weekly?token=${sessionToken}`);
+const data = await response.json();
+console.log(`This week you're rank #${data.current_user.rank} with ${data.current_user.weekly_xp} XP`);
+```
+
+---
+
+### GET /fetch/stats
+
+Get comprehensive user statistics including XP, streaks, ranks, and question performance.
+
+**Auth**: Required (valid session token)
+
+**Description**: Returns detailed statistics about the user's learning progress, including total XP, daily XP, streaks, global rank, question counts, and overall accuracy.
+
+**Query Parameters:**
+- `token` (string, required): Valid session token
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "stats": {
+    "total_xp": 1250,
+    "daily_xp": 45,
+    "weekly_xp": 215,
+    "current_streak": 7,
+    "longest_streak": 14,
+    "global_rank": 15,
+    "questions_answered": 125,
+    "questions_correct": 98,
+    "overall_accuracy": 78.4,
+    "last_activity_date": "2025-01-15"
+  }
+}
+```
+
+**Response Fields (inside `stats`):**
+- `total_xp`, `daily_xp`, `weekly_xp`
+- `current_streak`, `longest_streak`, `last_activity_date`
+- `global_rank`
+- `questions_answered`, `questions_correct`
+- `overall_accuracy` (percentage with one decimal place)
+
+**Error Responses:**
+- `400 Bad Request`: Missing token
+- `401 Unauthorized`: Invalid or expired token
+- `500 Internal Server Error`: Database error
+
+**Usage Example:**
+
+```javascript
+const response = await fetch(`${backend_url}/fetch/stats?token=${sessionToken}`);
+const data = await response.json();
+const stats = data.stats;
+console.log(`Total XP: ${stats.total_xp}`);
+console.log(`Current Streak: ${stats.current_streak} days`);
+console.log(`Global Rank: #${stats.global_rank}`);
+console.log(`Accuracy: ${stats.overall_accuracy}%`);
+```
+
+**Implementation Details:**
+- Uses complex SQL join to aggregate data from multiple tables
+- Daily XP calculated from user_daily_xp table for current date
+- Weekly XP calculated from last 7 days of user_daily_xp records
+- Ranks calculated using window functions with COALESCE for null handling
+- Questions statistics aggregated from user_performance table
+- All calculations performed in database for optimal performance
+
+---
 
 ## Security Features
 

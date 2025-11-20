@@ -10,7 +10,7 @@ const PapersSection = {
         try {
             // Load courses for filter if not already loaded
             if (AppState.courses.length === 0) {
-                const coursesData = await API.getCourses({ includeInactive: false });
+                const coursesData = await API.getCourses(null, null, false);
                 AppState.setCourses(coursesData.data.courses || []);
             }
             
@@ -20,8 +20,16 @@ const PapersSection = {
                 return;
             }
             
-            // Load papers for selected course
-            const data = await API.getPapers(AppState.filters.papers.courseId, this.includeInactive);
+            // Load tiers for the selected course
+            const tiersData = await API.getTiers(AppState.filters.papers.courseId, true);
+            AppState.setTiers(tiersData.data.tiers || []);
+            
+            // Load papers for selected course and optional tier
+            const data = await API.getPapers(
+                AppState.filters.papers.courseId, 
+                AppState.filters.papers.tierId, 
+                this.includeInactive
+            );
             AppState.setPapers(data.data.papers || []);
             this.render(data.data.course);
         } catch (error) {
@@ -87,6 +95,10 @@ const PapersSection = {
             label: `${c.title} (${c.year_name})` 
         }));
         
+        const tierOptions = [{ value: '', label: 'All Tiers' }].concat(
+            AppState.tiers.filter(t => t.is_active).map(t => ({ value: t.id, label: t.title }))
+        );
+        
         const createBtnHTML = UI.renderActionBtn(
             'Create Paper',
             '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
@@ -103,6 +115,12 @@ const PapersSection = {
                     <label class="filter-label">Course</label>
                     <select class="filter-select" id="paperCourseFilter" onchange="PapersSection.onCourseChange()">
                         ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.papers.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Tier</label>
+                    <select class="filter-select" id="paperTierFilter" onchange="PapersSection.onTierChange()" ${AppState.tiers.length === 0 ? 'disabled' : ''}>
+                        ${tierOptions.map(opt => `<option value="${opt.value}" ${opt.value === (AppState.filters.papers.tierId || '') ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
                 </div>
                 <div class="filter-checkbox-group">
@@ -148,6 +166,7 @@ const PapersSection = {
     },
     
     renderPaperCard(paper) {
+        const tier = paper.tier_id ? AppState.findTierById(paper.tier_id) : null;
         return `
             <div class="content-card">
                 <div class="card-header">
@@ -156,6 +175,11 @@ const PapersSection = {
                     ${paper.is_active ? '<span class="card-badge badge-active">Active</span>' : '<span class="card-badge badge-inactive">Inactive</span>'}
                 </div>
                 <div class="card-meta">
+                    ${tier ? `
+                    <div class="meta-row">
+                        <span class="meta-label">Tier</span>
+                        <span class="meta-value">${UI.escapeHtml(tier.title)}</span>
+                    </div>` : ''}
                     <div class="meta-row">
                         <span class="meta-label">Topics</span>
                         <span class="meta-value">${paper.topics_count || 0}</span>
@@ -210,16 +234,33 @@ const PapersSection = {
         this.load();
     },
     
+    onTierChange() {
+        const tierId = document.getElementById('paperTierFilter').value || null;
+        AppState.setPapersTierFilter(tierId);
+        this.load();
+    },
+    
     openCreateModal() {
         if (!AppState.filters.papers.courseId) {
             UI.showToast('Please select a course first', 'warning');
             return;
         }
         
+        const tierOptions = [{ value: '', label: 'None (No Tier)' }].concat(
+            AppState.tiers.filter(t => t.is_active).map(t => ({ value: t.id, label: t.title }))
+        );
+        
+        const tierSelectHTML = tierOptions.length > 1 ? UI.createFormRow(
+            'Tier',
+            UI.createSelect('paperTier', tierOptions, ''),
+            'Optional: Assign this paper to a tier'
+        ) : '';
+        
         const formHTML = `
             <form id="createPaperForm" class="modal-form" onsubmit="PapersSection.handleCreate(event)">
                 ${UI.createFormRow('Paper Name', UI.createTextInput('paperName', '', 'e.g., Paper 1', true))}
                 ${UI.createFormRow('Paper Code', UI.createTextInput('paperCode', '', 'e.g., P1'), 'Optional short code')}
+                ${tierSelectHTML}
                 ${UI.createFormRow('Percentage of Grade', UI.createNumberInput('paperPercentage', '', '50', 0, 100, 0.1), 'Optional: e.g., 50 for 50%')}
                 ${UI.createModalActions('UI.closeModal()', null, 'Create Paper')}
             </form>
@@ -232,10 +273,21 @@ const PapersSection = {
         const paper = AppState.findPaperById(paperId);
         if (!paper) return;
         
+        const tierOptions = [{ value: '', label: 'None (No Tier)' }].concat(
+            AppState.tiers.filter(t => t.is_active).map(t => ({ value: t.id, label: t.title }))
+        );
+        
+        const tierSelectHTML = tierOptions.length > 1 ? UI.createFormRow(
+            'Tier',
+            UI.createSelect('paperTier', tierOptions, paper.tier_id || ''),
+            'Optional: Assign this paper to a tier'
+        ) : '';
+        
         const formHTML = `
             <form id="editPaperForm" class="modal-form" onsubmit="PapersSection.handleUpdate(event, '${paperId}')">
                 ${UI.createFormRow('Paper Name', UI.createTextInput('paperName', paper.name, '', true))}
                 ${UI.createFormRow('Paper Code', UI.createTextInput('paperCode', paper.code || '', ''), 'Leave empty to remove')}
+                ${tierSelectHTML}
                 ${UI.createFormRow('Percentage of Grade', UI.createNumberInput('paperPercentage', paper.percentage_of_grade || '', '', 0, 100, 0.1))}
                 ${UI.createFormRow(
                     'Status',
@@ -256,6 +308,8 @@ const PapersSection = {
         
         const name = document.getElementById('paperName').value.trim();
         const code = document.getElementById('paperCode').value.trim() || null;
+        const tierElement = document.getElementById('paperTier');
+        const tierId = tierElement ? (tierElement.value || null) : null;
         const percentage = document.getElementById('paperPercentage').value;
         const percentageValue = percentage ? parseFloat(percentage) : null;
         
@@ -265,7 +319,7 @@ const PapersSection = {
         }
         
         try {
-            await API.createPaper(AppState.filters.papers.courseId, name, code, percentageValue);
+            await API.createPaper(AppState.filters.papers.courseId, name, tierId, code, percentageValue);
             UI.closeModal();
             UI.showToast('Paper created successfully', 'success');
             await this.load();
@@ -279,6 +333,8 @@ const PapersSection = {
         
         const name = document.getElementById('paperName').value.trim();
         const code = document.getElementById('paperCode').value.trim() || null;
+        const tierElement = document.getElementById('paperTier');
+        const tierId = tierElement ? (tierElement.value || null) : null;
         const percentage = document.getElementById('paperPercentage').value;
         const percentageValue = percentage ? parseFloat(percentage) : null;
         const isActive = document.getElementById('paperStatus').value === 'true';
@@ -289,7 +345,7 @@ const PapersSection = {
         }
         
         try {
-            await API.updatePaper(paperId, { name, code, percentage_of_grade: percentageValue, is_active: isActive });
+            await API.updatePaper(paperId, { name, code, tier_id: tierId, percentage_of_grade: percentageValue, is_active: isActive });
             UI.closeModal();
             UI.showToast('Paper updated successfully', 'success');
             await this.load();

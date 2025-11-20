@@ -115,17 +115,44 @@ const API = {
         return this.request('/admin/courses/delete', 'DELETE', { course_id: courseId });
     },
     
+    // Tiers
+    async getTiers(courseId, includeInactive = false) {
+        return this.request('/admin/tiers', 'POST', { course_id: courseId, include_inactive: includeInactive });
+    },
+    
+    async getTier(tierId) {
+        return this.request('/admin/tiers/get', 'POST', { tier_id: tierId });
+    },
+    
+    async createTier(courseId, title, code = null, sortOrder = 0) {
+        const body = { course_id: courseId, title };
+        if (code) body.code = code;
+        if (sortOrder !== null) body.sort_order = sortOrder;
+        return this.request('/admin/tiers/create', 'POST', body);
+    },
+    
+    async updateTier(tierId, updates) {
+        return this.request('/admin/tiers/update', 'PUT', { tier_id: tierId, ...updates });
+    },
+    
+    async deleteTier(tierId) {
+        return this.request('/admin/tiers/delete', 'DELETE', { tier_id: tierId });
+    },
+    
     // Papers
-    async getPapers(courseId, includeInactive = false) {
-        return this.request('/admin/papers', 'POST', { course_id: courseId, include_inactive: includeInactive });
+    async getPapers(courseId, tierId = null, includeInactive = false) {
+        const body = { course_id: courseId, include_inactive: includeInactive };
+        if (tierId) body.tier_id = tierId;
+        return this.request('/admin/papers', 'POST', body);
     },
     
     async getPaper(paperId) {
         return this.request('/admin/papers/get', 'POST', { paper_id: paperId });
     },
     
-    async createPaper(courseId, name, code = null, percentageOfGrade = null) {
+    async createPaper(courseId, name, tierId = null, code = null, percentageOfGrade = null) {
         const body = { course_id: courseId, name };
+        if (tierId) body.tier_id = tierId;
         if (code) body.code = code;
         if (percentageOfGrade !== null) body.percentage_of_grade = percentageOfGrade;
         return this.request('/admin/papers/create', 'POST', body);
@@ -169,12 +196,12 @@ const API = {
         return this.request('/admin/notes/create', 'POST', { topic_id: topicId, content });
     },
     
-    async updateNote(notesId, updates) {
-        return this.request('/admin/notes/update', 'PUT', { notes_id: notesId, ...updates });
+    async updateNote(noteId, updates) {
+        return this.request('/admin/notes/update', 'PUT', { note_id: noteId, ...updates });
     },
     
-    async deleteNote(notesId) {
-        return this.request('/admin/notes/delete', 'DELETE', { notes_id: notesId });
+    async deleteNote(noteId) {
+        return this.request('/admin/notes/delete', 'DELETE', { note_id: noteId });
     },
     
     // Questions

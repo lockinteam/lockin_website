@@ -12,6 +12,7 @@ const AppState = {
     years: [],
     subjects: [],
     courses: [],
+    tiers: [],
     papers: [],
     topics: [],
     notes: [],
@@ -37,29 +38,38 @@ const AppState = {
             yearId: null,
             subjectId: null
         },
-        papers: {
+        tiers: {
             courseId: null
+        },
+        papers: {
+            courseId: null,
+            tierId: null
         },
         topics: {
             courseId: null,
+            tierId: null,
             paperId: null
         },
         notes: {
             courseId: null,
+            tierId: null,
             paperId: null,
             topicId: null
         },
         podcasts: {
             courseId: null,
+            tierId: null,
             paperId: null,
             topicId: null
         },
         pastPapers: {
             courseId: null,
+            tierId: null,
             paperId: null
         },
         questions: {
             courseId: null,
+            tierId: null,
             paperId: null,
             topicId: null
         }
@@ -121,6 +131,10 @@ const AppState = {
     
     setCourses(courses) {
         this.courses = courses || [];
+    },
+    
+    setTiers(tiers) {
+        this.tiers = tiers || [];
     },
     
     setPapers(papers) {
@@ -190,13 +204,30 @@ const AppState = {
         this.filters.courses.subjectId = subjectId;
     },
     
+    setTiersCourseFilter(courseId) {
+        this.filters.tiers.courseId = courseId;
+    },
+    
     setPapersCourseFilter(courseId) {
         this.filters.papers.courseId = courseId;
+        // Reset tier selection when course changes
+        this.filters.papers.tierId = null;
+    },
+    
+    setPapersTierFilter(tierId) {
+        this.filters.papers.tierId = tierId;
     },
     
     setTopicsCourseFilter(courseId) {
         this.filters.topics.courseId = courseId;
-        // Reset paper selection when course changes
+        // Reset tier and paper selection when course changes
+        this.filters.topics.tierId = null;
+        this.filters.topics.paperId = null;
+    },
+    
+    setTopicsTierFilter(tierId) {
+        this.filters.topics.tierId = tierId;
+        // Reset paper selection when tier changes
         this.filters.topics.paperId = null;
     },
     
@@ -207,6 +238,13 @@ const AppState = {
     // Notes filter setters
     setNotesCourseFilter(courseId) {
         this.filters.notes.courseId = courseId;
+        this.filters.notes.tierId = null;
+        this.filters.notes.paperId = null;
+        this.filters.notes.topicId = null;
+    },
+    
+    setNotesTierFilter(tierId) {
+        this.filters.notes.tierId = tierId;
         this.filters.notes.paperId = null;
         this.filters.notes.topicId = null;
     },
@@ -223,6 +261,13 @@ const AppState = {
     // Podcasts filter setters
     setPodcastsCourseFilter(courseId) {
         this.filters.podcasts.courseId = courseId;
+        this.filters.podcasts.tierId = null;
+        this.filters.podcasts.paperId = null;
+        this.filters.podcasts.topicId = null;
+    },
+    
+    setPodcastsTierFilter(tierId) {
+        this.filters.podcasts.tierId = tierId;
         this.filters.podcasts.paperId = null;
         this.filters.podcasts.topicId = null;
     },
@@ -239,6 +284,12 @@ const AppState = {
     // Past Papers filter setters
     setPastPapersCourseFilter(courseId) {
         this.filters.pastPapers.courseId = courseId;
+        this.filters.pastPapers.tierId = null;
+        this.filters.pastPapers.paperId = null;
+    },
+    
+    setPastPapersTierFilter(tierId) {
+        this.filters.pastPapers.tierId = tierId;
         this.filters.pastPapers.paperId = null;
     },
     
@@ -249,6 +300,13 @@ const AppState = {
     // Questions filter setters
     setQuestionsCourseFilter(courseId) {
         this.filters.questions.courseId = courseId;
+        this.filters.questions.tierId = null;
+        this.filters.questions.paperId = null;
+        this.filters.questions.topicId = null;
+    },
+    
+    setQuestionsTierFilter(tierId) {
+        this.filters.questions.tierId = tierId;
         this.filters.questions.paperId = null;
         this.filters.questions.topicId = null;
     },
@@ -273,6 +331,10 @@ const AppState = {
     
     findCourseById(id) {
         return this.courses.find(c => c.id === id);
+    },
+    
+    findTierById(id) {
+        return this.tiers.find(t => t.id === id);
     },
     
     findPaperById(id) {
@@ -306,6 +368,7 @@ const AppState = {
         this.years = [];
         this.subjects = [];
         this.courses = [];
+        this.tiers = [];
         this.papers = [];
         this.topics = [];
         this.notes = [];
@@ -315,12 +378,13 @@ const AppState = {
         this.selectedQuestionIds = [];
         this.filters = {
             courses: { yearId: null, subjectId: null },
-            papers: { courseId: null },
-            topics: { courseId: null, paperId: null },
-            notes: { courseId: null, paperId: null, topicId: null },
-            podcasts: { courseId: null, paperId: null, topicId: null },
-            pastPapers: { courseId: null, paperId: null },
-            questions: { courseId: null, paperId: null, topicId: null }
+            tiers: { courseId: null },
+            papers: { courseId: null, tierId: null },
+            topics: { courseId: null, tierId: null, paperId: null },
+            notes: { courseId: null, tierId: null, paperId: null, topicId: null },
+            podcasts: { courseId: null, tierId: null, paperId: null, topicId: null },
+            pastPapers: { courseId: null, tierId: null, paperId: null },
+            questions: { courseId: null, tierId: null, paperId: null, topicId: null }
         };
     }
 };

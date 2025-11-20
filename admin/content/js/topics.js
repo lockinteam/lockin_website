@@ -10,7 +10,7 @@ const TopicsSection = {
         try {
             // Load courses for filter if not already loaded
             if (AppState.courses.length === 0) {
-                const coursesData = await API.getCourses({ includeInactive: false });
+                const coursesData = await API.getCourses(null, null, false);
                 AppState.setCourses(coursesData.data.courses || []);
             }
             
@@ -20,9 +20,23 @@ const TopicsSection = {
                 return;
             }
             
-            // Load papers for selected course if not loaded
+            // Load tiers for the selected course
+            const tiersData = await API.getTiers(AppState.filters.topics.courseId, true);
+            AppState.setTiers(tiersData.data.tiers || []);
+            
+            // Check if we need to show tier selection
+            if (AppState.tiers.length > 0 && !AppState.filters.topics.tierId) {
+                this.renderTierSelection();
+                return;
+            }
+            
+            // Load papers for selected course/tier if not loaded
             if (!AppState.filters.topics.paperId || AppState.papers.length === 0) {
-                const papersData = await API.getPapers(AppState.filters.topics.courseId);
+                const papersData = await API.getPapers(
+                    AppState.filters.topics.courseId,
+                    AppState.filters.topics.tierId,
+                    false
+                );
                 AppState.setPapers(papersData.data.papers || []);
             }
             
@@ -75,13 +89,25 @@ const TopicsSection = {
     renderPaperSelection() {
         const papers = AppState.papers;
         const courses = AppState.courses;
+        const tiers = AppState.tiers.filter(t => t.is_active);
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
             label: `${c.title} (${c.year_name})` 
         }));
         
+        const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
+        
         const paperOptions = papers.map(p => ({ value: p.id, label: p.name }));
+        
+        const tierFilterHTML = tiers.length > 0 ? `
+            <div class="filter-group">
+                <label class="filter-label">Tier</label>
+                <select class="filter-select" id="topicTierFilter" onchange="TopicsSection.onTierChange()">
+                    ${tierOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.topics.tierId ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+            </div>
+        ` : '';
         
         const selectionHTML = `
             <div class="content-filters">
@@ -91,6 +117,7 @@ const TopicsSection = {
                         ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.topics.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
                 </div>
+                ${tierFilterHTML}
                 <div class="filter-group">
                     <label class="filter-label">Paper</label>
                     <select class="filter-select" id="topicPaperFilter" onchange="TopicsSection.onPaperChange()">
@@ -136,11 +163,14 @@ const TopicsSection = {
         });
         const courses = AppState.courses;
         const papers = AppState.papers;
+        const tiers = AppState.tiers.filter(t => t.is_active);
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
             label: `${c.title} (${c.year_name})` 
         }));
+        
+        const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
         
         const paperOptions = papers.map(p => ({ value: p.id, label: p.name }));
         
@@ -149,6 +179,15 @@ const TopicsSection = {
             '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
             'TopicsSection.openCreateModal()'
         );
+        
+        const tierFilterHTML = tiers.length > 0 ? `
+            <div class="filter-group">
+                <label class="filter-label">Tier</label>
+                <select class="filter-select" id="topicTierFilter" onchange="TopicsSection.onTierChange()">
+                    ${tierOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.topics.tierId ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+            </div>
+        ` : '';
         
         const filtersHTML = `
             <div class="content-filters">
@@ -162,6 +201,7 @@ const TopicsSection = {
                         ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.topics.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
                 </div>
+                ${tierFilterHTML}
                 <div class="filter-group">
                     <label class="filter-label">Paper</label>
                     <select class="filter-select" id="topicPaperFilter" onchange="TopicsSection.onPaperChange()">
@@ -265,6 +305,16 @@ const TopicsSection = {
     async onCourseChange() {
         const select = document.getElementById('topicCourseFilter');
         AppState.setTopicsCourseFilter(select.value || null);
+        this.load();
+    },
+        async onTierChange() {
+        const select = document.getElementById('topicTierFilter');
+        AppState.setTopicsTierFilter(select.value || null);
+        this.load();
+    },
+        async onTierChange() {
+        const select = document.getElementById('topicTierFilter');
+        AppState.setTopicsTierFilter(select.value || null);
         this.load();
     },
     
