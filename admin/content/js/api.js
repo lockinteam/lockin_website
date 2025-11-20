@@ -390,54 +390,28 @@ const API = {
             subject_name: courseInfo.subject_name,
             subject_code: courseInfo.subject_code,
             description: courseInfo.description,
-            link_to_specification: courseInfo.link_to_specification
+            link_to_specification: courseInfo.link_to_specification,
+            tiers: courseInfo.tiers
         });
     },
     
     async getGenerateStatus(taskId) {
-        const token = AppState.getToken();
-        const response = await fetch(`${this.baseUrl}/admin/generate/status?token=${encodeURIComponent(token)}&task_id=${encodeURIComponent(taskId)}`, {
-            method: 'GET'
+        const response = await this.request('/admin/generate/status', 'POST', {
+            task_id: taskId
         });
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
-            throw new Error(errorData.message || 'Failed to fetch generation status');
-        }
-        
-        const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.message || 'Failed to fetch generation status');
-        }
-        
-        return data.data;
+        return response.data;
     },
     
     async listGenerateTasks(filters = {}) {
-        const token = AppState.getToken();
-        const params = new URLSearchParams({ token });
+        const body = {};
+        if (filters.status) body.status = filters.status;
+        if (filters.created_by) body.created_by = filters.created_by;
+        if (filters.limit) body.limit = filters.limit;
+        if (filters.offset) body.offset = filters.offset;
+        if (filters.sort) body.sort = filters.sort;
         
-        if (filters.status) params.append('status', filters.status);
-        if (filters.created_by) params.append('created_by', filters.created_by);
-        if (filters.limit) params.append('limit', filters.limit);
-        if (filters.offset) params.append('offset', filters.offset);
-        if (filters.sort) params.append('sort', filters.sort);
-        
-        const response = await fetch(`${this.baseUrl}/admin/generate/list?${params.toString()}`, {
-            method: 'GET'
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
-            throw new Error(errorData.message || 'Failed to list generation tasks');
-        }
-        
-        const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.message || 'Failed to list generation tasks');
-        }
-        
-        return data.data;
+        const response = await this.request('/admin/generate/list', 'POST', body);
+        return response.data;
     },
     
     async cancelGenerate(taskId) {
@@ -448,27 +422,12 @@ const API = {
     
     // Generate Prompts
     async getGeneratePrompts(filters = {}) {
-        const token = AppState.getToken();
-        const params = new URLSearchParams({ token });
+        const body = {};
+        if (filters.stage) body.stage = filters.stage;
+        if (filters.includeInactive !== undefined) body.include_inactive = filters.includeInactive;
         
-        if (filters.stage) params.append('stage', filters.stage);
-        if (filters.includeInactive !== undefined) params.append('include_inactive', filters.includeInactive);
-        
-        const response = await fetch(`${this.baseUrl}/admin/generate/prompts/fetch?${params.toString()}`, {
-            method: 'GET'
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
-            throw new Error(errorData.message || 'Failed to fetch prompts');
-        }
-        
-        const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.message || 'Failed to fetch prompts');
-        }
-        
-        return data.data;
+        const response = await this.request('/admin/generate/prompts/fetch', 'POST', body);
+        return response.data;
     },
     
     async updateGeneratePrompt(promptId, updates) {
@@ -480,27 +439,12 @@ const API = {
     
     // Models Management
     async getModels(filters = {}) {
-        const token = AppState.getToken();
-        const params = new URLSearchParams({ token });
+        const body = {};
+        if (filters.provider) body.provider = filters.provider;
+        if (filters.includeInactive !== undefined) body.include_inactive = filters.includeInactive;
         
-        if (filters.provider) params.append('provider', filters.provider);
-        if (filters.includeInactive !== undefined) params.append('include_inactive', filters.includeInactive);
-        
-        const response = await fetch(`${this.baseUrl}/admin/models/fetch?${params.toString()}`, {
-            method: 'GET'
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Request failed' }));
-            throw new Error(errorData.message || 'Failed to fetch models');
-        }
-        
-        const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.message || 'Failed to fetch models');
-        }
-        
-        return data.data;
+        const response = await this.request('/admin/models/fetch', 'POST', body);
+        return response.data;
     },
     
     async createModel(modelData) {

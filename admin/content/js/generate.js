@@ -74,7 +74,7 @@ const GenerateSection = {
         const activeTasks = AppState.generateTasks.filter(task => 
             ['info_generating', 'content_generating', 'generating_papers', 
              'generating_notes', 'generating_questions'].some(status => 
-                task.status.startsWith(status.replace('_', ' ')) || task.status === status
+                task.status.startsWith(status)
             )
         );
         
@@ -92,8 +92,9 @@ const GenerateSection = {
     
     async pollActiveTasks() {
         const activeTasks = AppState.generateTasks.filter(task => 
-            ['info_generating', 'content_generating', 'generating_papers'].some(status => 
-                task.status.startsWith(status.replace('_', ' ')) || task.status === status
+            ['info_generating', 'content_generating', 'generating_papers', 
+             'generating_notes', 'generating_questions'].some(status => 
+                task.status.startsWith(status)
             )
         );
         
@@ -435,6 +436,34 @@ const GenerateSection = {
         `;
     },
     
+    renderTiersInputs(tiers) {
+        if (!tiers || tiers.length === 0) return '';
+        
+        return tiers.map((tier, index) => `
+            <div class="tier-row" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <input type="text" name="tierTitle_${index}" class="filter-select" value="${UI.escapeHtml(tier.title)}" placeholder="Tier Title" style="flex: 2;" required>
+                <input type="text" name="tierCode_${index}" class="filter-select" value="${UI.escapeHtml(tier.code || '')}" placeholder="Code" style="flex: 1;">
+                <button type="button" class="action-btn destructive" onclick="this.parentElement.remove()" style="padding: 0.5rem;">&times;</button>
+            </div>
+        `).join('');
+    },
+
+    addTierRow() {
+        const container = document.getElementById('tiersContainer');
+        if (!container) return;
+        
+        const index = container.children.length;
+        const div = document.createElement('div');
+        div.className = 'tier-row';
+        div.style.cssText = 'display: flex; gap: 0.5rem; margin-bottom: 0.5rem;';
+        div.innerHTML = `
+            <input type="text" name="tierTitle_${index}" class="filter-select" value="" placeholder="Tier Title" style="flex: 2;" required>
+            <input type="text" name="tierCode_${index}" class="filter-select" value="" placeholder="Code" style="flex: 1;">
+            <button type="button" class="action-btn destructive" onclick="this.parentElement.remove()" style="padding: 0.5rem;">&times;</button>
+        `;
+        container.appendChild(div);
+    },
+
     async openStartGenerationModal(taskId, taskData = null) {
         try {
             // Use provided taskData or fetch it
@@ -497,6 +526,15 @@ const GenerateSection = {
                         </script>`
                     )}
                     
+                    <div class="form-row">
+                        <label class="filter-label">Tiers</label>
+                        <div id="tiersContainer">
+                            ${this.renderTiersInputs(courseInfo.tiers || [])}
+                        </div>
+                        <button type="button" class="action-btn action-btn-secondary" onclick="GenerateSection.addTierRow()" style="margin-top: 0.5rem; font-size: 0.8rem; padding: 0.25rem 0.5rem;">+ Add Tier</button>
+                        <p class="form-help">Define the tiers for this course (e.g., Foundation, Higher).</p>
+                    </div>
+
                     ${UI.createFormRow(
                         'Description',
                         UI.createTextarea('description', courseInfo.description || '', 'Course description', 6)
@@ -556,6 +594,30 @@ const GenerateSection = {
             UI.showToast('Please fill in all required fields', 'error');
             return;
         }
+
+        // Collect tiers
+        const tiers = [];
+        const tierContainer = document.getElementById('tiersContainer');
+        if (tierContainer) {
+            const rows = tierContainer.querySelectorAll('.tier-row');
+            rows.forEach((row, index) => {
+                const titleInput = row.querySelector(`input[name^="tierTitle"]`);
+                const codeInput = row.querySelector(`input[name^="tierCode"]`);
+                
+                if (titleInput && titleInput.value.trim()) {
+                    tiers.push({
+                        title: titleInput.value.trim(),
+                        code: codeInput ? codeInput.value.trim() : null,
+                        sort_order: index
+                    });
+                }
+            });
+        }
+        
+        if (tiers.length === 0) {
+             UI.showToast('At least one tier is required', 'error');
+             return;
+        }
         
         // If creating new subject, get name
         let subjectName = null;
@@ -580,7 +642,8 @@ const GenerateSection = {
                 subject_name: subjectName,
                 subject_code: subjectCode,
                 description: description,
-                link_to_specification: linkToSpec || null
+                link_to_specification: linkToSpec || null,
+                tiers: tiers
             });
             
             UI.showToast('Content generation started successfully', 'success');
@@ -1409,6 +1472,7 @@ const GenerateSection = {
                     'Description',
                     UI.createTextarea('description', '', 'Model capabilities and use cases', 3)
                 )}
+                
                 
                 ${UI.createModalActions(
                     'UI.closeModal()',

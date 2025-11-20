@@ -6401,11 +6401,11 @@ The following admin endpoints are planned for future implementation:
 ### AI-Powered Content Generation
 - ✅ POST /admin/generate/info - Extract course info from PDF - COMPLETE
 - ✅ POST /admin/generate/content - Generate full course content - COMPLETE
-- ✅ GET /admin/generate/status - Check generation progress - COMPLETE
-- ✅ GET /admin/generate/list - List all generation tasks - COMPLETE
+- ✅ POST /admin/generate/status - Check generation progress - COMPLETE
+- ✅ POST /admin/generate/list - List all generation tasks - COMPLETE
 - ✅ DELETE /admin/generate/cancel - Cancel running task - COMPLETE
 - ✅ DELETE /admin/generate/delete - Delete task (with optional content deletion) - COMPLETE
-- ✅ GET /admin/generate/prompts/fetch - Fetch AI prompts - COMPLETE
+- ✅ POST /admin/generate/prompts/fetch - Fetch AI prompts - COMPLETE
 - ✅ PUT /admin/generate/prompts/edit - Edit AI prompts - COMPLETE
 
 ### Analytics
@@ -6465,7 +6465,19 @@ Extract course information from specification document using AI (supports multip
       "subject_name": "Computer Science",
       "subject_code": "9618",
       "create_new_subject": false,
-      "description": "Comprehensive A-Level Computer Science course covering programming, algorithms, and system architecture."
+      "description": "Comprehensive A-Level Computer Science course covering programming, algorithms, and system architecture.",
+      "tiers": [
+        {
+          "title": "AS Level",
+          "code": "AS",
+          "sort_order": 0
+        },
+        {
+          "title": "A2 Level",
+          "code": "A2",
+          "sort_order": 1
+        }
+      ]
     },
     "specification_url": "https://cdn.lockin.tech/spec.pdf",
     "original_filename": "computer-science-spec.pdf",
@@ -6628,7 +6640,19 @@ Start full AI-powered course content generation (Step 2).
   "subject_name": "Computer Science",
   "subject_code": "9618",
   "description": "Course description (can be edited)",
-  "link_to_specification": "https://optional-override-url.pdf"
+  "link_to_specification": "https://optional-override-url.pdf",
+  "tiers": [
+    {
+      "title": "AS Level",
+      "code": "AS",
+      "sort_order": 0
+    },
+    {
+      "title": "A2 Level",
+      "code": "A2",
+      "sort_order": 1
+    }
+  ]
 }
 ```
 
@@ -6638,6 +6662,7 @@ Start full AI-powered course content generation (Step 2).
 - `course_title`: Title for the course (can be edited from Step 1)
 - `year_id`: UUID of year from database
 - `description`: Course description (can be edited from Step 1)
+- `tiers`: Array of tier objects (title, code, sort_order) - required, non-empty
 
 **Conditional Fields:**
 - If `subject_id` is provided: Uses existing subject
@@ -6650,9 +6675,10 @@ Start full AI-powered course content generation (Step 2).
 2. Checks that task exists and status is 'info_complete'
 3. Creates subject if needed (or uses existing)
 4. Creates course in database
-5. Updates generation task with course_id and status 'content_generating'
-6. Enqueues task for background processing
-7. Returns immediately (generation runs in background)
+5. Creates tiers for the course
+6. Updates generation task with course_id and status 'content_generating'
+7. Enqueues task for background processing
+8. Returns immediately (generation runs in background)
 
 **Background Generation (automatic):**
 The background worker processes the task through these stages:
@@ -6771,6 +6797,7 @@ Example for 24 topics using Gemini (10 RPM):
 
 **Database Changes:**
 - Creates new record in `courses` table
+- Creates new records in `tiers` table
 - May create new record in `subjects` table
 - Updates `generation_tasks` record with course_id and new status
 - Background: Creates papers, topics, notes, questions, options
@@ -6833,17 +6860,24 @@ POST /admin/generate/content
 # Response returns immediately, generation runs in background
 
 # Step 3: Monitor progress
-GET /admin/generate/status?task_id=task-uuid&token=admin_token
+POST /admin/generate/status
+Content-Type: application/json
+
+{
+  "token": "admin_session_token",
+  "task_id": "task-uuid"
+}
 ```
 
 **Generated Content Structure:**
 ```
 Course
-└─ Papers (e.g., Paper 1, Paper 2, Paper 3)
-    └─ Topics (e.g., Data Structures, Algorithms, Networks)
-        ├─ Notes (comprehensive study notes)
-        └─ Questions (10 multiple-choice per topic)
-            └─ Options (4 options per question, 1 correct)
+└─ Tiers (e.g., Foundation, Higher)
+    └─ Papers (e.g., Paper 1, Paper 2)
+        └─ Topics (e.g., Data Structures, Algorithms)
+            ├─ Notes (comprehensive study notes)
+            └─ Questions (10 multiple-choice per topic)
+                └─ Options (4 options per question, 1 correct)
 ```
 
 **Testing:**
@@ -6856,21 +6890,24 @@ See `tests/test_admin_generate_content.py` for comprehensive test suite (8 tests
 - Error tracking: `error_message`, `error_details`
 
 **Next Steps:**
-- Monitor generation: GET `/admin/generate/status` - See below
-- List all tasks: GET `/admin/generate/list` - See below
+- Monitor generation: POST `/admin/generate/status` - See below
+- List all tasks: POST `/admin/generate/list` - See below
 - Cancel generation: DELETE `/admin/generate/cancel` - See below
 
 ---
 
-### GET /admin/generate/status
+### POST /admin/generate/status
 
 Check generation task status and real-time progress.
 
 **Authentication:** Admin or Owner required
 
-**Query Parameters:**
-```
-?token=admin_session_token&task_id=uuid
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "task_id": "uuid"
+}
 ```
 
 **Process:**
@@ -6980,20 +7017,22 @@ Poll every 5 seconds during active generation to track progress.
 
 ---
 
-### GET /admin/generate/list
+### POST /admin/generate/list
 
 List all generation tasks with filtering, sorting, and pagination.
 
 **Authentication:** Admin or Owner required
 
-**Query Parameters:**
-```
-?token=admin_session_token
-&status=completed             (optional: filter by status)
-&created_by=user_uuid         (optional: filter by creator)
-&limit=20                     (optional: 1-200, default 20)
-&offset=0                     (optional: pagination offset)
-&sort=created_at_desc         (optional: sort order)
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "status": "completed",           // optional: filter by status
+  "created_by": "user_uuid",       // optional: filter by creator
+  "limit": 20,                     // optional: 1-200, default 20
+  "offset": 0,                     // optional: pagination offset
+  "sort": "created_at_desc"        // optional: sort order
+}
 ```
 
 **Sort Options:**
@@ -7372,7 +7411,7 @@ See `tests/test_admin_generate_delete.py` for comprehensive test suite (3 tests,
 
 ---
 
-### GET /admin/generate/prompts/fetch
+### POST /admin/generate/prompts/fetch
 
 Fetch all AI generation prompts with optional filtering by stage.
 
@@ -7380,7 +7419,16 @@ Fetch all AI generation prompts with optional filtering by stage.
 
 **Purpose:** Retrieve prompts used by the AI generation system. Useful for viewing, auditing, or preparing to edit prompts through the frontend.
 
-**Query Parameters:**
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "stage": "course_info",           // optional: filter by generation stage
+  "include_inactive": false         // optional: include inactive prompts (default: false)
+}
+```
+
+**Request Parameters:**
 - `token`: Admin session token (required)
 - `stage`: Filter by generation stage (optional) - one of: `course_info`, `papers_topics`, `notes`, `questions`
 - `include_inactive`: Include inactive prompts (optional, default: `false`)
@@ -7388,18 +7436,35 @@ Fetch all AI generation prompts with optional filtering by stage.
 **Example Requests:**
 
 Fetch all active prompts:
-```
-GET /admin/generate/prompts/fetch?token=admin_session_token
+```json
+POST /admin/generate/prompts/fetch
+Content-Type: application/json
+
+{
+  "token": "admin_session_token"
+}
 ```
 
 Fetch only course_info prompts:
-```
-GET /admin/generate/prompts/fetch?token=admin_session_token&stage=course_info
+```json
+POST /admin/generate/prompts/fetch
+Content-Type: application/json
+
+{
+  "token": "admin_session_token",
+  "stage": "course_info"
+}
 ```
 
 Fetch all prompts including inactive:
-```
-GET /admin/generate/prompts/fetch?token=admin_session_token&include_inactive=true
+```json
+POST /admin/generate/prompts/fetch
+Content-Type: application/json
+
+{
+  "token": "admin_session_token",
+  "include_inactive": true
+}
 ```
 
 **Success Response (200 OK):**
@@ -7650,13 +7715,22 @@ Update multiple fields:
 
 Models define the AI configurations used for content generation. Each model includes provider details, rate limits, and metadata. Prompts reference models via `model_id`.
 
-### GET /admin/models/fetch
+### POST /admin/models/fetch
 
 Fetch all AI model configurations with optional filtering.
 
 **Authentication:** Admin or Owner required
 
-**Query Parameters:**
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "provider": "google",             // optional: filter by provider
+  "include_inactive": false         // optional: include inactive models (default: false)
+}
+```
+
+**Request Parameters:**
 - `token`: Admin session token (required)
 - `provider`: Filter by provider (optional) - e.g., `google`, `cerebras`, `openai`
 - `include_inactive`: Include inactive models (optional, default: `false`)
@@ -7664,18 +7738,35 @@ Fetch all AI model configurations with optional filtering.
 **Example Requests:**
 
 Fetch all active models:
-```
-GET /admin/models/fetch?token=admin_session_token
+```json
+POST /admin/models/fetch
+Content-Type: application/json
+
+{
+  "token": "admin_session_token"
+}
 ```
 
 Fetch only Google models:
-```
-GET /admin/models/fetch?token=admin_session_token&provider=google
+```json
+POST /admin/models/fetch
+Content-Type: application/json
+
+{
+  "token": "admin_session_token",
+  "provider": "google"
+}
 ```
 
 Fetch all models including inactive:
-```
-GET /admin/models/fetch?token=admin_session_token&include_inactive=true
+```json
+POST /admin/models/fetch
+Content-Type: application/json
+
+{
+  "token": "admin_session_token",
+  "include_inactive": true
+}
 ```
 
 **Success Response (200 OK):**
@@ -7958,7 +8049,7 @@ Soft delete an AI model (sets `is_active` to false).
 - This prevents breaking active generation workflows
 
 **Workflow for Deleting a Model:**
-1. Check which prompts use the model: `GET /admin/generate/prompts/fetch`
+1. Check which prompts use the model: `POST /admin/generate/prompts/fetch`
 2. For each active prompt using this model:
    - Either deactivate it: `PUT /admin/generate/prompts/edit` with `is_active: false`
    - Or reassign to different model: `PUT /admin/generate/prompts/edit` with new `model_id`
