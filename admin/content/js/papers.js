@@ -10,7 +10,7 @@ const PapersSection = {
         try {
             // Load courses for filter if not already loaded
             if (AppState.courses.length === 0) {
-                const coursesData = await API.getCourses(null, null, false);
+                const coursesData = await API.getCourses({ includeInactive: false });
                 AppState.setCourses(coursesData.data.courses || []);
             }
             

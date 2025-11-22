@@ -10,7 +10,7 @@ const TopicsSection = {
         try {
             // Load courses for filter if not already loaded
             if (AppState.courses.length === 0) {
-                const coursesData = await API.getCourses(null, null, false);
+                const coursesData = await API.getCourses({ includeInactive: false });
                 AppState.setCourses(coursesData.data.courses || []);
             }
             
@@ -80,6 +80,45 @@ const TopicsSection = {
                 </svg>
                 <h3>Select a Course</h3>
                 <p>Choose a course from the dropdown above, then select a paper to view topics.</p>
+            </div>
+        `;
+        
+        UI.elements.contentArea.innerHTML = selectionHTML;
+    },
+
+    renderTierSelection() {
+        const courses = AppState.courses;
+        const tiers = AppState.tiers.filter(t => t.is_active);
+        
+        const courseOptions = courses.map(c => ({ 
+            value: c.id, 
+            label: `${c.title} (${c.year_name})` 
+        }));
+        
+        const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
+        
+        const selectionHTML = `
+            <div class="content-filters">
+                <div class="filter-group">
+                    <label class="filter-label">Course</label>
+                    <select class="filter-select" id="topicCourseFilter" onchange="TopicsSection.onCourseChange()">
+                        ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.topics.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Select Tier</label>
+                    <select class="filter-select" id="topicTierFilter" onchange="TopicsSection.onTierChange()">
+                        <option value="">-- Choose a tier --</option>
+                        ${tierOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div class="content-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+                <h3>Select a Tier</h3>
+                <p>Choose a tier from the dropdown above, then select a paper to view topics.</p>
             </div>
         `;
         
@@ -307,14 +346,14 @@ const TopicsSection = {
         AppState.setTopicsCourseFilter(select.value || null);
         this.load();
     },
-        async onTierChange() {
+    
+    async onTierChange() {
         const select = document.getElementById('topicTierFilter');
         AppState.setTopicsTierFilter(select.value || null);
-        this.load();
-    },
-        async onTierChange() {
-        const select = document.getElementById('topicTierFilter');
-        AppState.setTopicsTierFilter(select.value || null);
+        // Clear paper selection when tier changes
+        AppState.setTopicsPaperFilter(null);
+        // Clear papers list to force reload
+        AppState.setPapers([]);
         this.load();
     },
     

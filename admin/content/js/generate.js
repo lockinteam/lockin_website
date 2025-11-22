@@ -91,6 +91,12 @@ const GenerateSection = {
     },
     
     async pollActiveTasks() {
+        // Safety check: stop polling if we are no longer in the generate section
+        if (AppState.activeSection !== 'generate') {
+            this.stopPolling();
+            return;
+        }
+
         const activeTasks = AppState.generateTasks.filter(task => 
             ['info_generating', 'content_generating', 'generating_papers', 
              'generating_notes', 'generating_questions'].some(status => 
@@ -119,7 +125,10 @@ const GenerateSection = {
             }
             
             // Re-render to show updates
-            this.render();
+            // Only render if we are still in the generate section (double check)
+            if (AppState.activeSection === 'generate') {
+                this.render();
+            }
             
         } catch (error) {
             console.error('Polling error:', error);

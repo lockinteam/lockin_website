@@ -80,7 +80,7 @@ const ContentManagement = {
         
         try {
             // Clear any polling from previous section
-            if (window.GenerateSection && typeof GenerateSection.cleanup === 'function') {
+            if (typeof GenerateSection !== 'undefined' && typeof GenerateSection.cleanup === 'function') {
                 GenerateSection.cleanup();
             }
             
