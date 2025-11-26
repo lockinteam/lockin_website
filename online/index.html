@@ -1,43 +1,81 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
-  <base href="/online/">
-
-  <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Lockin - Your Learning Platform">
-
-    <meta name="google-signin-client_id" 
-        content="233104118674-jrqmv0eihmdnrpdkqlkssl6t93gknurk.apps.googleusercontent.com">
-  <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="Lockin">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <title>Lockin</title>
-  <link rel="manifest" href="manifest.json">
-
-  <!-- Google Identity Services -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lockin.tech | Coming Soon</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link rel="icon" type="image/png" sizes="192x192" href="../static/assets/favicon.png">
+    <style>
+        /* Override or add specific styles for the coming soon page */
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .coming-soon-hero {
+            text-align: center;
+            padding: 4rem 1rem;
+        }
+        .coming-soon-hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary, #111); /* Fallback if var not defined */
+        }
+        .coming-soon-hero p {
+            font-size: 1.25rem;
+            color: var(--text-secondary, #555);
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .logo-large {
+            height: 80px;
+            width: auto;
+            margin-bottom: 2rem;
+        }
+    </style>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+    <header class="site-header">
+        <div class="container header-content">
+            <a class="brand" href="/" aria-label="Lockin.tech home">
+                <img src="../static/assets/lockin_full_transparent.png" alt="Lockin.tech logo" class="brand-logo">
+            </a>
+            <nav class="nav" aria-label="Primary">
+                <ul class="nav-links">
+                    <li><a href="/">Home</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="coming-soon-hero">
+            <div class="container">
+                <img src="../static/assets/lockin_full_transparent.png" alt="Lockin Logo" class="logo-large">
+                <h1>Web App Coming Soon</h1>
+                <p>We're currently building the ultimate web experience for Lockin.tech. Stay tuned for updates!</p>
+                <div class="hero-actions" style="justify-content: center;">
+                    <a class="btn btn-primary" href="/">Back to Home</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-grid">
+            <div>
+                <p>© 2025 Lockin.tech. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
 </body>
 </html>
