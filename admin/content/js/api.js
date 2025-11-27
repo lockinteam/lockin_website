@@ -281,6 +281,15 @@ const API = {
         return this.request('/admin/past_papers/delete', 'DELETE', { past_paper_id: pastPaperId });
     },
     
+    // AQA Scraper
+    async scrapeAqaPreview(url) {
+        return this.request('/admin/past_papers/scrape_aqa/preview', 'POST', { url });
+    },
+    
+    async scrapeAqa(url, paperId) {
+        return this.request('/admin/past_papers/scrape_aqa', 'POST', { url, paper_id: paperId });
+    },
+    
     // File Upload (Admin)
     async uploadFile(file, onProgress = null) {
         const token = AppState.getToken();

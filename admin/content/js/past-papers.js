@@ -145,6 +145,13 @@ const PastPapersSection = {
             </div>
         ` : '';
         
+        const scrapeAqaBtnHTML = UI.renderActionBtn(
+            'Scrape AQA',
+            '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"></path></svg>',
+            'PastPapersSection.openScrapeAqaModal()',
+            'secondary'
+        );
+        
         const selectionHTML = `
             <div class="content-filters">
                 <div class="filter-group" style="flex: 1;">
@@ -161,6 +168,9 @@ const PastPapersSection = {
                         ${paperOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
                     </select>
                 </div>
+                <div style="margin-left: auto;">
+                    ${scrapeAqaBtnHTML}
+                </div>
             </div>
             <div class="content-empty">
                 <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -168,7 +178,7 @@ const PastPapersSection = {
                     <polyline points="14 2 14 8 20 8"></polyline>
                 </svg>
                 <h3>Select a Paper</h3>
-                <p>Choose a paper from the dropdown above to view and manage its past papers.</p>
+                <p>Choose a paper from the dropdown above to view and manage its past papers, or use <strong>Scrape AQA</strong> to bulk import.</p>
             </div>
         `;
         
@@ -205,6 +215,13 @@ const PastPapersSection = {
             'PastPapersSection.openCreateModal()'
         );
         
+        const scrapeAqaBtnHTML = UI.renderActionBtn(
+            'Scrape AQA',
+            '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"></path></svg>',
+            'PastPapersSection.openScrapeAqaModal()',
+            'secondary'
+        );
+        
         const tierFilterHTML = tiers.length > 0 ? `
             <div class="filter-group" style="flex: 1;">
                 <label class="filter-label">Tier</label>
@@ -233,7 +250,8 @@ const PastPapersSection = {
                         ${paperOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.pastPapers.paperId ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
                 </div>
-                <div style="margin-left: auto;">
+                <div style="margin-left: auto; display: flex; gap: 0.5rem;">
+                    ${scrapeAqaBtnHTML}
                     ${createBtnHTML}
                 </div>
             </div>
@@ -527,6 +545,209 @@ const PastPapersSection = {
             } catch (error) {
                 UI.showToast(error.message, 'error');
             }
+        }
+    },
+    
+    // AQA Scraper functionality
+    openScrapeAqaModal() {
+        if (!AppState.filters.pastPapers.courseId) {
+            UI.showToast('Please select a course first', 'warning');
+            return;
+        }
+        
+        // Get papers for the selected course
+        const papers = AppState.papers;
+        const paperOptions = papers.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        
+        const formHTML = `
+            <form id="scrapeAqaForm" class="modal-form" onsubmit="PastPapersSection.handleScrapePreview(event)">
+                <div class="form-info" style="background: #e8f4fd; border: 1px solid #3678AE; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                    <p style="margin: 0; font-size: 0.9rem; color: #193659;">
+                        <strong>How to use:</strong><br>
+                        1. Go to <a href="https://www.aqa.org.uk/find-past-papers-and-mark-schemes" target="_blank" style="color: #3678AE;">AQA Past Papers</a><br>
+                        2. Filter by subject and qualification<br>
+                        3. Copy the URL from your browser<br>
+                        4. Paste it below, select a paper to import to, and click Preview
+                    </p>
+                </div>
+                ${UI.createFormRow('AQA URL', UI.createTextInput('aqaUrl', '', 'https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=A-level+Biology'), 'Paste the full AQA search URL here')}
+                ${UI.createFormRow('Import to Paper', `<select class="form-input" id="scrapePaperId" required>${paperOptions}</select>`, 'Select which paper to add the past papers to')}
+                <div id="scrapePreviewResults"></div>
+                ${UI.createModalActions('UI.closeModal()', null, 'Preview')}
+            </form>
+        `;
+        
+        UI.openModal('Scrape AQA Past Papers', formHTML);
+    },
+    
+    async handleScrapePreview(event) {
+        event.preventDefault();
+        
+        const url = document.getElementById('aqaUrl').value.trim();
+        
+        if (!url) {
+            UI.showToast('Please enter an AQA URL', 'error');
+            return;
+        }
+        
+        if (!url.includes('aqa.org.uk/find-past-papers-and-mark-schemes')) {
+            UI.showToast('URL must be from AQA\'s find-past-papers-and-mark-schemes page', 'error');
+            return;
+        }
+        
+        const resultsDiv = document.getElementById('scrapePreviewResults');
+        resultsDiv.innerHTML = `
+            <div style="text-align: center; padding: 2rem;">
+                <div class="loading-spinner"></div>
+                <p style="margin-top: 1rem; color: #64748B;">Scraping AQA website... This may take 5-10 seconds.</p>
+            </div>
+        `;
+        
+        try {
+            const response = await API.scrapeAqaPreview(url);
+            
+            if (!response.success) {
+                throw new Error(response.error || response.message || 'Preview failed');
+            }
+            
+            const stats = response.stats;
+            const papers = response.papers || [];
+            const excluded = response.excluded_papers || [];
+            
+            // Build preview HTML
+            let previewHTML = `
+                <div class="scrape-preview" style="margin-top: 1rem;">
+                    <h4 style="margin-bottom: 0.5rem; color: #193659;">Preview Results</h4>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 1rem;">
+                        <div style="background: #f1f5f9; padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #3678AE;">${stats.total_scraped}</div>
+                            <div style="font-size: 0.75rem; color: #64748B;">Total Found</div>
+                        </div>
+                        <div style="background: #f1f5f9; padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #3678AE;">${stats.relevant_after_filter}</div>
+                            <div style="font-size: 0.75rem; color: #64748B;">After Filter</div>
+                        </div>
+                        <div style="background: #f1f5f9; padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #3678AE;">${stats.grouped_components}</div>
+                            <div style="font-size: 0.75rem; color: #64748B;">Grouped</div>
+                        </div>
+                        <div style="background: #dcfce7; padding: 0.75rem; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #16a34a;">${stats.would_add}</div>
+                            <div style="font-size: 0.75rem; color: #64748B;">Will Add</div>
+                        </div>
+                    </div>
+            `;
+            
+            if (papers.length > 0) {
+                previewHTML += `
+                    <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 1rem;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                            <thead style="background: #f8fafc; position: sticky; top: 0;">
+                                <tr>
+                                    <th style="padding: 0.5rem; text-align: left; border-bottom: 1px solid #e2e8f0;">Year</th>
+                                    <th style="padding: 0.5rem; text-align: left; border-bottom: 1px solid #e2e8f0;">Title</th>
+                                    <th style="padding: 0.5rem; text-align: center; border-bottom: 1px solid #e2e8f0;">Mark Scheme</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${papers.slice(0, 20).map(p => `
+                                    <tr>
+                                        <td style="padding: 0.5rem; border-bottom: 1px solid #e2e8f0;">${p.year}</td>
+                                        <td style="padding: 0.5rem; border-bottom: 1px solid #e2e8f0;">${p.title || 'Question Paper'}</td>
+                                        <td style="padding: 0.5rem; text-align: center; border-bottom: 1px solid #e2e8f0;">${p.mark_scheme_url ? '✓' : '✗'}</td>
+                                    </tr>
+                                `).join('')}
+                                ${papers.length > 20 ? `<tr><td colspan="3" style="padding: 0.5rem; text-align: center; color: #64748B;">... and ${papers.length - 20} more</td></tr>` : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+            
+            if (excluded.length > 0) {
+                previewHTML += `
+                    <details style="margin-bottom: 1rem;">
+                        <summary style="cursor: pointer; color: #64748B; font-size: 0.85rem;">
+                            ${excluded.length} papers excluded (examiner reports, modified papers, etc.)
+                        </summary>
+                        <div style="max-height: 100px; overflow-y: auto; margin-top: 0.5rem; padding: 0.5rem; background: #fef2f2; border-radius: 4px; font-size: 0.8rem;">
+                            ${excluded.slice(0, 10).map(e => `<div>${e.title} (${e.type})</div>`).join('')}
+                            ${excluded.length > 10 ? `<div>... and ${excluded.length - 10} more</div>` : ''}
+                        </div>
+                    </details>
+                `;
+            }
+            
+            if (stats.would_add > 0) {
+                previewHTML += `
+                    <button type="button" class="btn btn-primary" onclick="PastPapersSection.handleScrapeConfirm('${url.replace(/'/g, "\\'")}')" style="width: 100%;">
+                        Import ${stats.would_add} Past Papers
+                    </button>
+                `;
+            } else {
+                previewHTML += `
+                    <div style="text-align: center; padding: 1rem; background: #fef3c7; border-radius: 8px; color: #92400e;">
+                        No new papers to add. They may already exist in the database.
+                    </div>
+                `;
+            }
+            
+            previewHTML += '</div>';
+            resultsDiv.innerHTML = previewHTML;
+            
+        } catch (error) {
+            resultsDiv.innerHTML = `
+                <div style="text-align: center; padding: 1rem; background: #fef2f2; border-radius: 8px; color: #dc2626;">
+                    <strong>Error:</strong> ${error.message}
+                </div>
+            `;
+        }
+    },
+    
+    async handleScrapeConfirm(url) {
+        const paperSelect = document.getElementById('scrapePaperId');
+        const paperId = paperSelect ? paperSelect.value : AppState.filters.pastPapers.paperId;
+        
+        if (!paperId) {
+            UI.showToast('Please select a paper to import to', 'error');
+            return;
+        }
+        
+        const resultsDiv = document.getElementById('scrapePreviewResults');
+        resultsDiv.innerHTML = `
+            <div style="text-align: center; padding: 2rem;">
+                <div class="loading-spinner"></div>
+                <p style="margin-top: 1rem; color: #64748B;">Importing past papers... This may take a few seconds.</p>
+            </div>
+        `;
+        
+        try {
+            const response = await API.scrapeAqa(url, paperId);
+            
+            if (!response.success) {
+                throw new Error(response.error || response.message || 'Import failed');
+            }
+            
+            const stats = response.stats;
+            
+            UI.closeModal();
+            UI.showToast(`Successfully imported ${stats.added} past papers (${stats.skipped_existing} skipped as duplicates)`, 'success');
+            
+            // If we're viewing past papers for the same paper, reload
+            if (AppState.filters.pastPapers.paperId === paperId) {
+                await this.load();
+            }
+            
+        } catch (error) {
+            resultsDiv.innerHTML = `
+                <div style="text-align: center; padding: 1rem; background: #fef2f2; border-radius: 8px; color: #dc2626;">
+                    <strong>Error:</strong> ${error.message}
+                    <br><br>
+                    <button type="button" class="btn btn-secondary" onclick="PastPapersSection.openScrapeAqaModal()">
+                        Try Again
+                    </button>
+                </div>
+            `;
         }
     }
 };
