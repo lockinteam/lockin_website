@@ -23,6 +23,8 @@
     // HEADER SCROLL EFFECT
     // =========================================================================
     
+    let headerHeight = 80; // Default header height - avoid reading offsetHeight during scroll
+    
     function handleHeaderScroll() {
         if (window.scrollY > 50) {
             header.classList.add('header--scrolled');
@@ -35,6 +37,11 @@
     
     // Run on load in case page is already scrolled
     handleHeaderScroll();
+    
+    // Cache header height once on load (after layout is complete)
+    requestAnimationFrame(() => {
+        headerHeight = header.offsetHeight;
+    });
 
     // =========================================================================
     // MOBILE MENU
@@ -179,8 +186,7 @@
                 // Close mobile menu if open
                 closeMobileMenu();
                 
-                // Calculate offset for fixed header
-                const headerHeight = header.offsetHeight;
+                // Calculate offset for fixed header (use cached height)
                 const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - headerHeight;
                 
                 window.scrollTo({
@@ -232,7 +238,7 @@
     const navLinks = document.querySelectorAll('.nav__link');
 
     function highlightNavOnScroll() {
-        const scrollPos = window.scrollY + header.offsetHeight + 100;
+        const scrollPos = window.scrollY + headerHeight + 100;
 
         sections.forEach(section => {
             const sectionTop = section.offsetTop;

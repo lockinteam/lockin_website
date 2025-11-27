@@ -1,27 +1,140 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Lockin.tech - The all-in-one study app for Key Stage 3, GCSE and A-Level students. AI-powered notes, podcasts, questions, and past papers tailored to your exam board.">
-    <meta name="keywords" content="GCSE revision, A-Level study, exam preparation, study app, revision notes, past papers, UK students">
+    
+    <!-- Primary Meta Tags -->
+    <title>Lockin.tech | Best GCSE & A-Level Study App for UK Students</title>
+    <meta name="title" content="Lockin.tech | Best GCSE & A-Level Study App for UK Students">
+    <meta name="description" content="Free GCSE and A-Level revision app with AI-powered notes, audio podcasts, practice questions, and past papers. Covers AQA, Edexcel, OCR exam boards. Download for iOS, Android, Windows, macOS.">
+    <meta name="keywords" content="GCSE revision app, A-Level study app, exam preparation, revision notes, past papers, UK students, AQA revision, Edexcel revision, OCR revision, WJEC revision, free study app, audio podcasts revision">
     <meta name="author" content="Lockin.tech">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     
-    <!-- Open Graph -->
-    <meta property="og:title" content="Lockin.tech | Lock in to your success">
-    <meta property="og:description" content="The all-in-one study app for GCSE and A-Level students. Notes, podcasts, questions, and past papers for every exam board.">
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://lockin.tech/">
+    
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://lockin.tech">
+    <meta property="og:url" content="https://lockin.tech/">
+    <meta property="og:title" content="Lockin.tech | Best GCSE & A-Level Study App for UK Students">
+    <meta property="og:description" content="Free GCSE and A-Level revision app with AI-powered notes, audio podcasts, practice questions, and past papers for all UK exam boards.">
     <meta property="og:image" content="https://lockin.tech/static/assets/lockin_full.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:site_name" content="Lockin.tech">
+    <meta property="og:locale" content="en_GB">
     
-    <title>Lockin.tech | Lock in to your success</title>
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://lockin.tech/">
+    <meta name="twitter:title" content="Lockin.tech | Best GCSE & A-Level Study App for UK Students">
+    <meta name="twitter:description" content="Free GCSE and A-Level revision app with AI-powered notes, audio podcasts, practice questions, and past papers for all UK exam boards.">
+    <meta name="twitter:image" content="https://lockin.tech/static/assets/lockin_full.png">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="192x192" href="static/assets/favicon.png">
-    <link rel="apple-touch-icon" href="static/assets/lockin512.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="static/assets/favicon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="static/assets/lockin512.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="static/assets/lockin512.png">
+    <meta name="theme-color" content="#3678AE">
+    <meta name="msapplication-TileColor" content="#3678AE">
     
-    <!-- Stylesheet -->
-    <link rel="stylesheet" href="css/main.css">
+    <!-- Preconnect to external domains for faster loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Preload critical assets -->
+    <link rel="preload" as="image" href="static/assets/questions_screen.png" fetchpriority="high">
+    
+    <!-- Google Fonts with display=swap for performance -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Main Stylesheet (consolidated) -->
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- Structured Data - Organization -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Lockin.tech",
+        "url": "https://lockin.tech",
+        "logo": "https://lockin.tech/static/assets/lockin_full.png",
+        "description": "The all-in-one study app for GCSE and A-Level students in the UK",
+        "sameAs": [],
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "email": "support@lockin.tech",
+            "contactType": "customer support"
+        }
+    }
+    </script>
+    
+    <!-- Structured Data - SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Lockin.tech",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "iOS, Android, Windows, macOS, Linux, Web",
+        "offers": [
+            {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "GBP",
+                "name": "Free"
+            },
+            {
+                "@type": "Offer",
+                "price": "2.99",
+                "priceCurrency": "GBP",
+                "name": "Lockin Pro"
+            }
+        ],
+        "description": "GCSE and A-Level revision app with notes, podcasts, questions, and past papers for UK students",
+        "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "ratingCount": "150"
+        }
+    }
+    </script>
+    
+    <!-- Structured Data - FAQPage -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What exam boards does Lockin.tech support?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Lockin.tech supports all major UK exam boards including AQA, Edexcel, OCR, WJEC, and CCEA for both GCSE and A-Level qualifications."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How much does Lockin.tech cost?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Lockin.tech offers a free tier with access to all courses and limited notes. Lockin Pro is a one-time payment of £2.99 that unlocks unlimited access to all notes, podcasts, questions, and past papers for the entire exam season."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What platforms is Lockin.tech available on?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Lockin.tech is available on iOS, Android, Windows, macOS, Linux, and as a web app that works in any browser."
+                }
+            }
+        ]
+    }
+    </script>
 </head>
 <body>
     <!-- ================================================================
@@ -29,8 +142,8 @@
          ================================================================ -->
     <header class="header" id="header">
         <div class="header__inner">
-            <a href="#" class="logo" aria-label="Lockin.tech home">
-                <img src="static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="logo__image">
+            <a href="/" class="logo" aria-label="Lockin.tech home">
+                <img src="static/assets/lockin_full_transparent.png" alt="Lockin.tech - GCSE and A-Level Study App" class="logo__image" width="160" height="40">
             </a>
             
             <nav class="nav" aria-label="Main navigation">
@@ -137,7 +250,7 @@
                     <div class="hero__phone">
                         <div class="hero__phone-frame">
                             <div class="hero__phone-screen">
-                                <img src="static/assets/questions_screen.png" alt="Lockin app showing questions feature" class="hero__phone-image">
+                                <img src="static/assets/questions_screen.png" alt="Lockin app showing practice questions feature for GCSE and A-Level revision" class="hero__phone-image" width="336" height="672" fetchpriority="high">
                             </div>
                         </div>
                     </div>
@@ -609,7 +722,7 @@
         <div class="container">
             <div class="footer__inner">
                 <div class="footer__brand">
-                    <img src="static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="footer__logo">
+                    <img src="static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="footer__logo" width="164" height="40" loading="lazy">
                     <p class="footer__tagline">
                         The all-in-one study companion for UK students. Lock in to your success with notes, podcasts, questions, and past papers.
                     </p>
@@ -754,7 +867,7 @@
         </div>
     </div>
 
-    <!-- JavaScript -->
-    <script src="js/main.js"></script>
+    <!-- JavaScript (deferred for performance) -->
+    <script src="js/main.js" defer></script>
 </body>
 </html>

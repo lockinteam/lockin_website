@@ -1,7 +1,21 @@
+# Lockin.tech Robots.txt
+# https://lockin.tech
+
 User-agent: *
 Allow: /
 
-# Intellectual Property of Hugisoft (hugisoft.com)
+# Sitemap
+Sitemap: https://lockin.tech/sitemap.xml
 
-# Crawl-delay is optional and can be adjusted if needed
-# Crawl-delay: 10
+# Disallow admin/private areas
+Disallow: /admin/
+Disallow: /backend_documentation/
+
+# Allow search engines to crawl
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# Intellectual Property of Hugisoft (hugisoft.com)
