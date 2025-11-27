@@ -1,81 +1,235 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lockin.tech | Coming Soon</title>
-    <link rel="stylesheet" href="../styles.css">
+    <title>Web App Coming Soon | Lockin.tech</title>
+    <meta name="description" content="Lockin.tech web app is coming soon. The ultimate online study tool for GCSE and A-Level students.">
+    <meta name="robots" content="noindex">
     <link rel="icon" type="image/png" sizes="192x192" href="../static/assets/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
     <style>
-        /* Override or add specific styles for the coming soon page */
+        :root {
+            --color-primary: #3678AE;
+            --color-accent: #53C0B8;
+            --color-deep: #193659;
+            --color-white: #FFFFFF;
+            --color-gray-50: #F8FAFC;
+            --color-gray-100: #F1F5F9;
+            --color-gray-500: #64748B;
+            --color-gray-600: #475569;
+            --color-gray-700: #334155;
+            --color-gray-900: #0F172A;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-display: 'Plus Jakarta Sans', var(--font-sans);
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+        }
+        
         body {
+            font-family: var(--font-sans);
+            background: linear-gradient(180deg, var(--color-gray-50) 0%, var(--color-white) 100%);
+            color: var(--color-gray-700);
+            line-height: 1.6;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
         }
+        
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+        
+        img {
+            max-width: 100%;
+            display: block;
+        }
+        
+        /* Header */
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 1rem 1.5rem;
+        }
+        
+        .header__inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .logo__image {
+            height: 36px;
+            width: auto;
+        }
+        
+        .nav__link {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--color-gray-600);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .nav__link:hover {
+            color: var(--color-primary);
+            background: rgba(54, 120, 174, 0.08);
+        }
+        
+        /* Main Content */
         main {
             flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 2rem 1.5rem;
         }
-        .coming-soon-hero {
+        
+        .coming-soon {
             text-align: center;
-            padding: 4rem 1rem;
-        }
-        .coming-soon-hero h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            color: var(--text-primary, #111); /* Fallback if var not defined */
-        }
-        .coming-soon-hero p {
-            font-size: 1.25rem;
-            color: var(--text-secondary, #555);
-            margin-bottom: 2rem;
             max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
         }
-        .logo-large {
+        
+        .coming-soon__logo {
             height: 80px;
             width: auto;
+            margin: 0 auto 2rem;
+        }
+        
+        .coming-soon__badge {
+            display: inline-block;
+            padding: 0.35rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--color-accent);
+            background: rgba(83, 192, 184, 0.15);
+            border-radius: 100px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .coming-soon__title {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 800;
+            color: var(--color-deep);
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+        
+        .coming-soon__text {
+            font-size: 1.1rem;
+            color: var(--color-gray-600);
             margin-bottom: 2rem;
+            line-height: 1.7;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn--primary {
+            background: var(--color-primary);
+            color: var(--color-white);
+        }
+        
+        .btn--primary:hover {
+            background: #2a5f8a;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(54, 120, 174, 0.3);
+        }
+        
+        .coming-soon__actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+        }
+        
+        /* Footer */
+        .footer {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--color-gray-500);
+            font-size: 0.875rem;
+        }
+        
+        @media (max-width: 480px) {
+            .coming-soon__actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
-    <header class="site-header">
-        <div class="container header-content">
-            <a class="brand" href="/" aria-label="Lockin.tech home">
-                <img src="../static/assets/lockin_full_transparent.png" alt="Lockin.tech logo" class="brand-logo">
+    <header class="header">
+        <div class="header__inner">
+            <a href="/" aria-label="Lockin.tech home">
+                <img src="../static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="logo__image" width="144" height="36">
             </a>
-            <nav class="nav" aria-label="Primary">
-                <ul class="nav-links">
-                    <li><a href="/">Home</a></li>
-                </ul>
+            <nav>
+                <a href="/" class="nav__link">← Back to Home</a>
             </nav>
         </div>
     </header>
 
     <main>
-        <section class="coming-soon-hero">
-            <div class="container">
-                <img src="../static/assets/lockin_full_transparent.png" alt="Lockin Logo" class="logo-large">
-                <h1>Web App Coming Soon</h1>
-                <p>We're currently building the ultimate web experience for Lockin.tech. Stay tuned for updates!</p>
-                <div class="hero-actions" style="justify-content: center;">
-                    <a class="btn btn-primary" href="/">Back to Home</a>
-                </div>
+        <section class="coming-soon">
+            <img src="../static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="coming-soon__logo" width="200" height="80">
+            <span class="coming-soon__badge">Coming Soon</span>
+            <h1 class="coming-soon__title">Web App in Development</h1>
+            <p class="coming-soon__text">
+                We're building the ultimate online study experience for GCSE and A-Level students. 
+                In the meantime, download our app to start revising today!
+            </p>
+            <div class="coming-soon__actions">
+                <a href="/" class="btn btn--primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download App
+                </a>
             </div>
         </section>
     </main>
 
-    <footer class="site-footer">
-        <div class="container footer-grid">
-            <div>
-                <p>© 2025 Lockin.tech. All rights reserved.</p>
-            </div>
-        </div>
+    <footer class="footer">
+        <p>© 2025 Lockin.tech. All rights reserved.</p>
     </footer>
 </body>
 </html>
