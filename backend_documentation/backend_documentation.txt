@@ -679,6 +679,7 @@ class LoginScreen extends StatelessWidget {
                 "id": "past_paper_uuid",
                 "year": 2023,
                 "url": "https://cdn.lockin.tech/past-papers/biology/bio-p1-2023.pdf",
+                "mark_scheme_url": "https://cdn.lockin.tech/past-papers/biology/bio-p1-2023-ms.pdf",
                 "file_size": 3145728,
                 "created_at": "2024-01-01T00:00:00.000000"
               }
@@ -1750,7 +1751,15 @@ Record a user's answer to a question, update performance tracking metrics, and a
 
 **Auth**: Required (valid session token)
 
-**Description**: This endpoint records whether a user answered a question correctly or incorrectly, updates their performance statistics, awards XP points, and tracks daily streaks. Performance data is tracked per user per question and includes metrics like times seen, times correct, times incorrect, accuracy percentage, and last seen timestamp.
+**Description**: This endpoint records whether a user answered a question correctly or incorrectly, updates their performance statistics, awards XP points, and tracks daily streaks. Performance data is tracked per user per question and includes metrics like times seen, times correct, times incorrect, EMA accuracy, and last seen timestamp.
+
+**EMA Accuracy System**:
+- Uses Exponential Moving Average for accuracy tracking
+- Formula: `NewAccuracy = (Result × α) + (OldAccuracy × (1-α))`
+- α (alpha) = 0.2 (recent result has 20% weight)
+- Default accuracy = 0.88 (88%) for new questions
+- Result = 1 (correct) or 0 (incorrect)
+- EMA responds quickly to recent performance while maintaining history
 
 **XP System Rules**:
 - **Correct Answer (First Time)**: 15 XP (10 base + 5 first-time bonus)
@@ -1792,7 +1801,7 @@ Record a user's answer to a question, update performance tracking metrics, and a
       "times_seen": 5,
       "times_correct": 4,
       "times_incorrect": 1,
-      "accuracy": 80.0,
+      "ema_accuracy": 0.8723,
       "last_seen_at": "2025-11-12T10:30:00Z"
     }
   }
@@ -1807,7 +1816,7 @@ Record a user's answer to a question, update performance tracking metrics, and a
 - `performance.times_seen` (integer): Total number of times user has attempted this question
 - `performance.times_correct` (integer): Number of correct attempts
 - `performance.times_incorrect` (integer): Number of incorrect attempts
-- `performance.accuracy` (float): Percentage of correct answers (times_correct / times_seen * 100)
+- `performance.ema_accuracy` (float): EMA accuracy (0.0 to 1.0, e.g., 0.85 = 85%)
 - `performance.last_seen_at` (string): ISO 8601 timestamp of this attempt
 
 **Error Responses:**
@@ -1835,7 +1844,7 @@ console.log(`Correct: ${data.data.is_correct}`);
 console.log(`XP Earned: ${data.data.xp_earned}`);
 console.log(`Total XP: ${data.data.total_xp}`);
 console.log(`Current Streak: ${data.data.current_streak} days`);
-console.log(`Accuracy: ${data.data.performance.accuracy}%`);
+console.log(`EMA Accuracy: ${(data.data.performance.ema_accuracy * 100).toFixed(1)}%`);
 ```
 
 ```bash
@@ -1853,7 +1862,8 @@ curl -X POST ${backend_url}/analytics/record_answer \
 - Uses PostgreSQL UPSERT (INSERT ... ON CONFLICT ... DO UPDATE) for atomic counter updates
 - Performance records are unique per (user_id, question_id) pair
 - Counters are incremented automatically on each attempt
-- Accuracy is calculated in real-time based on current counters
+- EMA Accuracy uses exponential moving average: `NewAcc = (Result × 0.2) + (OldAcc × 0.8)`
+- Default EMA is 0.88 (88%), Result is 1 (correct) or 0 (incorrect)
 - XP is awarded immediately and added to user's total_xp
 - Daily XP tracking uses user_daily_xp table with composite key (user_id, date)
 - Streaks increment only when answering correctly on a new day
@@ -1861,7 +1871,7 @@ curl -X POST ${backend_url}/analytics/record_answer \
 - Records cascade delete when user or question is deleted
 
 **Integration Note:**
-The `/fetch/questions` endpoint automatically includes user performance data for each question. See the updated `/fetch/questions` documentation below for details on the `user_performance` field.
+The `/fetch/questions` endpoint automatically includes user performance data for each question, including `ema_accuracy` (0.0-1.0). If `user_performance` is null, the user hasn't answered that question yet.
 
 ---
 

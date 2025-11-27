@@ -266,9 +266,10 @@ const API = {
         return this.request('/admin/past_papers', 'POST', { paper_id: paperId });
     },
     
-    async createPastPaper(paperId, year, url, fileSize = null) {
+    async createPastPaper(paperId, year, url, fileSize = null, markSchemeUrl = null) {
         const body = { paper_id: paperId, year, url };
         if (fileSize !== null) body.file_size = fileSize;
+        if (markSchemeUrl) body.mark_scheme_url = markSchemeUrl;
         return this.request('/admin/past_papers/create', 'POST', body);
     },
     

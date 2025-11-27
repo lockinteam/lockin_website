@@ -5648,6 +5648,7 @@ python3 tests/test_admin_podcasts.py
         "paper_id": "uuid",
         "year": 2024,
         "url": "https://storage.lockin.tech/past_papers/2024-p1.pdf",
+        "mark_scheme_url": "https://storage.lockin.tech/past_papers/2024-p1-ms.pdf",
         "file_size": 2097152,
         "is_active": true,
         "added_by_user_id": "uuid",
@@ -5690,6 +5691,7 @@ python3 tests/test_admin_podcasts.py
   "paper_id": "uuid",
   "year": 2024,                       // Year as integer (e.g., 2024, 2023)
   "url": "https://storage.lockin.tech/past_papers/2024-p1.pdf",
+  "mark_scheme_url": "https://storage.lockin.tech/past_papers/2024-p1-ms.pdf",  // Optional: URL to mark scheme
   "file_size": 2097152                // Optional: file size in bytes
 }
 ```
@@ -5698,6 +5700,7 @@ python3 tests/test_admin_podcasts.py
 - `paper_id`: Required, must be valid UUID of existing paper
 - `year`: Required, must be valid integer (e.g., 2024)
 - `url`: Required, non-empty string (URL to past paper file)
+- `mark_scheme_url`: Optional, URL to mark scheme file (can be null)
 - `file_size`: Optional, must be >= 0 if provided
 
 **Success Response** (201 Created):
@@ -5711,6 +5714,7 @@ python3 tests/test_admin_podcasts.py
       "paper_id": "uuid",
       "year": 2024,
       "url": "https://storage.lockin.tech/past_papers/2024-p1.pdf",
+      "mark_scheme_url": "https://storage.lockin.tech/past_papers/2024-p1-ms.pdf",
       "file_size": 2097152,
       "is_active": true,
       "added_by_user_id": "uuid",
@@ -5780,6 +5784,7 @@ python3 tests/test_admin_podcasts.py
   "past_paper_id": "uuid",
   "year": 2025,                       // Optional
   "url": "https://new-url.com/paper.pdf", // Optional
+  "mark_scheme_url": "https://new-url.com/ms.pdf", // Optional: set to null or "" to clear
   "file_size": 3145728,               // Optional
   "is_active": false                  // Optional: soft delete
 }
@@ -5789,6 +5794,7 @@ python3 tests/test_admin_podcasts.py
 - `past_paper_id`: Required, must be valid UUID of existing past paper
 - At least one field to update must be provided
 - `year`: Must be valid integer if provided
+- `mark_scheme_url`: Can be set to null or empty string to clear
 - `file_size`: Must be >= 0 if provided
 
 **Success Response** (200 OK):
@@ -5802,6 +5808,7 @@ python3 tests/test_admin_podcasts.py
       "paper_id": "uuid",
       "year": 2025,
       "url": "https://new-url.com/paper.pdf",
+      "mark_scheme_url": "https://new-url.com/ms.pdf",
       "file_size": 3145728,
       "is_active": false,
       "added_by_user_id": "uuid",
@@ -5930,17 +5937,19 @@ python3 tests/test_admin_podcasts.py
     {
       "year": 2024,
       "url": "https://cdn.lockin.tech/2024-may-june.pdf",
+      "mark_scheme_url": "https://cdn.lockin.tech/2024-may-june-ms.pdf",  // Optional
       "file_size": 1048576  // Optional: file size in bytes
     },
     {
       "year": 2023,
       "url": "https://cdn.lockin.tech/2023-may-june.pdf",
+      "mark_scheme_url": "https://cdn.lockin.tech/2023-may-june-ms.pdf",
       "file_size": 2097152
     },
     {
       "year": 2022,
       "url": "https://cdn.lockin.tech/2022-specimen.pdf"
-      // file_size is optional
+      // mark_scheme_url and file_size are optional
     }
   ]
 }
@@ -5958,6 +5967,7 @@ python3 tests/test_admin_podcasts.py
         "paper_id": "uuid",
         "year": 2024,
         "url": "https://cdn.lockin.tech/2024-may-june.pdf",
+        "mark_scheme_url": "https://cdn.lockin.tech/2024-may-june-ms.pdf",
         "file_size": 1048576,
         "is_active": true,
         "added_by_user_id": "admin_uuid",
@@ -5968,6 +5978,7 @@ python3 tests/test_admin_podcasts.py
         "paper_id": "uuid",
         "year": 2023,
         "url": "https://cdn.lockin.tech/2023-may-june.pdf",
+        "mark_scheme_url": "https://cdn.lockin.tech/2023-may-june-ms.pdf",
         "file_size": 2097152,
         "is_active": true,
         "added_by_user_id": "admin_uuid",
@@ -5978,6 +5989,7 @@ python3 tests/test_admin_podcasts.py
         "paper_id": "uuid",
         "year": 2022,
         "url": "https://cdn.lockin.tech/2022-specimen.pdf",
+        "mark_scheme_url": null,
         "file_size": null,
         "is_active": true,
         "added_by_user_id": "admin_uuid",

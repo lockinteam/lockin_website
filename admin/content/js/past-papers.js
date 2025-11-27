@@ -273,6 +273,14 @@ const PastPapersSection = {
         const badgeClass = pastPaper.is_active ? 'badge-active' : 'badge-inactive';
         const badgeText = pastPaper.is_active ? 'Active' : 'Inactive';
         const fileSize = pastPaper.file_size ? `${(pastPaper.file_size / 1048576).toFixed(2)} MB` : 'Unknown';
+        const hasMarkScheme = pastPaper.mark_scheme_url && pastPaper.mark_scheme_url.trim() !== '';
+        
+        const markSchemeBtn = hasMarkScheme ? `
+            <button class="card-action-btn" onclick="window.open('${pastPaper.mark_scheme_url}', '_blank')" title="View Mark Scheme">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                Mark Scheme
+            </button>
+        ` : '';
         
         return `
             <div class="content-card">
@@ -290,15 +298,20 @@ const PastPapersSection = {
                         <span class="meta-value">${fileSize}</span>
                     </div>
                     <div class="meta-row">
+                        <span class="meta-label">Mark Scheme</span>
+                        <span class="meta-value">${hasMarkScheme ? 'Yes' : 'No'}</span>
+                    </div>
+                    <div class="meta-row">
                         <span class="meta-label">Created</span>
                         <span class="meta-value">${UI.formatDate(pastPaper.created_at)}</span>
                     </div>
                 </div>
                 <div class="card-actions">
-                    <button class="card-action-btn" onclick="window.open('${pastPaper.url}', '_blank')">
+                    <button class="card-action-btn" onclick="window.open('${pastPaper.url}', '_blank')" title="View Question Paper">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                        View
+                        Paper
                     </button>
+                    ${markSchemeBtn}
                     <button class="card-action-btn" onclick="PastPapersSection.openEditModal('${pastPaper.id}')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         Edit
@@ -355,7 +368,8 @@ const PastPapersSection = {
         const formHTML = `
             <form id="createPastPaperForm" class="modal-form" onsubmit="PastPapersSection.handleCreate(event)">
                 ${UI.createFormRow('Year', UI.createNumberInput('pastPaperYear', '', '2024', 1900, 2100), 'e.g., 2024')}
-                ${UI.createFormRow('PDF File', UI.createFileOrUrlInput('pastPaperFile', '', 'application/pdf', 'https://storage.example.com/past-paper.pdf'), 'Upload PDF or enter URL')}
+                ${UI.createFormRow('Question Paper PDF', UI.createFileOrUrlInput('pastPaperFile', '', 'application/pdf', 'https://storage.example.com/past-paper.pdf'), 'Upload PDF or enter URL')}
+                ${UI.createFormRow('Mark Scheme PDF (Optional)', UI.createFileOrUrlInput('markSchemeFile', '', 'application/pdf', 'https://storage.example.com/mark-scheme.pdf'), 'Upload PDF or enter URL for mark scheme')}
                 ${UI.createModalActions('UI.closeModal()', null, 'Upload Past Paper')}
             </form>
         `;
@@ -370,7 +384,8 @@ const PastPapersSection = {
         const formHTML = `
             <form id="editPastPaperForm" class="modal-form" onsubmit="PastPapersSection.handleUpdate(event, '${pastPaperId}')">
                 ${UI.createFormRow('Year', UI.createNumberInput('pastPaperYear', pastPaper.year, '', 1900, 2100))}
-                ${UI.createFormRow('PDF File', UI.createFileOrUrlInput('pastPaperFile', pastPaper.url || '', 'application/pdf', 'https://storage.example.com/past-paper.pdf'), 'Upload PDF or enter URL')}
+                ${UI.createFormRow('Question Paper PDF', UI.createFileOrUrlInput('pastPaperFile', pastPaper.url || '', 'application/pdf', 'https://storage.example.com/past-paper.pdf'), 'Upload PDF or enter URL')}
+                ${UI.createFormRow('Mark Scheme PDF (Optional)', UI.createFileOrUrlInput('markSchemeFile', pastPaper.mark_scheme_url || '', 'application/pdf', 'https://storage.example.com/mark-scheme.pdf'), 'Upload PDF or enter URL for mark scheme')}
                 ${UI.createFormRow(
                     'Status',
                     UI.createSelect('pastPaperStatus', [
@@ -413,7 +428,15 @@ const PastPapersSection = {
                 return;
             }
             
-            await API.createPastPaper(AppState.filters.pastPapers.paperId, year, url, fileSizeValue);
+            // Get mark scheme URL (optional)
+            let markSchemeUrl = null;
+            try {
+                markSchemeUrl = await UI.getFileOrUrlValue('markSchemeFile');
+            } catch (e) {
+                // Mark scheme is optional, ignore errors
+            }
+            
+            await API.createPastPaper(AppState.filters.pastPapers.paperId, year, url, fileSizeValue, markSchemeUrl);
             UI.closeModal();
             UI.showToast('Past paper uploaded successfully', 'success');
             await this.load();
@@ -451,7 +474,18 @@ const PastPapersSection = {
                 return;
             }
             
-            await API.updatePastPaper(pastPaperId, { year, url, file_size: fileSizeValue, is_active: isActive });
+            // Get mark scheme URL (optional) - empty string clears it
+            let markSchemeUrl = null;
+            try {
+                markSchemeUrl = await UI.getFileOrUrlValue('markSchemeFile');
+                // If empty, set to empty string to clear on backend
+                if (!markSchemeUrl) markSchemeUrl = '';
+            } catch (e) {
+                // Mark scheme is optional
+                markSchemeUrl = '';
+            }
+            
+            await API.updatePastPaper(pastPaperId, { year, url, file_size: fileSizeValue, mark_scheme_url: markSchemeUrl, is_active: isActive });
             UI.closeModal();
             UI.showToast('Past paper updated successfully', 'success');
             await this.load();
