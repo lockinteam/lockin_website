@@ -2150,6 +2150,15 @@ body.modal-open {
   }
 }
 
+/* On mobile, allow phone container to hold floats below */
+@media (max-width: 768px) {
+  .hero__phone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
 .hero__phone-frame {
   position: relative;
   
@@ -2202,39 +2211,124 @@ body.modal-open {
    HERO FLOATING ELEMENTS
    ------------------------------------------------------------------------- */
 
+.hero__floats-container {
+  position: absolute;
+  inset: -20px;
+  pointer-events: none;
+}
+
 .hero__float {
   position: absolute;
   
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   
-  background: var(--color-white);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04);
   
-  animation: float 4s ease-in-out infinite;
+  animation: floatBounce 3s ease-in-out infinite;
+  white-space: nowrap;
+  pointer-events: auto;
 }
 
+@keyframes floatBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Desktop positioning - spread around the phone */
 .hero__float--1 {
-  top: 10%;
-  right: -10%;
+  top: 8%;
+  left: auto;
+  right: -40%;
   animation-delay: 0s;
 }
 
 .hero__float--2 {
-  bottom: 20%;
-  left: -10%;
-  animation-delay: 1s;
+  top: 45%;
+  left: -45%;
+  right: auto;
+  animation-delay: 0.8s;
 }
 
 .hero__float--3 {
-  bottom: 5%;
-  right: -5%;
-  animation-delay: 2s;
+  bottom: 15%;
+  left: auto;
+  right: -35%;
+  animation-delay: 1.6s;
 }
 
+/* Tablet positioning */
 @media (max-width: 1200px) {
+  .hero__float--1 {
+    top: -8%;
+    right: 5%;
+    left: auto;
+  }
+  
+  .hero__float--2 {
+    top: 40%;
+    left: -25%;
+    right: auto;
+  }
+  
+  .hero__float--3 {
+    bottom: -8%;
+    right: 10%;
+    left: auto;
+  }
+}
+
+/* Mobile positioning - show as horizontal row below phone */
+@media (max-width: 768px) {
+  .hero__floats-container {
+    position: relative;
+    inset: auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+    padding: 0 var(--space-2);
+  }
+  
   .hero__float {
-    display: none;
+    position: relative;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    animation: none;
+    padding: var(--space-2) var(--space-3);
+  }
+  
+  .hero__float--1,
+  .hero__float--2,
+  .hero__float--3 {
+    animation: fadeInUp 0.5s ease-out backwards;
+  }
+  
+  .hero__float--1 { animation-delay: 0.2s; }
+  .hero__float--2 { animation-delay: 0.4s; }
+  .hero__float--3 { animation-delay: 0.6s; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -2249,8 +2343,9 @@ body.modal-open {
 }
 
 .hero__float-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
   color: var(--color-accent);
 }
 
