@@ -10,6 +10,11 @@ const UI = {
         toast: null
     },
     
+    // Format course label for dropdowns: "GCSE Biology - AQA (1891)"
+    formatCourseLabel(course) {
+        return `${course.year_name} ${course.subject_name} - ${course.title}`;
+    },
+    
     // Initialize elements
     init() {
         this.elements.contentArea = document.getElementById('contentArea');
@@ -198,12 +203,20 @@ const UI = {
     },
     
     // Modal functions
-    openModal(title, contentHTML) {
+    openModal(title, contentHTML, size = 'default') {
         if (!this.elements.modalContent || !this.elements.modalOverlay) return;
+        
+        // Apply size class to modal
+        const modal = this.elements.modalOverlay.querySelector('.modal');
+        if (modal) {
+            modal.classList.remove('modal-large', 'modal-small');
+            if (size === 'large') modal.classList.add('modal-large');
+            else if (size === 'small') modal.classList.add('modal-small');
+        }
         
         this.elements.modalContent.innerHTML = `
             <h2>${title}</h2>
-            ${contentHTML}
+            <div class="modal-body">${contentHTML}</div>
         `;
         this.elements.modalOverlay.hidden = false;
     },

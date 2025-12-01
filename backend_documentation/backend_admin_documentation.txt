@@ -6283,22 +6283,24 @@ if (inactiveIds.length > 0) {
 
 **Auth**: Admin or Owner
 
-**Description**: Automatically scrape past papers from AQA's website and add them to the database. Uses a headless browser (Playwright) to render the JavaScript-heavy AQA page and extract question papers and mark schemes.
+**Description**: Scrape past papers from AQA's website and return structured data for the frontend to display. **This endpoint does NOT modify the database** - it returns discovered tiers, papers, and grouped data so the user can match scraped content to existing DB tiers/papers before bulk importing.
 
 **Key Features**:
 - Automatically ensures `&limit=500` in the URL for maximum results
 - Filters to only keep **question papers** and **mark schemes**
-- Automatically excludes: modified papers, examiner reports, inserts, specimen papers
-- Pairs question papers with their corresponding mark schemes
-- Extracts year, session (June/November), and paper number automatically
-- Skips papers that already exist in database (by URL)
+- Automatically excludes: modified papers, examiner reports, inserts, specimen papers, sample sets
+- **Parses tier from title** (Higher, Foundation) from brackets like "(Higher):"
+- **Parses paper number** (Paper 1, Paper 2) from title
+- **Parses session** (June, November) from title
+- **Parses year** (2018-2024) from title
+- Groups papers by tier → paper number → year/session
+- Returns `discovered_tiers` and `discovered_papers` for frontend matching UI
 
 **Request Body**:
 ```json
 {
   "token": "session_token",
-  "url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=A-level+Biology",
-  "paper_id": "uuid-of-paper-to-add-past-papers-to"
+  "url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=GCSE+Biology"
 }
 ```
 
@@ -6306,26 +6308,52 @@ if (inactiveIds.length > 0) {
 ```json
 {
   "success": true,
-  "message": "Scraping completed for Biology Paper 1",
+  "scraped_url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=GCSE+Biology&limit=500",
   "stats": {
-    "total_scraped": 104,
-    "relevant_after_filter": 46,
-    "grouped_components": 23,
-    "added": 20,
-    "skipped_existing": 3,
-    "errors": 0
+    "total_scraped": 109,
+    "relevant_after_filter": 56
   },
-  "added_papers": [
+  "discovered_tiers": ["Foundation", "Higher"],
+  "discovered_papers": ["Paper 1", "Paper 2"],
+  "grouped_papers": {
+    "Higher": {
+      "Paper 1": [
+        {
+          "year": 2024,
+          "session": "June",
+          "question_paper_url": "https://cdn.sanity.io/.../question-paper.pdf",
+          "mark_scheme_url": "https://cdn.sanity.io/.../mark-scheme.pdf"
+        },
+        {
+          "year": 2023,
+          "session": "June",
+          "question_paper_url": "https://cdn.sanity.io/.../question-paper-2023.pdf",
+          "mark_scheme_url": "https://cdn.sanity.io/.../mark-scheme-2023.pdf"
+        }
+      ],
+      "Paper 2": [...]
+    },
+    "Foundation": {
+      "Paper 1": [...],
+      "Paper 2": [...]
+    }
+  },
+  "raw_papers": [
     {
-      "id": "past-paper-uuid",
-      "year": 2023,
-      "url": "https://cdn.sanity.io/.../question-paper.pdf",
-      "mark_scheme_url": "https://cdn.sanity.io/.../mark-scheme.pdf",
-      "title": "Biology - Question Paper"
+      "title": "Biology - Question paper (Higher): Paper 1 - June 2024",
+      "url": "https://...",
+      "tier": "Higher",
+      "paper_number": "Paper 1",
+      "session": "June",
+      "year": 2024,
+      "is_mark_scheme": false,
+      "doc_type": "question_paper"
     }
   ],
-  "errors": null,
-  "scraped_url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=A-level+Biology&limit=500"
+  "excluded_papers": [
+    {"title": "Examiner Report...", "type": "examiner report", "url": "..."},
+    {"title": "Modified Paper...", "type": "modified paper", "url": "..."}
+  ]
 }
 ```
 
@@ -6335,13 +6363,6 @@ if (inactiveIds.length > 0) {
 ```json
 {
   "error": "URL must be from AQA's find-past-papers-and-mark-schemes page"
-}
-```
-
-*Paper not found* (404):
-```json
-{
-  "error": "Paper not found"
 }
 ```
 
@@ -6361,10 +6382,7 @@ if (inactiveIds.length > 0) {
 }
 ```
 
-**Database Queries**: 2-3
-1. Verify paper exists
-2. Check for existing past papers (by URL) for each paper found
-3. Insert new past papers
+**Database Queries**: 0 (no DB modification)
 
 **Rate Limiting**: 5 requests per minute (resource-intensive operation)
 
@@ -6372,26 +6390,65 @@ if (inactiveIds.length > 0) {
 - Requires Playwright with Chromium browser installed on server
 - Takes 5-10 seconds per scrape due to JavaScript rendering
 - URL must be from AQA's `find-past-papers-and-mark-schemes` page
-- The scraper automatically handles AQA's client-side rendered content
+- **Does NOT modify database** - use bulk_create endpoint after matching
+
+**Workflow**:
+1. Call this endpoint with AQA URL
+2. Frontend displays `discovered_tiers` and `discovered_papers`
+3. User maps scraped tiers to DB tier IDs (via dropdown)
+4. User maps scraped paper numbers to DB paper IDs (via dropdown)
+5. Frontend generates bulk_create requests using `grouped_papers` data
+6. Call `POST /admin/past_papers/bulk_create` for each matched paper_id
 
 **JavaScript Example**:
 ```javascript
+// Step 1: Scrape AQA page
 const response = await fetch(`${backend_url}/admin/past_papers/scrape_aqa`, {
   method: 'POST',
   headers: {'Content-Type': 'application/json'},
   body: JSON.stringify({
     token: sessionToken,
-    url: 'https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=A-level+Biology',
-    paper_id: paperId
+    url: 'https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=GCSE+Biology'
   })
 });
 
 const data = await response.json();
 if (data.success) {
-  console.log(`Added ${data.stats.added} past papers`);
-  console.log(`Skipped ${data.stats.skipped_existing} existing papers`);
-} else {
-  console.error(data.error);
+  console.log('Discovered Tiers:', data.discovered_tiers);  // ["Foundation", "Higher"]
+  console.log('Discovered Papers:', data.discovered_papers);  // ["Paper 1", "Paper 2"]
+  
+  // Step 2: User matches scraped tiers/papers to DB entities in UI
+  // Example mapping: { "Higher": "db-tier-uuid-higher", "Foundation": "db-tier-uuid-foundation" }
+  // Example paper mapping: { "Paper 1": "db-paper-uuid-1", "Paper 2": "db-paper-uuid-2" }
+  
+  // Step 3: For each matched paper, call bulk_create
+  const tierMapping = { "Higher": "db-tier-uuid-higher" };  // From user selection
+  const paperMapping = { "Paper 1": "db-paper-uuid-1" };  // From user selection
+  
+  for (const [tier, papersObj] of Object.entries(data.grouped_papers)) {
+    for (const [paperNum, papersList] of Object.entries(papersObj)) {
+      const dbPaperId = paperMapping[paperNum];
+      if (!dbPaperId) continue;
+      
+      const pastPapersToCreate = papersList.map(p => ({
+        year: p.year,
+        url: p.question_paper_url,
+        mark_scheme_url: p.mark_scheme_url
+      })).filter(p => p.url);  // Only papers with question paper URL
+      
+      if (pastPapersToCreate.length > 0) {
+        await fetch(`${backend_url}/admin/past_papers/bulk_create`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            token: sessionToken,
+            paper_id: dbPaperId,
+            past_papers: pastPapersToCreate
+          })
+        });
+      }
+    }
+  }
 }
 ```
 
@@ -6401,8 +6458,7 @@ curl -X POST ${backend_url}/admin/past_papers/scrape_aqa \
   -H "Content-Type: application/json" \
   -d '{
     "token": "session_token",
-    "url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=A-level+Biology",
-    "paper_id": "paper-uuid"
+    "url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=GCSE+Biology"
   }'
 ```
 
@@ -6414,78 +6470,13 @@ curl -X POST ${backend_url}/admin/past_papers/scrape_aqa \
 
 **Auth**: Admin or Owner
 
-**Description**: Preview what papers would be scraped from AQA without adding them to the database. Useful for testing and verification before committing changes.
+**Description**: Alias for the main scrape endpoint. Since the scrape endpoint no longer modifies the database, this preview endpoint now returns identical results. Kept for backwards compatibility.
 
-**Request Body**:
-```json
-{
-  "token": "session_token",
-  "url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=A-level+Biology"
-}
-```
+**Request Body**: Same as scrape endpoint
 
-**Success Response** (200):
-```json
-{
-  "success": true,
-  "stats": {
-    "total_scraped": 104,
-    "relevant_after_filter": 46,
-    "grouped_components": 23,
-    "would_add": 23
-  },
-  "papers": [
-    {
-      "title": "Biology - Question Paper",
-      "year": 2023,
-      "question_paper_url": "https://cdn.sanity.io/.../qp.pdf",
-      "mark_scheme_url": "https://cdn.sanity.io/.../ms.pdf"
-    }
-  ],
-  "scraped_url": "https://...",
-  "excluded_papers": [
-    {"title": "Examiner Report", "type": "examiner report", "url": "..."},
-    {"title": "Modified Paper", "type": "modified paper", "url": "..."}
-  ]
-}
-```
+**Response**: Same as scrape endpoint
 
 **Rate Limiting**: 10 requests per minute
-
-**Use Case**: Always preview before scraping to verify:
-- Correct subject/qualification selected
-- Expected number of papers found
-- Filtering is working correctly
-
-**JavaScript Example**:
-```javascript
-// Preview first
-const previewResponse = await fetch(`${backend_url}/admin/past_papers/scrape_aqa/preview`, {
-  method: 'POST',
-  headers: {'Content-Type': 'application/json'},
-  body: JSON.stringify({
-    token: sessionToken,
-    url: 'https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=A-level+Biology'
-  })
-});
-
-const preview = await previewResponse.json();
-console.log(`Would add ${preview.stats.would_add} papers`);
-console.log(`Excluded ${preview.excluded_papers.length} papers (examiner reports, etc.)`);
-
-// If satisfied, proceed with actual scrape
-if (confirm(`Add ${preview.stats.would_add} papers?`)) {
-  const scrapeResponse = await fetch(`${backend_url}/admin/past_papers/scrape_aqa`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      token: sessionToken,
-      url: 'https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=A-level+Biology',
-      paper_id: paperId
-    })
-  });
-}
-```
 
 ---
 

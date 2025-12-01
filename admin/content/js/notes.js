@@ -69,7 +69,7 @@ const NotesSection = {
     
     renderCourseSelection() {
         const courses = AppState.courses;
-        const courseOptions = courses.map(c => ({ value: c.id, label: `${c.title} (${c.year_name})` }));
+        const courseOptions = courses.map(c => ({ value: c.id, label: UI.formatCourseLabel(c) }));
         
         const selectionHTML = `
             <div class="content-filters">
@@ -103,7 +103,7 @@ const NotesSection = {
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
-            label: `${c.title} (${c.year_name})` 
+            label: UI.formatCourseLabel(c) 
         }));
         
         const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
@@ -147,7 +147,7 @@ const NotesSection = {
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
-            label: `${c.title} (${c.year_name})` 
+            label: UI.formatCourseLabel(c) 
         }));
         
         const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
@@ -200,7 +200,7 @@ const NotesSection = {
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
-            label: `${c.title} (${c.year_name})` 
+            label: UI.formatCourseLabel(c) 
         }));
         
         const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
@@ -269,7 +269,7 @@ const NotesSection = {
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
-            label: `${c.title} (${c.year_name})` 
+            label: UI.formatCourseLabel(c) 
         }));
         
         const tiers = AppState.tiers.filter(t => t.is_active);

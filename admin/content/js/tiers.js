@@ -64,7 +64,7 @@ const TiersSection = {
         
         const courseOptions = AppState.courses.map(c => ({
             value: c.id,
-            label: `${c.title} (${c.year_name})`
+            label: UI.formatCourseLabel(c)
         }));
         
         const filtersHTML = `

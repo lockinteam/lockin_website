@@ -61,7 +61,7 @@ const TopicsSection = {
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
-            label: `${c.title} (${c.year_name})` 
+            label: UI.formatCourseLabel(c) 
         }));
         
         const selectionHTML = `
@@ -92,7 +92,7 @@ const TopicsSection = {
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
-            label: `${c.title} (${c.year_name})` 
+            label: UI.formatCourseLabel(c) 
         }));
         
         const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
@@ -132,7 +132,7 @@ const TopicsSection = {
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
-            label: `${c.title} (${c.year_name})` 
+            label: UI.formatCourseLabel(c) 
         }));
         
         const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
@@ -206,7 +206,7 @@ const TopicsSection = {
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
-            label: `${c.title} (${c.year_name})` 
+            label: UI.formatCourseLabel(c) 
         }));
         
         const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));

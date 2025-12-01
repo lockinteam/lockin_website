@@ -137,6 +137,25 @@
     margin: 0 auto;
 }
 
+/* Small spinner for buttons */
+.loading-spinner-small {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+/* Small button variant */
+.btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+}
+
 /* Filters Section */
 .content-filters {
     display: flex;
@@ -390,6 +409,13 @@
     background: rgba(198, 68, 68, 0.18);
 }
 
+.card-action-btn.disabled,
+.card-action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 /* Empty State */
 .content-empty {
     text-align: center;
@@ -442,7 +468,7 @@
 }
 
 .modal {
-    width: min(1200px, 95vw);
+    width: min(700px, 95vw);
     max-height: 90vh;
     overflow-y: auto;
     border-radius: 20px;
@@ -452,6 +478,14 @@
     position: relative;
     padding: 2.5rem 2rem 2rem;
     animation: scaleIn 0.25s ease;
+}
+
+.modal.modal-large {
+    width: min(900px, 95vw);
+}
+
+.modal.modal-small {
+    width: min(450px, 95vw);
 }
 
 @keyframes scaleIn {
@@ -1510,6 +1544,128 @@
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-5px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+/* AQA Scraper Mapping Styles */
+.scrape-mapping-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+}
+
+.scrape-tier-section {
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.scrape-tier-section:last-child {
+    border-bottom: none;
+}
+
+.scrape-tier-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    background: linear-gradient(135deg, rgba(54, 120, 174, 0.08), rgba(83, 192, 184, 0.08));
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.scrape-tier-title {
+    font-weight: 600;
+    color: var(--color-deep-blue);
+    font-size: 0.95rem;
+}
+
+.scrape-tier-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    background: rgba(54, 120, 174, 0.15);
+    color: var(--color-primary-blue);
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.scrape-tier-papers {
+    padding: 0.5rem;
+}
+
+.scrape-paper-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+}
+
+.scrape-paper-row:hover {
+    background: rgba(54, 120, 174, 0.04);
+}
+
+.scrape-paper-info {
+    flex: 0 0 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.scrape-paper-name {
+    font-weight: 500;
+    color: #334155;
+    font-size: 0.9rem;
+}
+
+.scrape-paper-count {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.scrape-paper-mapping {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.mapping-arrow {
+    color: #94a3b8;
+    font-size: 1rem;
+}
+
+.scrape-mapping-select {
+    flex: 1;
+    padding: 0.6rem 0.875rem;
+    border-radius: 8px;
+    border: 1px solid rgba(187, 202, 220, 0.7);
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 0.875rem;
+    color: var(--color-deep-blue);
+    font-family: inherit;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.scrape-mapping-select:focus {
+    outline: none;
+    border-color: var(--color-primary-blue);
+    box-shadow: 0 0 0 3px rgba(54, 120, 174, 0.1);
+}
+
+.scrape-mapping-select:hover {
+    border-color: var(--color-primary-blue);
+}
+
+.scrape-mapping-select optgroup {
+    font-weight: 600;
+    color: var(--color-deep-blue);
+    background: #f8fafc;
+}
+
+.scrape-mapping-select option {
+    font-weight: 400;
+    padding: 0.5rem;
 }
 
 /* Intellectual Property of Hugisoft (hugisoft.com) */

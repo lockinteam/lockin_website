@@ -283,11 +283,14 @@ const API = {
     
     // AQA Scraper
     async scrapeAqaPreview(url) {
-        return this.request('/admin/past_papers/scrape_aqa/preview', 'POST', { url });
+        return this.request('/admin/past_papers/scrape_aqa', 'POST', { url });
     },
     
-    async scrapeAqa(url, paperId) {
-        return this.request('/admin/past_papers/scrape_aqa', 'POST', { url, paper_id: paperId });
+    async bulkCreatePastPapers(paperId, pastPapers) {
+        return this.request('/admin/past_papers/bulk_create', 'POST', { 
+            paper_id: paperId, 
+            past_papers: pastPapers 
+        });
     },
     
     // File Upload (Admin)

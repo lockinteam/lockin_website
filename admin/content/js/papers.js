@@ -41,7 +41,7 @@ const PapersSection = {
     renderCourseSelection() {
         const courses = AppState.courses;
         
-        const courseOptions = courses.map(c => ({ value: c.id, label: `${c.title} (${c.year_name})` }));
+        const courseOptions = courses.map(c => ({ value: c.id, label: UI.formatCourseLabel(c) }));
         
         const selectionHTML = `
             <div class="content-filters">
@@ -92,7 +92,7 @@ const PapersSection = {
         
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
-            label: `${c.title} (${c.year_name})` 
+            label: UI.formatCourseLabel(c) 
         }));
         
         const tierOptions = [{ value: '', label: 'All Tiers' }].concat(
