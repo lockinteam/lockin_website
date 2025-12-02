@@ -5,6 +5,7 @@ const QuestionsSection = {
     searchQuery: '',
     selectionMode: false,
     selectAllState: 0, // 0 = select active, 1 = select inactive, 2 = deselect all
+    bulkDeleteData: null, // Stores loaded questions for bulk deletion preview
     
     async load() {
         UI.showLoading('Loading questions...');
@@ -109,6 +110,13 @@ const QuestionsSection = {
         
         const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
         
+        const deleteAllBtnHTML = UI.renderActionBtn(
+            'Delete All for Course',
+            '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
+            'QuestionsSection.openBulkDeleteForLevelModal("course")',
+            'danger'
+        );
+        
         const selectionHTML = `
             <div class="content-filters">
                 <div class="filter-group" style="flex: 1;">
@@ -123,6 +131,9 @@ const QuestionsSection = {
                         <option value="">-- Choose a tier --</option>
                         ${tierOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
                     </select>
+                </div>
+                <div style="margin-left: auto;">
+                    ${deleteAllBtnHTML}
                 </div>
             </div>
             <div class="content-empty">
@@ -162,6 +173,13 @@ const QuestionsSection = {
             </div>
         ` : '';
         
+        const deleteAllBtnHTML = UI.renderActionBtn(
+            tiers.length > 0 ? 'Delete All for Tier' : 'Delete All for Course',
+            '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
+            `QuestionsSection.openBulkDeleteForLevelModal("${tiers.length > 0 ? 'tier' : 'course'}")`,
+            'danger'
+        );
+        
         const selectionHTML = `
             <div class="content-filters">
                 <div class="filter-group" style="flex: 1;">
@@ -177,6 +195,9 @@ const QuestionsSection = {
                         <option value="">-- Choose a paper --</option>
                         ${paperOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
                     </select>
+                </div>
+                <div style="margin-left: auto;">
+                    ${deleteAllBtnHTML}
                 </div>
             </div>
             <div class="content-empty">
@@ -218,6 +239,13 @@ const QuestionsSection = {
             </div>
         ` : '';
         
+        const deleteAllBtnHTML = UI.renderActionBtn(
+            'Delete All for Paper',
+            '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
+            'QuestionsSection.openBulkDeleteForLevelModal("paper")',
+            'danger'
+        );
+        
         const selectionHTML = `
             <div class="content-filters">
                 <div class="filter-group" style="flex: 1;">
@@ -239,6 +267,9 @@ const QuestionsSection = {
                         <option value="">-- Choose a topic --</option>
                         ${topicOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
                     </select>
+                </div>
+                <div style="margin-left: auto;">
+                    ${deleteAllBtnHTML}
                 </div>
             </div>
             <div class="content-empty">
@@ -1107,6 +1138,341 @@ const QuestionsSection = {
             await this.load();
         } catch (error) {
             UI.showToast(error.message, 'error');
+        }
+    },
+    
+    // Bulk Delete for course/tier/paper level
+    async openBulkDeleteForLevelModal(level) {
+        // level: 'course' | 'tier' | 'paper'
+        const courseId = AppState.filters.questions.courseId;
+        const tierId = AppState.filters.questions.tierId;
+        const paperId = AppState.filters.questions.paperId;
+        
+        if (!courseId) {
+            UI.showToast('Please select a course first', 'warning');
+            return;
+        }
+        
+        // Show loading modal
+        UI.openModal('Loading Questions...', `
+            <div style="text-align: center; padding: 2rem;">
+                <div class="loading-spinner" style="margin: 0 auto 1rem;"></div>
+                <p style="color: #64748B;">Fetching all questions for ${level}...</p>
+            </div>
+        `);
+        
+        try {
+            // Get all papers for this course/tier
+            const papersData = await API.getPapers(
+                courseId,
+                level === 'tier' || level === 'paper' ? tierId : null,
+                true // include inactive
+            );
+            let papers = papersData.data.papers || [];
+            
+            // If paper level, filter to just that paper
+            if (level === 'paper' && paperId) {
+                papers = papers.filter(p => p.id === paperId);
+            }
+            
+            // Fetch questions for each topic in each paper
+            let allQuestions = [];
+            for (const paper of papers) {
+                try {
+                    // Get topics for this paper
+                    const topicsData = await API.getTopics(paper.id, true);
+                    const topics = topicsData.data.topics || [];
+                    
+                    for (const topic of topics) {
+                        try {
+                            const qData = await API.getQuestions(topic.id, true);
+                            const questions = (qData.data.questions || []).map(q => ({
+                                ...q,
+                                topic_name: topic.name,
+                                paper_name: paper.name,
+                                tier_name: paper.tier_name || ''
+                            }));
+                            allQuestions = allQuestions.concat(questions);
+                        } catch (e) {
+                            console.error(`Error fetching questions for topic ${topic.id}:`, e);
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Error fetching topics for paper ${paper.id}:`, e);
+                }
+            }
+            
+            if (allQuestions.length === 0) {
+                UI.closeModal();
+                UI.showToast('No questions found to delete', 'info');
+                return;
+            }
+            
+            // Store for later use
+            this.bulkDeleteData = {
+                level,
+                questions: allQuestions
+            };
+            
+            // Render confirmation modal
+            this.renderBulkDeleteForLevelConfirmation(level, allQuestions);
+            
+        } catch (error) {
+            UI.closeModal();
+            UI.showToast('Failed to load questions: ' + error.message, 'error');
+        }
+    },
+    
+    renderBulkDeleteForLevelConfirmation(level, questions) {
+        const course = AppState.courses.find(c => c.id === AppState.filters.questions.courseId);
+        const tier = AppState.tiers.find(t => t.id === AppState.filters.questions.tierId);
+        const paper = AppState.papers.find(p => p.id === AppState.filters.questions.paperId);
+        
+        let levelLabel = '';
+        if (level === 'course') {
+            levelLabel = `Course: ${UI.formatCourseLabel(course)}`;
+        } else if (level === 'tier') {
+            levelLabel = `Tier: ${tier?.title || 'Unknown'} (${UI.formatCourseLabel(course)})`;
+        } else if (level === 'paper') {
+            levelLabel = `Paper: ${paper?.name || 'Unknown'}`;
+        }
+        
+        // Separate active and inactive
+        const activeQuestions = questions.filter(q => q.is_active);
+        const inactiveQuestions = questions.filter(q => !q.is_active);
+        
+        // Sort by topic, then by title
+        const sortedQuestions = [...questions].sort((a, b) => {
+            if (a.topic_name !== b.topic_name) return a.topic_name.localeCompare(b.topic_name);
+            return a.title.localeCompare(b.title);
+        });
+        
+        // Determine button options based on what's present
+        const hasActive = activeQuestions.length > 0;
+        const hasInactive = inactiveQuestions.length > 0;
+        
+        let actionsHTML = '';
+        if (hasActive && hasInactive) {
+            // Mixed: deactivate active + delete inactive
+            actionsHTML = `
+                <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; flex-wrap: wrap;">
+                    <button type="button" class="ghost-btn" onclick="UI.closeModal()">Cancel</button>
+                    <button type="button" class="primary-btn" style="background: #f59e0b;" id="bulkDeactivateBtn" onclick="QuestionsSection.executeBulkDeleteForLevel(false)">
+                        <span id="bulkDeactivateBtnText">Deactivate ${activeQuestions.length} Active + Delete ${inactiveQuestions.length} Inactive</span>
+                        <span id="bulkDeactivateBtnLoading" style="display: none;">
+                            <span class="loading-spinner-small"></span> Processing...
+                        </span>
+                    </button>
+                    <button type="button" class="primary-btn" style="background: #dc2626;" id="bulkDeleteBtn" onclick="QuestionsSection.executeBulkDeleteForLevel(true)">
+                        <span id="bulkDeleteBtnText">Permanently Delete All ${questions.length}</span>
+                        <span id="bulkDeleteBtnLoading" style="display: none;">
+                            <span class="loading-spinner-small"></span> Deleting...
+                        </span>
+                    </button>
+                </div>
+            `;
+        } else if (hasActive) {
+            // Only active: offer deactivate or permanent delete
+            actionsHTML = `
+                <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; flex-wrap: wrap;">
+                    <button type="button" class="ghost-btn" onclick="UI.closeModal()">Cancel</button>
+                    <button type="button" class="primary-btn" style="background: #f59e0b;" id="bulkDeactivateBtn" onclick="QuestionsSection.executeBulkDeleteForLevel(false)">
+                        <span id="bulkDeactivateBtnText">Deactivate ${activeQuestions.length} Questions</span>
+                        <span id="bulkDeactivateBtnLoading" style="display: none;">
+                            <span class="loading-spinner-small"></span> Deactivating...
+                        </span>
+                    </button>
+                    <button type="button" class="primary-btn" style="background: #dc2626;" id="bulkDeleteBtn" onclick="QuestionsSection.executeBulkDeleteForLevel(true)">
+                        <span id="bulkDeleteBtnText">Permanently Delete ${activeQuestions.length} Questions</span>
+                        <span id="bulkDeleteBtnLoading" style="display: none;">
+                            <span class="loading-spinner-small"></span> Deleting...
+                        </span>
+                    </button>
+                </div>
+            `;
+        } else {
+            // Only inactive: just permanent delete
+            actionsHTML = `
+                <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" class="ghost-btn" onclick="UI.closeModal()">Cancel</button>
+                    <button type="button" class="primary-btn" style="background: #dc2626;" id="bulkDeleteBtn" onclick="QuestionsSection.executeBulkDeleteForLevel(true)">
+                        <span id="bulkDeleteBtnText">Permanently Delete ${inactiveQuestions.length} Questions</span>
+                        <span id="bulkDeleteBtnLoading" style="display: none;">
+                            <span class="loading-spinner-small"></span> Deleting...
+                        </span>
+                    </button>
+                </div>
+            `;
+        }
+        
+        const formHTML = `
+            <div class="bulk-delete-modal">
+                <div class="bulk-delete-warning" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                    <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <div>
+                            <strong style="color: #dc2626;">Warning: Bulk Delete</strong>
+                            <p style="color: #7f1d1d; margin: 0.25rem 0 0 0; font-size: 0.9rem;">
+                                You are about to delete <strong>${questions.length}</strong> question(s) for:<br>
+                                <strong>${levelLabel}</strong>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
+                    <div style="background: #dcfce7; padding: 0.75rem; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 1.25rem; font-weight: 700; color: #16a34a;">${activeQuestions.length}</div>
+                        <div style="font-size: 0.75rem; color: #166534;">Active</div>
+                    </div>
+                    <div style="background: #fef2f2; padding: 0.75rem; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 1.25rem; font-weight: 700; color: #dc2626;">${inactiveQuestions.length}</div>
+                        <div style="font-size: 0.75rem; color: #991b1b;">Inactive</div>
+                    </div>
+                </div>
+                
+                <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <thead style="background: #f8fafc; position: sticky; top: 0;">
+                            <tr>
+                                <th style="padding: 0.5rem; text-align: left; border-bottom: 1px solid #e2e8f0;">Question</th>
+                                <th style="padding: 0.5rem; text-align: left; border-bottom: 1px solid #e2e8f0;">Topic</th>
+                                <th style="padding: 0.5rem; text-align: center; border-bottom: 1px solid #e2e8f0;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sortedQuestions.map(q => `
+                                <tr style="border-bottom: 1px solid #f1f5f9;">
+                                    <td style="padding: 0.5rem; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${UI.escapeHtml(q.title)}</td>
+                                    <td style="padding: 0.5rem;">${q.tier_name ? q.tier_name + ' → ' : ''}${q.paper_name} → ${q.topic_name}</td>
+                                    <td style="padding: 0.5rem; text-align: center;">
+                                        <span class="card-badge ${q.is_active ? 'badge-active' : 'badge-inactive'}" style="font-size: 0.7rem;">
+                                            ${q.is_active ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div style="margin-top: 1rem; padding: 0.75rem; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; font-size: 0.85rem; color: #92400e;">
+                    <strong>Options:</strong><br>
+                    • <strong>Deactivate</strong> - Hides items from users but keeps them in the database (can be restored)<br>
+                    • <strong>Permanently Delete</strong> - Removes items forever (cannot be undone)
+                </div>
+                
+                ${actionsHTML}
+            </div>
+        `;
+        
+        // Update modal content - use #modalContent which contains h2 and .modal-body
+        const modalContent = document.getElementById('modalContent');
+        modalContent.querySelector('h2').textContent = 'Confirm Bulk Delete';
+        modalContent.querySelector('.modal-body').innerHTML = formHTML;
+    },
+    
+    async executeBulkDeleteForLevel(permanent = false) {
+        if (!this.bulkDeleteData || !this.bulkDeleteData.questions.length) {
+            UI.showToast('No questions to delete', 'warning');
+            UI.closeModal();
+            return;
+        }
+        
+        // Disable all action buttons
+        const deactivateBtn = document.getElementById('bulkDeactivateBtn');
+        const deleteBtn = document.getElementById('bulkDeleteBtn');
+        
+        if (deactivateBtn) {
+            deactivateBtn.disabled = true;
+            if (!permanent) {
+                document.getElementById('bulkDeactivateBtnText').style.display = 'none';
+                document.getElementById('bulkDeactivateBtnLoading').style.display = 'inline-flex';
+            }
+        }
+        if (deleteBtn) {
+            deleteBtn.disabled = true;
+            if (permanent) {
+                document.getElementById('bulkDeleteBtnText').style.display = 'none';
+                document.getElementById('bulkDeleteBtnLoading').style.display = 'inline-flex';
+            }
+        }
+        
+        const questions = this.bulkDeleteData.questions;
+        
+        // Separate by active state
+        const activeIds = questions.filter(q => q.is_active).map(q => q.id);
+        const inactiveIds = questions.filter(q => !q.is_active).map(q => q.id);
+        
+        let deactivatedCount = 0;
+        let deletedCount = 0;
+        let errors = [];
+        
+        try {
+            if (permanent) {
+                // Permanent delete: first deactivate active ones, then delete all
+                if (activeIds.length > 0) {
+                    try {
+                        // Stage 1: Deactivate active ones
+                        await API.bulkDeleteQuestions(activeIds);
+                        // Stage 2: Permanently delete them
+                        const response = await API.bulkDeleteQuestions(activeIds);
+                        deletedCount += response.data?.count || activeIds.length;
+                    } catch (e) {
+                        errors.push(`Failed to delete active questions: ${e.message}`);
+                    }
+                }
+                
+                if (inactiveIds.length > 0) {
+                    try {
+                        const response = await API.bulkDeleteQuestions(inactiveIds);
+                        deletedCount += response.data?.count || inactiveIds.length;
+                    } catch (e) {
+                        errors.push(`Failed to delete inactive questions: ${e.message}`);
+                    }
+                }
+            } else {
+                // Deactivate only: deactivate active ones, delete inactive ones
+                if (activeIds.length > 0) {
+                    try {
+                        const response = await API.bulkDeleteQuestions(activeIds);
+                        deactivatedCount = response.data?.count || activeIds.length;
+                    } catch (e) {
+                        errors.push(`Failed to deactivate active questions: ${e.message}`);
+                    }
+                }
+                
+                if (inactiveIds.length > 0) {
+                    try {
+                        const response = await API.bulkDeleteQuestions(inactiveIds);
+                        deletedCount = response.data?.count || inactiveIds.length;
+                    } catch (e) {
+                        errors.push(`Failed to delete inactive questions: ${e.message}`);
+                    }
+                }
+            }
+            
+            UI.closeModal();
+            this.bulkDeleteData = null;
+            
+            if (errors.length > 0) {
+                UI.showToast(`Completed with errors: ${errors.join('; ')}`, 'warning');
+            } else {
+                const messages = [];
+                if (deactivatedCount > 0) messages.push(`${deactivatedCount} deactivated`);
+                if (deletedCount > 0) messages.push(`${deletedCount} permanently deleted`);
+                UI.showToast(`Successfully ${messages.join(', ')}`, 'success');
+            }
+            
+            await this.load();
+            
+        } catch (error) {
+            UI.closeModal();
+            UI.showToast('Bulk delete failed: ' + error.message, 'error');
         }
     }
 };

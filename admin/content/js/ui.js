@@ -80,10 +80,18 @@ const UI = {
     },
     
     // Render action button
-    renderActionBtn(text, icon, onClick, secondary = false) {
-        const classes = secondary ? 'action-btn action-btn-secondary' : 'action-btn';
+    // variant: false = primary, true = secondary, 'secondary' = secondary, 'danger' = danger (red)
+    renderActionBtn(text, icon, onClick, variant = false) {
+        let classes = 'action-btn';
+        if (variant === true || variant === 'secondary') {
+            classes = 'action-btn action-btn-secondary';
+        } else if (variant === 'danger') {
+            classes = 'action-btn action-btn-danger';
+        }
+        // Escape double quotes in onClick to prevent HTML attribute issues
+        const escapedOnClick = onClick.replace(/"/g, '&quot;');
         return `
-            <button class="${classes}" onclick="${onClick}">
+            <button class="${classes}" onclick="${escapedOnClick}">
                 ${icon}
                 <span>${text}</span>
             </button>

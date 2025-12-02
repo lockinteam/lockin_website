@@ -2,6 +2,7 @@
 
 const PastPapersSection = {
     searchQuery: '',
+    bulkDeleteData: null, // Stores loaded past papers for bulk deletion preview
     
     // Unified Scraper State
     scrapeState: {
@@ -132,6 +133,13 @@ const PastPapersSection = {
             'secondary'
         );
         
+        const deleteAllBtnHTML = UI.renderActionBtn(
+            'Delete All for Course',
+            '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
+            'PastPapersSection.openBulkDeleteModal("course")',
+            'danger'
+        );
+        
         const selectionHTML = `
             <div class="content-filters">
                 <div class="filter-group" style="flex: 1;">
@@ -147,7 +155,8 @@ const PastPapersSection = {
                         ${tierOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
                     </select>
                 </div>
-                <div style="margin-left: auto;">
+                <div style="margin-left: auto; display: flex; gap: 0.5rem;">
+                    ${deleteAllBtnHTML}
                     ${scrapeAqaBtnHTML}
                 </div>
             </div>
@@ -194,6 +203,13 @@ const PastPapersSection = {
             'secondary'
         );
         
+        const deleteAllBtnHTML = UI.renderActionBtn(
+            tiers.length > 0 ? 'Delete All for Tier' : 'Delete All for Course',
+            '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
+            `PastPapersSection.openBulkDeleteModal("${tiers.length > 0 ? 'tier' : 'course'}")`,
+            'danger'
+        );
+        
         const selectionHTML = `
             <div class="content-filters">
                 <div class="filter-group" style="flex: 1;">
@@ -210,7 +226,8 @@ const PastPapersSection = {
                         ${paperOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
                     </select>
                 </div>
-                <div style="margin-left: auto;">
+                <div style="margin-left: auto; display: flex; gap: 0.5rem;">
+                    ${deleteAllBtnHTML}
                     ${scrapeAqaBtnHTML}
                 </div>
             </div>
@@ -332,7 +349,8 @@ const PastPapersSection = {
     renderPastPaperCard(pastPaper) {
         const badgeClass = pastPaper.is_active ? 'badge-active' : 'badge-inactive';
         const badgeText = pastPaper.is_active ? 'Active' : 'Inactive';
-        const fileSize = pastPaper.file_size ? `${(pastPaper.file_size / 1048576).toFixed(2)} MB` : 'Unknown';
+        const qpFileSize = pastPaper.file_size ? `${(pastPaper.file_size / 1048576).toFixed(2)} MB` : '—';
+        const msFileSize = pastPaper.mark_scheme_file_size ? `${(pastPaper.mark_scheme_file_size / 1048576).toFixed(2)} MB` : '—';
         const hasMarkScheme = pastPaper.mark_scheme_url && pastPaper.mark_scheme_url.trim() !== '';
         
         return `
@@ -347,8 +365,8 @@ const PastPapersSection = {
                         <span class="meta-value">${pastPaper.year}</span>
                     </div>
                     <div class="meta-row">
-                        <span class="meta-label">File Size</span>
-                        <span class="meta-value">${fileSize}</span>
+                        <span class="meta-label">QP / MS Size</span>
+                        <span class="meta-value">${qpFileSize} / ${msFileSize}</span>
                     </div>
                     <div class="meta-row">
                         <span class="meta-label">Created</span>
@@ -484,15 +502,21 @@ const PastPapersSection = {
                 return;
             }
             
-            // Get mark scheme URL (optional)
+            // Get mark scheme URL and file size (optional)
             let markSchemeUrl = null;
+            let markSchemeFileSizeValue = null;
             try {
+                const msFileInput = document.getElementById('markSchemeFileFile');
+                const msMode = document.getElementById('markSchemeFileMode')?.value;
+                if (msMode === 'file' && msFileInput?.files && msFileInput.files.length > 0) {
+                    markSchemeFileSizeValue = msFileInput.files[0].size;
+                }
                 markSchemeUrl = await UI.getFileOrUrlValue('markSchemeFile');
             } catch (e) {
                 // Mark scheme is optional, ignore errors
             }
             
-            await API.createPastPaper(AppState.filters.pastPapers.paperId, year, url, fileSizeValue, markSchemeUrl);
+            await API.createPastPaper(AppState.filters.pastPapers.paperId, year, url, fileSizeValue, markSchemeUrl, markSchemeFileSizeValue);
             UI.closeModal();
             UI.showToast('Past paper uploaded successfully', 'success');
             await this.load();
@@ -530,9 +554,15 @@ const PastPapersSection = {
                 return;
             }
             
-            // Get mark scheme URL (optional) - empty string clears it
+            // Get mark scheme URL and file size (optional) - empty string clears it
             let markSchemeUrl = null;
+            let markSchemeFileSizeValue = null;
             try {
+                const msFileInput = document.getElementById('markSchemeFileFile');
+                const msMode = document.getElementById('markSchemeFileMode')?.value;
+                if (msMode === 'file' && msFileInput?.files && msFileInput.files.length > 0) {
+                    markSchemeFileSizeValue = msFileInput.files[0].size;
+                }
                 markSchemeUrl = await UI.getFileOrUrlValue('markSchemeFile');
                 // If empty, set to empty string to clear on backend
                 if (!markSchemeUrl) markSchemeUrl = '';
@@ -541,7 +571,9 @@ const PastPapersSection = {
                 markSchemeUrl = '';
             }
             
-            await API.updatePastPaper(pastPaperId, { year, url, file_size: fileSizeValue, mark_scheme_url: markSchemeUrl, is_active: isActive });
+            const updatePayload = { year, url, file_size: fileSizeValue, mark_scheme_url: markSchemeUrl, is_active: isActive };
+            if (markSchemeFileSizeValue !== null) updatePayload.mark_scheme_file_size = markSchemeFileSizeValue;
+            await API.updatePastPaper(pastPaperId, updatePayload);
             UI.closeModal();
             UI.showToast('Past paper updated successfully', 'success');
             await this.load();
@@ -583,6 +615,318 @@ const PastPapersSection = {
             } catch (error) {
                 UI.showToast(error.message, 'error');
             }
+        }
+    },
+    
+    // Bulk Delete functionality for course/tier/paper levels
+    async openBulkDeleteModal(level) {
+        // level: 'course' | 'tier' | 'paper'
+        const courseId = AppState.filters.pastPapers.courseId;
+        const tierId = AppState.filters.pastPapers.tierId;
+        
+        if (!courseId) {
+            UI.showToast('Please select a course first', 'warning');
+            return;
+        }
+        
+        // Show loading modal
+        UI.openModal('Loading Past Papers...', `
+            <div style="text-align: center; padding: 2rem;">
+                <div class="loading-spinner" style="margin: 0 auto 1rem;"></div>
+                <p style="color: #64748B;">Fetching all past papers for ${level}...</p>
+            </div>
+        `);
+        
+        try {
+            // Get all papers for this course/tier
+            const papersData = await API.getPapers(
+                courseId,
+                level === 'tier' ? tierId : null,
+                true // include inactive
+            );
+            const papers = papersData.data.papers || [];
+            
+            // Fetch past papers for each paper
+            let allPastPapers = [];
+            for (const paper of papers) {
+                try {
+                    const ppData = await API.getPastPapers(paper.id);
+                    const pastPapers = (ppData.data.past_papers || []).map(pp => ({
+                        ...pp,
+                        paper_name: paper.name,
+                        tier_name: paper.tier_name || ''
+                    }));
+                    allPastPapers = allPastPapers.concat(pastPapers);
+                } catch (e) {
+                    console.error(`Error fetching past papers for paper ${paper.id}:`, e);
+                }
+            }
+            
+            if (allPastPapers.length === 0) {
+                UI.closeModal();
+                UI.showToast('No past papers found to delete', 'info');
+                return;
+            }
+            
+            // Store for later use
+            this.bulkDeleteData = {
+                level,
+                pastPapers: allPastPapers
+            };
+            
+            // Render confirmation modal
+            this.renderBulkDeleteConfirmation(level, allPastPapers);
+            
+        } catch (error) {
+            UI.closeModal();
+            UI.showToast('Failed to load past papers: ' + error.message, 'error');
+        }
+    },
+    
+    renderBulkDeleteConfirmation(level, pastPapers) {
+        const course = AppState.courses.find(c => c.id === AppState.filters.pastPapers.courseId);
+        const tier = AppState.tiers.find(t => t.id === AppState.filters.pastPapers.tierId);
+        
+        let levelLabel = '';
+        if (level === 'course') {
+            levelLabel = `Course: ${UI.formatCourseLabel(course)}`;
+        } else if (level === 'tier') {
+            levelLabel = `Tier: ${tier?.title || 'Unknown'} (${UI.formatCourseLabel(course)})`;
+        }
+        
+        // Separate active and inactive
+        const activePapers = pastPapers.filter(pp => pp.is_active);
+        const inactivePapers = pastPapers.filter(pp => !pp.is_active);
+        
+        // Sort by year
+        const sortedPapers = [...pastPapers].sort((a, b) => b.year - a.year);
+        
+        // Determine button options based on what's present
+        const hasActive = activePapers.length > 0;
+        const hasInactive = inactivePapers.length > 0;
+        
+        let actionsHTML = '';
+        if (hasActive && hasInactive) {
+            // Mixed: deactivate active + delete inactive
+            actionsHTML = `
+                <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; flex-wrap: wrap;">
+                    <button type="button" class="ghost-btn" onclick="UI.closeModal()">Cancel</button>
+                    <button type="button" class="primary-btn" style="background: #f59e0b;" id="bulkDeactivateBtn" onclick="PastPapersSection.executeBulkDelete(false)">
+                        <span id="bulkDeactivateBtnText">Deactivate ${activePapers.length} Active + Delete ${inactivePapers.length} Inactive</span>
+                        <span id="bulkDeactivateBtnLoading" style="display: none;">
+                            <span class="loading-spinner-small"></span> Processing...
+                        </span>
+                    </button>
+                    <button type="button" class="primary-btn" style="background: #dc2626;" id="bulkDeleteBtn" onclick="PastPapersSection.executeBulkDelete(true)">
+                        <span id="bulkDeleteBtnText">Permanently Delete All ${pastPapers.length}</span>
+                        <span id="bulkDeleteBtnLoading" style="display: none;">
+                            <span class="loading-spinner-small"></span> Deleting...
+                        </span>
+                    </button>
+                </div>
+            `;
+        } else if (hasActive) {
+            // Only active: offer deactivate or permanent delete
+            actionsHTML = `
+                <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; flex-wrap: wrap;">
+                    <button type="button" class="ghost-btn" onclick="UI.closeModal()">Cancel</button>
+                    <button type="button" class="primary-btn" style="background: #f59e0b;" id="bulkDeactivateBtn" onclick="PastPapersSection.executeBulkDelete(false)">
+                        <span id="bulkDeactivateBtnText">Deactivate ${activePapers.length} Past Papers</span>
+                        <span id="bulkDeactivateBtnLoading" style="display: none;">
+                            <span class="loading-spinner-small"></span> Deactivating...
+                        </span>
+                    </button>
+                    <button type="button" class="primary-btn" style="background: #dc2626;" id="bulkDeleteBtn" onclick="PastPapersSection.executeBulkDelete(true)">
+                        <span id="bulkDeleteBtnText">Permanently Delete ${activePapers.length} Past Papers</span>
+                        <span id="bulkDeleteBtnLoading" style="display: none;">
+                            <span class="loading-spinner-small"></span> Deleting...
+                        </span>
+                    </button>
+                </div>
+            `;
+        } else {
+            // Only inactive: just permanent delete
+            actionsHTML = `
+                <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" class="ghost-btn" onclick="UI.closeModal()">Cancel</button>
+                    <button type="button" class="primary-btn" style="background: #dc2626;" id="bulkDeleteBtn" onclick="PastPapersSection.executeBulkDelete(true)">
+                        <span id="bulkDeleteBtnText">Permanently Delete ${inactivePapers.length} Past Papers</span>
+                        <span id="bulkDeleteBtnLoading" style="display: none;">
+                            <span class="loading-spinner-small"></span> Deleting...
+                        </span>
+                    </button>
+                </div>
+            `;
+        }
+        
+        const formHTML = `
+            <div class="bulk-delete-modal">
+                <div class="bulk-delete-warning" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                    <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <div>
+                            <strong style="color: #dc2626;">Warning: Bulk Delete</strong>
+                            <p style="color: #7f1d1d; margin: 0.25rem 0 0 0; font-size: 0.9rem;">
+                                You are about to delete <strong>${pastPapers.length}</strong> past paper(s) for:<br>
+                                <strong>${levelLabel}</strong>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
+                    <div style="background: #dcfce7; padding: 0.75rem; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 1.25rem; font-weight: 700; color: #16a34a;">${activePapers.length}</div>
+                        <div style="font-size: 0.75rem; color: #166534;">Active</div>
+                    </div>
+                    <div style="background: #fef2f2; padding: 0.75rem; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 1.25rem; font-weight: 700; color: #dc2626;">${inactivePapers.length}</div>
+                        <div style="font-size: 0.75rem; color: #991b1b;">Inactive</div>
+                    </div>
+                </div>
+                
+                <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                        <thead style="background: #f8fafc; position: sticky; top: 0;">
+                            <tr>
+                                <th style="padding: 0.5rem; text-align: left; border-bottom: 1px solid #e2e8f0;">Year</th>
+                                <th style="padding: 0.5rem; text-align: left; border-bottom: 1px solid #e2e8f0;">Paper</th>
+                                <th style="padding: 0.5rem; text-align: center; border-bottom: 1px solid #e2e8f0;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sortedPapers.map(pp => `
+                                <tr style="border-bottom: 1px solid #f1f5f9;">
+                                    <td style="padding: 0.5rem;">${pp.year}</td>
+                                    <td style="padding: 0.5rem;">${pp.tier_name ? pp.tier_name + ' → ' : ''}${pp.paper_name}</td>
+                                    <td style="padding: 0.5rem; text-align: center;">
+                                        <span class="card-badge ${pp.is_active ? 'badge-active' : 'badge-inactive'}" style="font-size: 0.7rem;">
+                                            ${pp.is_active ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div style="margin-top: 1rem; padding: 0.75rem; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; font-size: 0.85rem; color: #92400e;">
+                    <strong>Options:</strong><br>
+                    • <strong>Deactivate</strong> - Hides items from users but keeps them in the database (can be restored)<br>
+                    • <strong>Permanently Delete</strong> - Removes items forever (cannot be undone)
+                </div>
+                
+                ${actionsHTML}
+            </div>
+        `;
+        
+        // Update modal content - use #modalContent which contains h2 and .modal-body
+        const modalContent = document.getElementById('modalContent');
+        modalContent.querySelector('h2').textContent = 'Confirm Bulk Delete';
+        modalContent.querySelector('.modal-body').innerHTML = formHTML;
+    },
+    
+    async executeBulkDelete(permanent = false) {
+        if (!this.bulkDeleteData || !this.bulkDeleteData.pastPapers.length) {
+            UI.showToast('No past papers to delete', 'warning');
+            UI.closeModal();
+            return;
+        }
+        
+        // Disable all action buttons
+        const deactivateBtn = document.getElementById('bulkDeactivateBtn');
+        const deleteBtn = document.getElementById('bulkDeleteBtn');
+        
+        if (deactivateBtn) {
+            deactivateBtn.disabled = true;
+            if (!permanent) {
+                document.getElementById('bulkDeactivateBtnText').style.display = 'none';
+                document.getElementById('bulkDeactivateBtnLoading').style.display = 'inline-flex';
+            }
+        }
+        if (deleteBtn) {
+            deleteBtn.disabled = true;
+            if (permanent) {
+                document.getElementById('bulkDeleteBtnText').style.display = 'none';
+                document.getElementById('bulkDeleteBtnLoading').style.display = 'inline-flex';
+            }
+        }
+        
+        const pastPapers = this.bulkDeleteData.pastPapers;
+        
+        // Separate by active state
+        const activeIds = pastPapers.filter(pp => pp.is_active).map(pp => pp.id);
+        const inactiveIds = pastPapers.filter(pp => !pp.is_active).map(pp => pp.id);
+        
+        let deactivatedCount = 0;
+        let deletedCount = 0;
+        let errors = [];
+        
+        try {
+            if (permanent) {
+                // Permanent delete: first deactivate active ones, then delete all
+                if (activeIds.length > 0) {
+                    try {
+                        // Stage 1: Deactivate active ones
+                        await API.bulkDeletePastPapers(activeIds);
+                        // Stage 2: Permanently delete them
+                        const response = await API.bulkDeletePastPapers(activeIds);
+                        deletedCount += response.data?.count || activeIds.length;
+                    } catch (e) {
+                        errors.push(`Failed to delete active papers: ${e.message}`);
+                    }
+                }
+                
+                if (inactiveIds.length > 0) {
+                    try {
+                        const response = await API.bulkDeletePastPapers(inactiveIds);
+                        deletedCount += response.data?.count || inactiveIds.length;
+                    } catch (e) {
+                        errors.push(`Failed to delete inactive papers: ${e.message}`);
+                    }
+                }
+            } else {
+                // Deactivate only: deactivate active ones, delete inactive ones
+                if (activeIds.length > 0) {
+                    try {
+                        const response = await API.bulkDeletePastPapers(activeIds);
+                        deactivatedCount = response.data?.count || activeIds.length;
+                    } catch (e) {
+                        errors.push(`Failed to deactivate active papers: ${e.message}`);
+                    }
+                }
+                
+                if (inactiveIds.length > 0) {
+                    try {
+                        const response = await API.bulkDeletePastPapers(inactiveIds);
+                        deletedCount = response.data?.count || inactiveIds.length;
+                    } catch (e) {
+                        errors.push(`Failed to delete inactive papers: ${e.message}`);
+                    }
+                }
+            }
+            
+            UI.closeModal();
+            this.bulkDeleteData = null;
+            
+            if (errors.length > 0) {
+                UI.showToast(`Completed with errors: ${errors.join('; ')}`, 'warning');
+            } else {
+                const messages = [];
+                if (deactivatedCount > 0) messages.push(`${deactivatedCount} deactivated`);
+                if (deletedCount > 0) messages.push(`${deletedCount} permanently deleted`);
+                UI.showToast(`Successfully ${messages.join(', ')}`, 'success');
+            }
+            
+            await this.load();
+            
+        } catch (error) {
+            UI.closeModal();
+            UI.showToast('Bulk delete failed: ' + error.message, 'error');
         }
     },
     
@@ -1467,7 +1811,10 @@ const PastPapersSection = {
                         dbPaperName: dbPaper?.name || scrapedPaper,
                         dbTierName: dbTier?.title || '',
                         questionPaperUrl: paper.question_paper_url,
-                        markSchemeUrl: paper.mark_scheme_url || ''
+                        markSchemeUrl: paper.mark_scheme_url || '',
+                        // File sizes: AQA uses file_size, OCR uses question_paper_file_size
+                        fileSize: paper.file_size || paper.question_paper_file_size || null,
+                        markSchemeFileSize: paper.mark_scheme_file_size || null
                     });
                 }
             }
@@ -1673,11 +2020,14 @@ const PastPapersSection = {
             if (!paperGroups[pp.dbPaperId]) {
                 paperGroups[pp.dbPaperId] = [];
             }
-            paperGroups[pp.dbPaperId].push({
+            const paperData = {
                 year: pp.year,
                 url: pp.questionPaperUrl,
-                mark_scheme_url: pp.markSchemeUrl || null
-            });
+                mark_scheme_url: pp.markSchemeUrl || null,
+                file_size: pp.fileSize || null,
+                mark_scheme_file_size: pp.markSchemeFileSize || null
+            };
+            paperGroups[pp.dbPaperId].push(paperData);
         });
         
         // Show loading state

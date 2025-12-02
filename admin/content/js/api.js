@@ -266,10 +266,11 @@ const API = {
         return this.request('/admin/past_papers', 'POST', { paper_id: paperId });
     },
     
-    async createPastPaper(paperId, year, url, fileSize = null, markSchemeUrl = null) {
+    async createPastPaper(paperId, year, url, fileSize = null, markSchemeUrl = null, markSchemeFileSize = null) {
         const body = { paper_id: paperId, year, url };
         if (fileSize !== null) body.file_size = fileSize;
         if (markSchemeUrl) body.mark_scheme_url = markSchemeUrl;
+        if (markSchemeFileSize !== null) body.mark_scheme_file_size = markSchemeFileSize;
         return this.request('/admin/past_papers/create', 'POST', body);
     },
     
@@ -283,7 +284,7 @@ const API = {
     
     // AQA Scraper
     async scrapeAqaPreview(url) {
-        return this.request('/admin/past_papers/scrape_aqa', 'POST', { url });
+        return this.request('/admin/past_papers/scrape_aqa', 'POST', { url, fetch_sizes: true });
     },
     
     // OCR Scraper
@@ -304,6 +305,10 @@ const API = {
             paper_id: paperId, 
             past_papers: pastPapers 
         });
+    },
+    
+    async bulkDeletePastPapers(pastPaperIds) {
+        return this.request('/admin/past_papers/bulk_delete', 'DELETE', { past_paper_ids: pastPaperIds });
     },
     
     // File Upload (Admin)

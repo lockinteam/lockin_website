@@ -925,14 +925,24 @@ const GenerateSection = {
                 </div>
             `;
         } else {
-            // Group prompts by stage
-            const stageOrder = ['course_info', 'papers_topics', 'notes', 'questions'];
+            // Group prompts by stage - dynamically handle any stage
+            const knownStageOrder = ['course_info', 'papers_topics', 'notes', 'questions', 'podcasts'];
             const stageLabels = {
                 'course_info': 'Course Info Extraction',
                 'papers_topics': 'Papers & Topics Structure',
                 'notes': 'Notes Generation',
-                'questions': 'Questions Generation'
+                'questions': 'Questions Generation',
+                'podcasts': 'Podcast Generation'
             };
+            
+            // Get all unique stages from prompts
+            const allStages = [...new Set(prompts.map(p => p.stage))];
+            
+            // Sort stages: known stages first (in order), then unknown stages alphabetically
+            const stageOrder = [
+                ...knownStageOrder.filter(s => allStages.includes(s)),
+                ...allStages.filter(s => !knownStageOrder.includes(s)).sort()
+            ];
             
             const groupedPrompts = {};
             stageOrder.forEach(stage => {
@@ -943,11 +953,16 @@ const GenerateSection = {
             stageOrder.forEach(stage => {
                 const stagePrompts = groupedPrompts[stage];
                 if (stagePrompts.length > 0) {
+                    // Use known label or generate a readable label from the stage name
+                    const stageLabel = stageLabels[stage] || stage
+                        .split('_')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(' ') + ' Generation';
                     const cardsHTML = stagePrompts.map(p => this.renderPromptCard(p)).join('');
                     sectionsHTML += `
                         <div style="margin-bottom: 2rem;">
                             <h3 style="color: var(--color-text-primary); font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem;">
-                                ${stageLabels[stage]}
+                                ${stageLabel}
                             </h3>
                             <div class="content-grid">${cardsHTML}</div>
                         </div>

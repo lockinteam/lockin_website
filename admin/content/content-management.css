@@ -274,6 +274,18 @@
     background: rgba(54, 120, 174, 0.18);
 }
 
+.action-btn-danger {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+    border-color: rgba(220, 38, 38, 0.3);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.1);
+}
+
+.action-btn-danger:hover {
+    background: rgba(220, 38, 38, 0.18);
+    border-color: rgba(220, 38, 38, 0.5);
+}
+
 /* Content Grid */
 .content-grid {
     display: grid;
