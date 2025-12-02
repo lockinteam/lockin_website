@@ -1668,4 +1668,26 @@
     padding: 0.5rem;
 }
 
+/* Scraper Board Selection Cards */
+.scraper-board-card {
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    background: white;
+}
+
+.scraper-board-card:hover {
+    border-color: var(--color-primary-blue);
+    background: #f8fafc;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(54, 120, 174, 0.12);
+}
+
+.scraper-board-card:active {
+    transform: translateY(0);
+}
+
 /* Intellectual Property of Hugisoft (hugisoft.com) */

@@ -5650,6 +5650,7 @@ python3 tests/test_admin_podcasts.py
         "url": "https://storage.lockin.tech/past_papers/2024-p1.pdf",
         "mark_scheme_url": "https://storage.lockin.tech/past_papers/2024-p1-ms.pdf",
         "file_size": 2097152,
+        "mark_scheme_file_size": 1048576,
         "is_active": true,
         "added_by_user_id": "uuid",
         "added_by_username": "admin_user",
@@ -5692,7 +5693,8 @@ python3 tests/test_admin_podcasts.py
   "year": 2024,                       // Year as integer (e.g., 2024, 2023)
   "url": "https://storage.lockin.tech/past_papers/2024-p1.pdf",
   "mark_scheme_url": "https://storage.lockin.tech/past_papers/2024-p1-ms.pdf",  // Optional: URL to mark scheme
-  "file_size": 2097152                // Optional: file size in bytes
+  "file_size": 2097152,               // Optional: file size in bytes
+  "mark_scheme_file_size": 1048576    // Optional: mark scheme file size in bytes
 }
 ```
 
@@ -5702,6 +5704,7 @@ python3 tests/test_admin_podcasts.py
 - `url`: Required, non-empty string (URL to past paper file)
 - `mark_scheme_url`: Optional, URL to mark scheme file (can be null)
 - `file_size`: Optional, must be >= 0 if provided
+- `mark_scheme_file_size`: Optional, must be >= 0 if provided
 
 **Success Response** (201 Created):
 ```json
@@ -5716,6 +5719,7 @@ python3 tests/test_admin_podcasts.py
       "url": "https://storage.lockin.tech/past_papers/2024-p1.pdf",
       "mark_scheme_url": "https://storage.lockin.tech/past_papers/2024-p1-ms.pdf",
       "file_size": 2097152,
+      "mark_scheme_file_size": 1048576,
       "is_active": true,
       "added_by_user_id": "uuid",
       "created_at": "2025-01-01T12:00:00.000000"
@@ -5786,6 +5790,7 @@ python3 tests/test_admin_podcasts.py
   "url": "https://new-url.com/paper.pdf", // Optional
   "mark_scheme_url": "https://new-url.com/ms.pdf", // Optional: set to null or "" to clear
   "file_size": 3145728,               // Optional
+  "mark_scheme_file_size": 1572864,   // Optional: mark scheme file size in bytes
   "is_active": false                  // Optional: soft delete
 }
 ```
@@ -5796,6 +5801,7 @@ python3 tests/test_admin_podcasts.py
 - `year`: Must be valid integer if provided
 - `mark_scheme_url`: Can be set to null or empty string to clear
 - `file_size`: Must be >= 0 if provided
+- `mark_scheme_file_size`: Must be >= 0 if provided
 
 **Success Response** (200 OK):
 ```json
@@ -5810,6 +5816,7 @@ python3 tests/test_admin_podcasts.py
       "url": "https://new-url.com/paper.pdf",
       "mark_scheme_url": "https://new-url.com/ms.pdf",
       "file_size": 3145728,
+      "mark_scheme_file_size": 1572864,
       "is_active": false,
       "added_by_user_id": "uuid",
       "created_at": "2025-01-01T12:00:00.000000"
@@ -5938,18 +5945,20 @@ python3 tests/test_admin_podcasts.py
       "year": 2024,
       "url": "https://cdn.lockin.tech/2024-may-june.pdf",
       "mark_scheme_url": "https://cdn.lockin.tech/2024-may-june-ms.pdf",  // Optional
-      "file_size": 1048576  // Optional: file size in bytes
+      "file_size": 1048576,  // Optional: file size in bytes
+      "mark_scheme_file_size": 524288  // Optional: mark scheme file size in bytes
     },
     {
       "year": 2023,
       "url": "https://cdn.lockin.tech/2023-may-june.pdf",
       "mark_scheme_url": "https://cdn.lockin.tech/2023-may-june-ms.pdf",
-      "file_size": 2097152
+      "file_size": 2097152,
+      "mark_scheme_file_size": 786432
     },
     {
       "year": 2022,
       "url": "https://cdn.lockin.tech/2022-specimen.pdf"
-      // mark_scheme_url and file_size are optional
+      // mark_scheme_url, file_size, mark_scheme_file_size are optional
     }
   ]
 }
@@ -5969,6 +5978,7 @@ python3 tests/test_admin_podcasts.py
         "url": "https://cdn.lockin.tech/2024-may-june.pdf",
         "mark_scheme_url": "https://cdn.lockin.tech/2024-may-june-ms.pdf",
         "file_size": 1048576,
+        "mark_scheme_file_size": 524288,
         "is_active": true,
         "added_by_user_id": "admin_uuid",
         "created_at": "2024-11-19T10:30:00Z"
@@ -5980,6 +5990,7 @@ python3 tests/test_admin_podcasts.py
         "url": "https://cdn.lockin.tech/2023-may-june.pdf",
         "mark_scheme_url": "https://cdn.lockin.tech/2023-may-june-ms.pdf",
         "file_size": 2097152,
+        "mark_scheme_file_size": 786432,
         "is_active": true,
         "added_by_user_id": "admin_uuid",
         "created_at": "2024-11-19T10:30:00Z"
@@ -5991,6 +6002,7 @@ python3 tests/test_admin_podcasts.py
         "url": "https://cdn.lockin.tech/2022-specimen.pdf",
         "mark_scheme_url": null,
         "file_size": null,
+        "mark_scheme_file_size": null,
         "is_active": true,
         "added_by_user_id": "admin_uuid",
         "created_at": "2024-11-19T10:30:00Z"
@@ -6300,7 +6312,8 @@ if (inactiveIds.length > 0) {
 ```json
 {
   "token": "session_token",
-  "url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=GCSE+Biology"
+  "url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=GCSE+Biology",
+  "fetch_sizes": true  // Optional: fetch file sizes via HTTP HEAD (default: true)
 }
 ```
 
@@ -6322,13 +6335,17 @@ if (inactiveIds.length > 0) {
           "year": 2024,
           "session": "June",
           "question_paper_url": "https://cdn.sanity.io/.../question-paper.pdf",
-          "mark_scheme_url": "https://cdn.sanity.io/.../mark-scheme.pdf"
+          "mark_scheme_url": "https://cdn.sanity.io/.../mark-scheme.pdf",
+          "file_size": 2097152,
+          "mark_scheme_file_size": 1048576
         },
         {
           "year": 2023,
           "session": "June",
           "question_paper_url": "https://cdn.sanity.io/.../question-paper-2023.pdf",
-          "mark_scheme_url": "https://cdn.sanity.io/.../mark-scheme-2023.pdf"
+          "mark_scheme_url": "https://cdn.sanity.io/.../mark-scheme-2023.pdf",
+          "file_size": 1835008,
+          "mark_scheme_file_size": 921600
         }
       ],
       "Paper 2": [...]
@@ -6477,6 +6494,462 @@ curl -X POST ${backend_url}/admin/past_papers/scrape_aqa \
 **Response**: Same as scrape endpoint
 
 **Rate Limiting**: 10 requests per minute
+
+---
+
+### 9. Get OCR Qualification Types
+
+**Endpoint**: `POST /admin/past_papers/scrape_ocr/types`
+
+**Auth**: Admin or Owner
+
+**Description**: Fetch all available qualification types from OCR's API (GCSE, A-Level, etc.). This is the first step in the OCR scraping workflow - users select a qualification type, then a specific qualification, then scrape the past papers.
+
+**Key Features**:
+- Simple HTTP POST to OCR's API (no browser automation needed)
+- Returns cleaned list with duplicates removed
+- Provides values needed for the next endpoint
+
+**Request Body**:
+```json
+{
+  "token": "session_token"
+}
+```
+
+**Success Response** (200):
+```json
+{
+  "success": true,
+  "qualification_types": [
+    {"value": 3828, "description": "GCSE"},
+    {"value": 3863, "description": "AS and A Level"},
+    {"value": 693466, "description": "Cambridge Advanced Nationals"},
+    {"value": 4277, "description": "Cambridge Nationals"},
+    {"value": 4090, "description": "Cambridge Technicals"},
+    {"value": 168552, "description": "Core Maths"},
+    {"value": 723157, "description": "Enrichment qualifications"},
+    {"value": 4093, "description": "Entry Level"},
+    {"value": 4826, "description": "Extended Project qualification"},
+    {"value": 4924, "description": "Free Standing Maths Qualification (FSMQ)"},
+    {"value": 151201, "description": "Vocational qualifications"}
+  ]
+}
+```
+
+**Error Responses**:
+
+*OCR API Error* (502):
+```json
+{
+  "error": "OCR API returned status 500",
+  "details": "..."
+}
+```
+
+*Timeout* (504):
+```json
+{
+  "error": "OCR API request timed out"
+}
+```
+
+**Database Queries**: 0
+
+**Rate Limiting**: 30 requests per minute
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${backend_url}/admin/past_papers/scrape_ocr/types`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({token: sessionToken})
+});
+
+const data = await response.json();
+if (data.success) {
+  // Display qualification types in dropdown
+  data.qualification_types.forEach(type => {
+    console.log(`${type.description} (ID: ${type.value})`);
+  });
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST ${backend_url}/admin/past_papers/scrape_ocr/types \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token"}'
+```
+
+---
+
+### 10. Get OCR Qualifications
+
+**Endpoint**: `POST /admin/past_papers/scrape_ocr/qualifications`
+
+**Auth**: Admin or Owner
+
+**Description**: Fetch available qualifications/subjects for a specific qualification type (e.g., all GCSE subjects). This is the second step in the OCR scraping workflow.
+
+**Key Features**:
+- Groups qualifications by category (Current, Legacy, etc.)
+- Returns qualification codes in descriptions (e.g., "J351" for English Language)
+- Values can be used directly in the scrape endpoint
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "type_id": 3828
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| token | string | Yes | Admin session token |
+| type_id | integer | Yes | Qualification type ID from `/scrape_ocr/types` |
+
+**Success Response** (200):
+```json
+{
+  "success": true,
+  "type_id": 3828,
+  "groups": [
+    {
+      "group_title": "Current qualifications",
+      "qualifications": [
+        {"value": 313161, "description": "Ancient History (9-1) - J198 (from 2017)"},
+        {"value": 220480, "description": "Art and Design (9-1) - J170-J176 (from 2016)"},
+        {"value": 304083, "description": "Business (9-1) - J204 (from 2017)"},
+        {"value": 232413, "description": "Citizenship Studies (9-1) - J270 (from 2016)"},
+        {"value": 552495, "description": "Computer Science (9-1) - J277 (from 2020)"},
+        {"value": 168444, "description": "English Language (9-1) - J351"},
+        {"value": 168448, "description": "English Literature (9-1) - J352 (from 2015)"},
+        {"value": 168037, "description": "Mathematics (9-1) - J560 (from 2015)"},
+        {"value": 231296, "description": "Gateway Science Suite - Biology A (9-1) - J247 (from 2016)"},
+        {"value": 231304, "description": "Gateway Science Suite - Chemistry A (9-1) - J248 (from 2016)"},
+        {"value": 231307, "description": "Gateway Science Suite - Physics A (9-1) - J249 (from 2016)"}
+      ]
+    }
+  ]
+}
+```
+
+**Error Responses**:
+
+*Missing type_id* (400):
+```json
+{
+  "error": "type_id is required"
+}
+```
+
+*OCR API Error* (502):
+```json
+{
+  "error": "OCR API returned status 500",
+  "details": "..."
+}
+```
+
+**Database Queries**: 0
+
+**Rate Limiting**: 30 requests per minute
+
+**JavaScript Example**:
+```javascript
+// After user selects "GCSE" (type_id: 3828)
+const response = await fetch(`${backend_url}/admin/past_papers/scrape_ocr/qualifications`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    token: sessionToken,
+    type_id: 3828  // GCSE
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  // Display qualifications grouped by category
+  data.groups.forEach(group => {
+    console.log(`\n${group.group_title}:`);
+    group.qualifications.forEach(qual => {
+      console.log(`  - ${qual.description} (ID: ${qual.value})`);
+    });
+  });
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST ${backend_url}/admin/past_papers/scrape_ocr/qualifications \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token", "type_id": 3828}'
+```
+
+---
+
+### 11. Scrape OCR Past Papers
+
+**Endpoint**: `POST /admin/past_papers/scrape_ocr`
+
+**Auth**: Admin or Owner
+
+**Description**: Scrape past papers from OCR's website for a specific qualification and return structured data. Like the AQA scraper, **this endpoint does NOT modify the database** - it returns discovered papers and grouped data for the frontend to display and match before bulk importing.
+
+**Key Features**:
+- Simple HTTP request to OCR API (no browser automation needed - much faster than AQA)
+- Parses HTML response to extract paper data
+- Filters to only keep **question papers** and **mark schemes**
+- Automatically excludes: modified papers, examiner reports, moderator reports, inserts, formulae sheets
+- **Extracts paper number** from unit code (e.g., "J351/01" → "Paper 1")
+- **Extracts tier** from title if present (Foundation, Higher)
+- **Extracts year and session** from section headers
+- **Extracts file sizes** from metadata
+- Groups papers by paper number → year/session
+- Returns full URLs ready for importing
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "qualification_id": 168444
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| token | string | Yes | Admin session token |
+| qualification_id | integer | Yes | Qualification ID from `/scrape_ocr/qualifications` |
+
+**Success Response** (200):
+```json
+{
+  "success": true,
+  "qualification_id": 168444,
+  "stats": {
+    "total_scraped": 45,
+    "relevant_after_filter": 30
+  },
+  "discovered_papers": ["Paper 1", "Paper 2"],
+  "discovered_tiers": [],
+  "grouped_papers": {
+    "Paper 1": [
+      {
+        "year": 2024,
+        "session": "June",
+        "tier": null,
+        "unit_code": "J351/01",
+        "question_paper_url": "https://www.ocr.org.uk/Images/727556-question-paper-communicating-information-and-ideas.pdf",
+        "mark_scheme_url": "https://www.ocr.org.uk/Images/727658-mark-scheme-communication-information-and-ideas.pdf",
+        "question_paper_file_size": 2097152,
+        "mark_scheme_file_size": 531456
+      },
+      {
+        "year": 2023,
+        "session": "November",
+        "tier": null,
+        "unit_code": "J351/01",
+        "question_paper_url": "https://www.ocr.org.uk/Images/717042-question-paper-communicating-information-and-ideas.pdf",
+        "mark_scheme_url": "https://www.ocr.org.uk/Images/717045-mark-scheme-communicating-information-and-ideas.pdf",
+        "question_paper_file_size": 2097152,
+        "mark_scheme_file_size": 419840
+      }
+    ],
+    "Paper 2": [
+      {
+        "year": 2024,
+        "session": "June",
+        "tier": null,
+        "unit_code": "J351/02",
+        "question_paper_url": "https://www.ocr.org.uk/Images/727558-question-paper-exploring-effects-and-impact.pdf",
+        "mark_scheme_url": "https://www.ocr.org.uk/Images/727659-mark-scheme-exploring-effects-and-impact.pdf",
+        "question_paper_file_size": 2097152,
+        "mark_scheme_file_size": 590848
+      }
+    ]
+  },
+  "raw_papers": [
+    {
+      "title": "Question paper - Communicating information and ideas",
+      "url": "https://www.ocr.org.uk/Images/727556-question-paper-communicating-information-and-ideas.pdf",
+      "year": 2024,
+      "session": "June",
+      "paper_number": "Paper 1",
+      "unit_code": "J351/01",
+      "tier": null,
+      "doc_type": "question_paper",
+      "file_size": 2097152
+    }
+  ],
+  "excluded_papers": [
+    {
+      "title": "Examiners' report - Communicating information and ideas",
+      "url": "https://www.ocr.org.uk/Images/727483-examiners-report-communicating-information-and-ideas.pdf",
+      "year": 2024,
+      "session": "June",
+      "paper_number": "Paper 1",
+      "unit_code": "J351/01",
+      "tier": null,
+      "doc_type": "examiner_report",
+      "file_size": 2097152
+    }
+  ]
+}
+```
+
+**No Papers Found Response** (200):
+```json
+{
+  "success": true,
+  "qualification_id": 123456,
+  "stats": {
+    "total_scraped": 0,
+    "relevant_after_filter": 0
+  },
+  "discovered_papers": [],
+  "discovered_tiers": [],
+  "grouped_papers": {},
+  "raw_papers": [],
+  "excluded_papers": [],
+  "message": "No past papers found for this qualification"
+}
+```
+
+**Error Responses**:
+
+*Missing qualification_id* (400):
+```json
+{
+  "error": "qualification_id is required"
+}
+```
+
+*OCR API Error* (502):
+```json
+{
+  "error": "OCR API returned status 500",
+  "details": "..."
+}
+```
+
+*Timeout* (504):
+```json
+{
+  "error": "OCR API request timed out"
+}
+```
+
+**Database Queries**: 0 (no DB modification)
+
+**Rate Limiting**: 10 requests per minute
+
+**Important Notes**:
+- Much faster than AQA scraper (simple HTTP request vs browser automation)
+- Returns file sizes in bytes (useful for display)
+- Unit codes can help identify paper components
+- **Does NOT modify database** - use bulk_create endpoint after matching
+- Tiers are detected from title text (Foundation/Higher tier - Formulae sheet)
+
+**Complete OCR Scraping Workflow**:
+```javascript
+// Step 1: Get qualification types
+const typesRes = await fetch(`${backend_url}/admin/past_papers/scrape_ocr/types`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({token: sessionToken})
+});
+const typesData = await typesRes.json();
+// User selects "GCSE" (value: 3828)
+
+// Step 2: Get qualifications for GCSE
+const qualsRes = await fetch(`${backend_url}/admin/past_papers/scrape_ocr/qualifications`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({token: sessionToken, type_id: 3828})
+});
+const qualsData = await qualsRes.json();
+// User selects "English Language (9-1) - J351" (value: 168444)
+
+// Step 3: Scrape past papers
+const scrapeRes = await fetch(`${backend_url}/admin/past_papers/scrape_ocr`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({token: sessionToken, qualification_id: 168444})
+});
+const scrapeData = await scrapeRes.json();
+
+if (scrapeData.success) {
+  console.log('Found papers:', scrapeData.discovered_papers);  // ["Paper 1", "Paper 2"]
+  
+  // Step 4: User maps scraped papers to DB paper IDs in UI
+  // Example mapping: { "Paper 1": "db-paper-uuid-1", "Paper 2": "db-paper-uuid-2" }
+  const paperMapping = {
+    "Paper 1": "db-paper-uuid-1",
+    "Paper 2": "db-paper-uuid-2"
+  };
+  
+  // Step 5: For each mapped paper, call bulk_create
+  for (const [paperNum, papersList] of Object.entries(scrapeData.grouped_papers)) {
+    const dbPaperId = paperMapping[paperNum];
+    if (!dbPaperId) continue;
+    
+    const pastPapersToCreate = papersList.map(p => ({
+      year: p.year,
+      url: p.question_paper_url,
+      mark_scheme_url: p.mark_scheme_url,
+      file_size: p.question_paper_file_size
+    })).filter(p => p.url);  // Only papers with question paper URL
+    
+    if (pastPapersToCreate.length > 0) {
+      await fetch(`${backend_url}/admin/past_papers/bulk_create`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          token: sessionToken,
+          paper_id: dbPaperId,
+          past_papers: pastPapersToCreate
+        })
+      });
+    }
+  }
+}
+```
+
+**cURL Examples**:
+```bash
+# Get qualification types
+curl -X POST ${backend_url}/admin/past_papers/scrape_ocr/types \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token"}'
+
+# Get qualifications for GCSE
+curl -X POST ${backend_url}/admin/past_papers/scrape_ocr/qualifications \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token", "type_id": 3828}'
+
+# Scrape English Language GCSE past papers
+curl -X POST ${backend_url}/admin/past_papers/scrape_ocr \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token", "qualification_id": 168444}'
+```
+
+**OCR Qualification IDs Reference (GCSE)**:
+| Qualification | ID | Code |
+|--------------|-----|------|
+| English Language (9-1) | 168444 | J351 |
+| English Literature (9-1) | 168448 | J352 |
+| Mathematics (9-1) | 168037 | J560 |
+| Computer Science (9-1) | 552495 | J277 |
+| Biology A (Gateway) (9-1) | 231296 | J247 |
+| Chemistry A (Gateway) (9-1) | 231304 | J248 |
+| Physics A (Gateway) (9-1) | 231307 | J249 |
+| Combined Science A (Gateway) (9-1) | 231309 | J250 |
+| Geography A (9-1) | 207170 | J383 |
+| Geography B (9-1) | 207171 | J384 |
+| History A (9-1) | 206636 | J410 |
+| History B (9-1) | 206883 | J411 |
 
 ---
 

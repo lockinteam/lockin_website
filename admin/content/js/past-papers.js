@@ -3,26 +3,35 @@
 const PastPapersSection = {
     searchQuery: '',
     
-    // AQA Scraper State
+    // Unified Scraper State
     scrapeState: {
-        step: 1, // 1=URL input, 2=mapping, 3=review
+        scraperType: null, // 'aqa' or 'ocr'
+        step: 0, // 0=select scraper, 1=URL/selection input, 2=mapping, 3=review
         url: '',
-        scrapeData: null, // Raw response from scrape_aqa
+        urlMode: 'builder', // 'builder' or 'manual' (AQA only)
+        scrapeData: null, // Raw response from scraper
         tierMapping: {}, // { "Higher": "db-tier-uuid" }
         paperMapping: {}, // { "Paper 1": "db-paper-uuid" }
         pastPapersToImport: [], // Flattened list with selection state
         allPapers: [], // All papers for the course (for scraper dropdown)
+        // OCR-specific state
+        ocrQualificationTypes: [], // List of qualification types (GCSE, A-Level, etc.)
+        ocrSelectedTypeId: null,
+        ocrQualifications: [], // List of qualifications for selected type
+        ocrSelectedQualificationId: null,
     },
-    
+
     resetScrapeState() {
         this.scrapeState = {
-            step: 1,
+            scraperType: null,
+            step: 0,
             url: '',
-            scrapeData: null,
-            tierMapping: {},
-            paperMapping: {},
-            pastPapersToImport: [],
+            urlMode: 'builder',
             allPapers: [],
+            ocrQualificationTypes: [],
+            ocrSelectedTypeId: null,
+            ocrQualifications: [],
+            ocrSelectedQualificationId: null,
         };
     },
     
@@ -117,9 +126,9 @@ const PastPapersSection = {
         const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
         
         const scrapeAqaBtnHTML = UI.renderActionBtn(
-            'Scrape AQA',
+            'Scrape Past Papers',
             '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"></path></svg>',
-            'PastPapersSection.openScrapeAqaModal()',
+            'PastPapersSection.openScraperModal()',
             'secondary'
         );
         
@@ -148,7 +157,7 @@ const PastPapersSection = {
                     <polyline points="14 2 14 8 20 8"></polyline>
                 </svg>
                 <h3>Select a Tier</h3>
-                <p>Choose a tier from the dropdown above to view past papers, or use <strong>Scrape AQA</strong> to bulk import.</p>
+                <p>Choose a tier from the dropdown above to view past papers, or use <strong>Scrape Past Papers</strong> to bulk import.</p>
             </div>
         `;
         
@@ -179,9 +188,9 @@ const PastPapersSection = {
         ` : '';
         
         const scrapeAqaBtnHTML = UI.renderActionBtn(
-            'Scrape AQA',
+            'Scrape Past Papers',
             '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"></path></svg>',
-            'PastPapersSection.openScrapeAqaModal()',
+            'PastPapersSection.openScraperModal()',
             'secondary'
         );
         
@@ -211,7 +220,7 @@ const PastPapersSection = {
                     <polyline points="14 2 14 8 20 8"></polyline>
                 </svg>
                 <h3>Select a Paper</h3>
-                <p>Choose a paper from the dropdown above to view and manage its past papers, or use <strong>Scrape AQA</strong> to bulk import.</p>
+                <p>Choose a paper from the dropdown above to view and manage its past papers, or use <strong>Scrape Past Papers</strong> to bulk import.</p>
             </div>
         `;
         
@@ -249,9 +258,9 @@ const PastPapersSection = {
         );
         
         const scrapeAqaBtnHTML = UI.renderActionBtn(
-            'Scrape AQA',
+            'Scrape Past Papers',
             '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"></path></svg>',
-            'PastPapersSection.openScrapeAqaModal()',
+            'PastPapersSection.openScraperModal()',
             'secondary'
         );
         
@@ -577,8 +586,8 @@ const PastPapersSection = {
         }
     },
     
-    // AQA Scraper functionality - Multi-step wizard
-    async openScrapeAqaModal() {
+    // Unified Scraper functionality - Multi-step wizard
+    async openScraperModal() {
         if (!AppState.filters.pastPapers.courseId) {
             UI.showToast('Please select a course first', 'warning');
             return;
@@ -600,39 +609,187 @@ const PastPapersSection = {
             return;
         }
         
-        this.renderScrapeStep1();
+        // Start with exam board selection (step 0)
+        this.renderScrapeStep0();
     },
     
-    renderScrapeStep1() {
+    renderScrapeStep0() {
         const formHTML = `
             <div id="scrapeWizardContent">
                 <div class="scrape-steps-indicator" style="display: flex; margin-bottom: 1.5rem; gap: 0.5rem;">
-                    <div class="step-indicator active" style="flex: 1; text-align: center; padding: 0.5rem; background: #3678AE; color: white; border-radius: 4px;">1. Enter URL</div>
-                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">2. Map Tiers/Papers</div>
-                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">3. Review & Import</div>
+                    <div class="step-indicator active" style="flex: 1; text-align: center; padding: 0.5rem; background: #3678AE; color: white; border-radius: 4px;">Select Exam Board</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">Build Query</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">Map Papers</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">Import</div>
                 </div>
                 
-                <div class="form-info" style="background: #e8f4fd; border: 1px solid #3678AE; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
-                    <p style="margin: 0; font-size: 0.9rem; color: #193659;">
-                        <strong>How to use:</strong><br>
-                        1. Go to <a href="https://www.aqa.org.uk/find-past-papers-and-mark-schemes" target="_blank" style="color: #3678AE;">AQA Past Papers</a><br>
-                        2. Filter by subject and qualification<br>
-                        3. Copy the URL from your browser<br>
-                        4. Paste it below and click "Scrape AQA"
-                    </p>
+                <p style="margin-bottom: 1.5rem; color: #64748B;">
+                    Select which exam board you want to scrape past papers from:
+                </p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <!-- AQA Card -->
+                    <div class="scraper-board-card" onclick="PastPapersSection.selectScraperType('aqa')" style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.2s; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: 700; color: #3678AE; margin-bottom: 0.5rem;">AQA</div>
+                        <div style="font-size: 0.85rem; color: #64748B;">Assessment and Qualifications Alliance</div>
+                        <div style="margin-top: 1rem; font-size: 0.8rem; color: #94a3b8;">Build URL or paste from aqa.org.uk</div>
+                    </div>
+                    
+                    <!-- OCR Card -->
+                    <div class="scraper-board-card" onclick="PastPapersSection.selectScraperType('ocr')" style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.2s; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: 700; color: #3678AE; margin-bottom: 0.5rem;">OCR</div>
+                        <div style="font-size: 0.85rem; color: #64748B;">Oxford, Cambridge and RSA</div>
+                        <div style="margin-top: 1rem; font-size: 0.8rem; color: #94a3b8;">Select qualification type & subject</div>
+                    </div>
                 </div>
                 
-                <div class="form-row" style="margin-bottom: 1rem;">
-                    <label class="form-label">AQA URL</label>
-                    <input type="text" class="form-input" id="aqaUrl" placeholder="https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=GCSE+Biology" value="${this.scrapeState.url}">
-                    <span class="form-hint">Paste the full AQA search URL here</span>
+                <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" class="ghost-btn" onclick="UI.closeModal()">Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        UI.openModal('Scrape Past Papers', formHTML, 'large');
+        
+        // Add hover styles
+        document.querySelectorAll('.scraper-board-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.borderColor = '#3678AE';
+                card.style.background = '#f8fafc';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.borderColor = '#e2e8f0';
+                card.style.background = '';
+            });
+        });
+    },
+    
+    selectScraperType(type) {
+        this.scrapeState.scraperType = type;
+        this.scrapeState.step = 1;
+        
+        if (type === 'aqa') {
+            this.renderAqaStep1();
+        } else if (type === 'ocr') {
+            this.renderOcrStep1();
+        }
+    },
+    
+    // AQA URL Builder Data
+    aqaData: {
+        qualificationLevels: [
+            'A-Level', 'Applied General', 'AQA Certificate', 'AS Level', 'ELC', 
+            'FCSE', 'Functional Skills', 'GCSE', 'Level One', 'Level Three', 'Level Two'
+        ],
+        subjects: [
+            'Accounting', 'Art and Design', 'Bengali', 'Biology', 'Business', 'Chemistry',
+            'Chinese (Mandarin)', 'Citizenship Studies', 'Computer Science', 'Dance',
+            'Design and Technology', 'Drama', 'Economics', 'Engineering', 'English',
+            'Environmental Science', 'Food Preparation and Nutrition', 'French', 'Geography',
+            'German', 'Hebrew (Biblical)', 'Hebrew (Modern)', 'History', 'Italian', 'Law',
+            'Mathematics', 'Media Studies', 'Music', 'Panjabi', 'Philosophy', 
+            'Physical Education', 'Physics', 'Polish', 'Politics', 'Projects', 'Psychology',
+            'Religious Studies', 'Science', 'Sociology', 'Spanish', 'Urdu'
+        ],
+        specCodes: [
+            '1350', '1775', '1830', '5930', '5960', '5970', '7036', '7037', '7041', '7042',
+            '7061', '7062', '7127', '7131', '7132', '7135', '7136', '7137', '7138', '7152',
+            '7162', '7172', '7181', '7182', '7191', '7192', '7201', '7202', '7203', '7204',
+            '7205', '7206', '7237', '7262', '7272', '7356', '7357', '7366', '7367', '7401',
+            '7402', '7404', '7405', '7407', '7408', '7447', '7516', '7517', '7552', '7562',
+            '7572', '7582', '7637', '7651', '7652', '7661', '7662', '7672', '7677', '7682',
+            '7687', '7691', '7692', '7701', '7702', '7707', '7711', '7712', '7716', '7717',
+            '7991', '7992', '7993', '8035', '8061', '8062', '8063', '8100', '8132', '8136',
+            '8145', '8182', '8192', '8201', '8202', '8203', '8204', '8205', '8206', '8236',
+            '8261', '8271', '8300', '8361', '8362', '8365', '8382', '8461', '8462', '8463',
+            '8464', '8465', '8525', '8552', '8572', '8582', '8585', '8633', '8638', '8648',
+            '8652', '8658', '8662', '8668', '8673', '8678', '8683', '8688', '8692', '8698',
+            '8700', '8702', '8720', '8725', '8852', '8958', '8968', '8973', '8998'
+        ]
+    },
+    
+    renderAqaStep1() {
+        const qualLevelOptions = this.aqaData.qualificationLevels.map(q => 
+            `<option value="${q}">${q}</option>`
+        ).join('');
+        
+        const subjectOptions = this.aqaData.subjects.map(s => 
+            `<option value="${s}">${s}</option>`
+        ).join('');
+        
+        const specCodeOptions = this.aqaData.specCodes.map(c => 
+            `<option value="${c}">${c}</option>`
+        ).join('');
+        
+        const formHTML = `
+            <div id="scrapeWizardContent">
+                <div class="scrape-steps-indicator" style="display: flex; margin-bottom: 1.5rem; gap: 0.5rem;">
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #dcfce7; color: #16a34a; border-radius: 4px;">✓ AQA</div>
+                    <div class="step-indicator active" style="flex: 1; text-align: center; padding: 0.5rem; background: #3678AE; color: white; border-radius: 4px;">Build URL</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">Map Papers</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">Import</div>
+                </div>
+                
+                <!-- Tab switcher -->
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                    <button type="button" class="ghost-btn" id="tabBuilder" onclick="PastPapersSection.switchUrlTab('builder')" style="flex: 1; background: #3678AE; color: white;">Build URL</button>
+                    <button type="button" class="ghost-btn" id="tabManual" onclick="PastPapersSection.switchUrlTab('manual')" style="flex: 1;">Paste URL</button>
+                </div>
+                
+                <!-- URL Builder -->
+                <div id="urlBuilderSection">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="form-row">
+                            <label class="form-label">Qualification Level</label>
+                            <select class="scrape-mapping-select" id="aqaQualLevel" onchange="PastPapersSection.updateBuiltUrl()">
+                                <option value="">-- Any --</option>
+                                ${qualLevelOptions}
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label class="form-label">Subject</label>
+                            <select class="scrape-mapping-select" id="aqaSubject" onchange="PastPapersSection.updateBuiltUrl()">
+                                <option value="">-- Any --</option>
+                                ${subjectOptions}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom: 1rem;">
+                        <label class="form-label">Spec Code (optional)</label>
+                        <select class="scrape-mapping-select" id="aqaSpecCode" onchange="PastPapersSection.updateBuiltUrl()">
+                            <option value="">-- Any --</option>
+                            ${specCodeOptions}
+                        </select>
+                        <span class="form-hint">Filter by specific specification code (e.g., 8461 for GCSE Biology)</span>
+                    </div>
+                    <div class="form-row" style="margin-bottom: 1rem;">
+                        <label class="form-label">Generated URL</label>
+                        <input type="text" class="form-input" id="aqaBuiltUrl" readonly style="background: #f1f5f9; font-family: monospace; font-size: 0.85rem;">
+                    </div>
+                </div>
+                
+                <!-- Manual URL Input (hidden by default) -->
+                <div id="urlManualSection" style="display: none;">
+                    <div class="form-info" style="background: #e8f4fd; border: 1px solid #3678AE; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                        <p style="margin: 0; font-size: 0.9rem; color: #193659;">
+                            <strong>How to use:</strong><br>
+                            1. Go to <a href="https://www.aqa.org.uk/find-past-papers-and-mark-schemes" target="_blank" style="color: #3678AE;">AQA Past Papers</a><br>
+                            2. Filter by subject and qualification<br>
+                            3. Copy the URL from your browser<br>
+                            4. Paste it below
+                        </p>
+                    </div>
+                    <div class="form-row" style="margin-bottom: 1rem;">
+                        <label class="form-label">AQA URL</label>
+                        <input type="text" class="form-input" id="aqaManualUrl" placeholder="https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=GCSE+Biology" value="${this.scrapeState.url}">
+                    </div>
                 </div>
                 
                 <div id="scrapeError" style="display: none; padding: 1rem; background: #fef2f2; border-radius: 8px; color: #dc2626; margin-bottom: 1rem;"></div>
                 
                 <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end;">
-                    <button type="button" class="ghost-btn" onclick="UI.closeModal()">Cancel</button>
-                    <button type="button" class="primary-btn" id="scrapeBtn" onclick="PastPapersSection.handleScrapeUrl()">
+                    <button type="button" class="ghost-btn" onclick="PastPapersSection.renderScrapeStep0()">← Back</button>
+                    <button type="button" class="primary-btn" id="scrapeBtn" onclick="PastPapersSection.handleScrapeAqaUrl()">
                         <span id="scrapeBtnText">Scrape AQA</span>
                         <span id="scrapeBtnLoading" style="display: none;">
                             <span class="loading-spinner-small"></span> Scraping...
@@ -642,11 +799,82 @@ const PastPapersSection = {
             </div>
         `;
         
-        UI.openModal('Scrape AQA Past Papers', formHTML, 'large');
+        // Update modal content (modal is already open)
+        document.querySelector('.modal-body').innerHTML = formHTML;
+        
+        // Initialize the built URL
+        setTimeout(() => this.updateBuiltUrl(), 0);
     },
     
-    async handleScrapeUrl() {
-        const url = document.getElementById('aqaUrl').value.trim();
+    switchUrlTab(tab) {
+        const builderSection = document.getElementById('urlBuilderSection');
+        const manualSection = document.getElementById('urlManualSection');
+        const tabBuilder = document.getElementById('tabBuilder');
+        const tabManual = document.getElementById('tabManual');
+        
+        if (tab === 'builder') {
+            builderSection.style.display = 'block';
+            manualSection.style.display = 'none';
+            tabBuilder.style.background = '#3678AE';
+            tabBuilder.style.color = 'white';
+            tabManual.style.background = '';
+            tabManual.style.color = '';
+        } else {
+            builderSection.style.display = 'none';
+            manualSection.style.display = 'block';
+            tabBuilder.style.background = '';
+            tabBuilder.style.color = '';
+            tabManual.style.background = '#3678AE';
+            tabManual.style.color = 'white';
+        }
+        
+        this.scrapeState.urlMode = tab;
+    },
+    
+    updateBuiltUrl() {
+        const qualLevel = document.getElementById('aqaQualLevel')?.value || '';
+        const subject = document.getElementById('aqaSubject')?.value || '';
+        const specCode = document.getElementById('aqaSpecCode')?.value || '';
+        
+        let url = 'https://www.aqa.org.uk/find-past-papers-and-mark-schemes?';
+        const params = [];
+        
+        if (qualLevel) {
+            // AQA uses both variants (e.g., "A-Level" and "A-level"), so include both
+            const qualLevelVariant = qualLevel.replace('-L', '-l'); // A-Level -> A-level, AS Level -> AS level
+            if (qualLevel !== qualLevelVariant) {
+                params.push(`qualificationLevel=${encodeURIComponent(qualLevel + ';' + qualLevelVariant)}`);
+            } else {
+                params.push(`qualificationLevel=${encodeURIComponent(qualLevel)}`);
+            }
+        }
+        if (subject) {
+            params.push(`subject=${encodeURIComponent(subject)}`);
+        }
+        if (specCode) {
+            params.push(`specCode=${encodeURIComponent(specCode)}`);
+        }
+        
+        // Always add limit for better results
+        params.push('limit=500');
+        
+        url += params.join('&');
+        
+        const urlInput = document.getElementById('aqaBuiltUrl');
+        if (urlInput) {
+            urlInput.value = url;
+        }
+    },
+    
+    async handleScrapeAqaUrl() {
+        // Get URL from the correct source based on active tab
+        let url;
+        if (this.scrapeState.urlMode === 'manual') {
+            url = document.getElementById('aqaManualUrl')?.value.trim() || '';
+        } else {
+            url = document.getElementById('aqaBuiltUrl')?.value.trim() || '';
+        }
+        
         const errorDiv = document.getElementById('scrapeError');
         const btn = document.getElementById('scrapeBtn');
         const btnText = document.getElementById('scrapeBtnText');
@@ -654,7 +882,7 @@ const PastPapersSection = {
         
         // Validation
         if (!url) {
-            errorDiv.textContent = 'Please enter an AQA URL';
+            errorDiv.textContent = 'Please build or enter an AQA URL';
             errorDiv.style.display = 'block';
             return;
         }
@@ -700,10 +928,301 @@ const PastPapersSection = {
         }
     },
     
+    // OCR Step 1: Select Qualification Type and Subject
+    async renderOcrStep1() {
+        // First, fetch qualification types if not already loaded
+        if (this.scrapeState.ocrQualificationTypes.length === 0) {
+            document.querySelector('.modal-body').innerHTML = `
+                <div style="text-align: center; padding: 3rem;">
+                    <div class="loading-spinner" style="margin: 0 auto 1rem;"></div>
+                    <p style="color: #64748B;">Loading OCR qualification types...</p>
+                </div>
+            `;
+            
+            try {
+                const response = await API.scrapeOcrTypes();
+                if (!response.success) {
+                    throw new Error(response.error || 'Failed to load qualification types');
+                }
+                this.scrapeState.ocrQualificationTypes = response.qualification_types || [];
+            } catch (error) {
+                document.querySelector('.modal-body').innerHTML = `
+                    <div style="text-align: center; padding: 3rem;">
+                        <div style="color: #dc2626; margin-bottom: 1rem;">⚠️ ${error.message}</div>
+                        <button class="ghost-btn" onclick="PastPapersSection.renderScrapeStep0()">← Back</button>
+                    </div>
+                `;
+                return;
+            }
+        }
+        
+        const qualTypesOptions = this.scrapeState.ocrQualificationTypes.map(t =>
+            `<option value="${t.value}">${t.description}</option>`
+        ).join('');
+        
+        // Build qualifications dropdown (depends on selected type)
+        let qualificationsHTML = `
+            <div class="form-row" style="margin-bottom: 1rem;">
+                <label class="form-label">Subject / Qualification</label>
+                <select class="scrape-mapping-select" id="ocrQualification" disabled>
+                    <option value="">-- Select qualification type first --</option>
+                </select>
+                <span class="form-hint">Available qualifications will load after selecting a type</span>
+            </div>
+        `;
+        
+        // If type is already selected, show qualifications
+        if (this.scrapeState.ocrSelectedTypeId && this.scrapeState.ocrQualifications.length > 0) {
+            const groupedQualifications = this.scrapeState.ocrQualifications;
+            let qualOptions = '<option value="">-- Select a qualification --</option>';
+            
+            for (const group of groupedQualifications) {
+                if (group.qualifications && group.qualifications.length > 0) {
+                    qualOptions += `<optgroup label="${group.group_title}">`;
+                    for (const qual of group.qualifications) {
+                        const selected = qual.value === this.scrapeState.ocrSelectedQualificationId ? 'selected' : '';
+                        qualOptions += `<option value="${qual.value}" ${selected}>${qual.description}</option>`;
+                    }
+                    qualOptions += '</optgroup>';
+                }
+            }
+            
+            qualificationsHTML = `
+                <div class="form-row" style="margin-bottom: 1rem;">
+                    <label class="form-label">Subject / Qualification</label>
+                    <select class="scrape-mapping-select" id="ocrQualification" onchange="PastPapersSection.onOcrQualificationChange()">
+                        ${qualOptions}
+                    </select>
+                    <span class="form-hint">Select the specific qualification to scrape past papers for</span>
+                </div>
+            `;
+        }
+        
+        const formHTML = `
+            <div id="scrapeWizardContent">
+                <div class="scrape-steps-indicator" style="display: flex; margin-bottom: 1.5rem; gap: 0.5rem;">
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #dcfce7; color: #16a34a; border-radius: 4px;">✓ OCR</div>
+                    <div class="step-indicator active" style="flex: 1; text-align: center; padding: 0.5rem; background: #3678AE; color: white; border-radius: 4px;">Select Subject</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">Map Papers</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">Import</div>
+                </div>
+                
+                <div class="form-info" style="background: #e8f4fd; border: 1px solid #3678AE; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                    <p style="margin: 0; font-size: 0.9rem; color: #193659;">
+                        <strong>OCR Past Papers</strong><br>
+                        Select a qualification type (e.g., GCSE, A Level), then choose the specific subject to scrape past papers.
+                    </p>
+                </div>
+                
+                <div class="form-row" style="margin-bottom: 1rem;">
+                    <label class="form-label">Qualification Type</label>
+                    <select class="scrape-mapping-select" id="ocrQualType" onchange="PastPapersSection.onOcrQualTypeChange()">
+                        <option value="">-- Select qualification type --</option>
+                        ${qualTypesOptions}
+                    </select>
+                </div>
+                
+                <div id="ocrQualificationsContainer">
+                    ${qualificationsHTML}
+                </div>
+                
+                <div id="scrapeError" style="display: none; padding: 1rem; background: #fef2f2; border-radius: 8px; color: #dc2626; margin-bottom: 1rem;"></div>
+                
+                <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" class="ghost-btn" onclick="PastPapersSection.renderScrapeStep0()">← Back</button>
+                    <button type="button" class="primary-btn" id="scrapeBtn" onclick="PastPapersSection.handleScrapeOcr()">
+                        <span id="scrapeBtnText">Scrape OCR</span>
+                        <span id="scrapeBtnLoading" style="display: none;">
+                            <span class="loading-spinner-small"></span> Scraping...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.querySelector('.modal-body').innerHTML = formHTML;
+        
+        // Set selected type if already chosen
+        if (this.scrapeState.ocrSelectedTypeId) {
+            document.getElementById('ocrQualType').value = this.scrapeState.ocrSelectedTypeId;
+        }
+    },
+    
+    async onOcrQualTypeChange() {
+        const typeId = parseInt(document.getElementById('ocrQualType').value);
+        const container = document.getElementById('ocrQualificationsContainer');
+        
+        if (!typeId) {
+            this.scrapeState.ocrSelectedTypeId = null;
+            this.scrapeState.ocrQualifications = [];
+            container.innerHTML = `
+                <div class="form-row" style="margin-bottom: 1rem;">
+                    <label class="form-label">Subject / Qualification</label>
+                    <select class="scrape-mapping-select" id="ocrQualification" disabled>
+                        <option value="">-- Select qualification type first --</option>
+                    </select>
+                </div>
+            `;
+            return;
+        }
+        
+        this.scrapeState.ocrSelectedTypeId = typeId;
+        
+        // Show loading
+        container.innerHTML = `
+            <div class="form-row" style="margin-bottom: 1rem;">
+                <label class="form-label">Subject / Qualification</label>
+                <div style="padding: 0.5rem; color: #64748B;"><span class="loading-spinner-small" style="display: inline-block; margin-right: 0.5rem;"></span> Loading qualifications...</div>
+            </div>
+        `;
+        
+        try {
+            const response = await API.scrapeOcrQualifications(typeId);
+            if (!response.success) {
+                throw new Error(response.error || 'Failed to load qualifications');
+            }
+            
+            this.scrapeState.ocrQualifications = response.groups || [];
+            
+            // Build options
+            let qualOptions = '<option value="">-- Select a qualification --</option>';
+            
+            for (const group of this.scrapeState.ocrQualifications) {
+                if (group.qualifications && group.qualifications.length > 0) {
+                    qualOptions += `<optgroup label="${group.group_title}">`;
+                    for (const qual of group.qualifications) {
+                        qualOptions += `<option value="${qual.value}">${qual.description}</option>`;
+                    }
+                    qualOptions += '</optgroup>';
+                }
+            }
+            
+            container.innerHTML = `
+                <div class="form-row" style="margin-bottom: 1rem;">
+                    <label class="form-label">Subject / Qualification</label>
+                    <select class="scrape-mapping-select" id="ocrQualification" onchange="PastPapersSection.onOcrQualificationChange()">
+                        ${qualOptions}
+                    </select>
+                    <span class="form-hint">Select the specific qualification to scrape past papers for</span>
+                </div>
+            `;
+            
+        } catch (error) {
+            container.innerHTML = `
+                <div class="form-row" style="margin-bottom: 1rem;">
+                    <label class="form-label">Subject / Qualification</label>
+                    <div style="padding: 0.5rem; color: #dc2626;">Error: ${error.message}</div>
+                </div>
+            `;
+        }
+    },
+    
+    onOcrQualificationChange() {
+        const qualId = parseInt(document.getElementById('ocrQualification').value);
+        this.scrapeState.ocrSelectedQualificationId = qualId || null;
+    },
+    
+    async handleScrapeOcr() {
+        const qualificationId = this.scrapeState.ocrSelectedQualificationId;
+        
+        const errorDiv = document.getElementById('scrapeError');
+        const btn = document.getElementById('scrapeBtn');
+        const btnText = document.getElementById('scrapeBtnText');
+        const btnLoading = document.getElementById('scrapeBtnLoading');
+        
+        // Validation
+        if (!qualificationId) {
+            errorDiv.textContent = 'Please select a qualification type and subject';
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        // Show loading state
+        errorDiv.style.display = 'none';
+        btn.disabled = true;
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline-flex';
+        
+        try {
+            const response = await API.scrapeOcr(qualificationId);
+            
+            if (!response.success) {
+                throw new Error(response.error || response.message || 'Scraping failed');
+            }
+            
+            // Store response data
+            this.scrapeState.scrapeData = response;
+            
+            // Check if we have data to work with
+            if (!response.discovered_papers?.length && Object.keys(response.grouped_papers || {}).length === 0) {
+                throw new Error('No papers found for this qualification. Try a different subject.');
+            }
+            
+            // Proceed to step 2
+            this.scrapeState.step = 2;
+            this.renderScrapeStep2();
+            
+        } catch (error) {
+            errorDiv.textContent = error.message;
+            errorDiv.style.display = 'block';
+            btn.disabled = false;
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+        }
+    },
+    
+    goBackToStep1() {
+        this.scrapeState.step = 1;
+        this.scrapeState.paperMapping = {};
+        
+        if (this.scrapeState.scraperType === 'aqa') {
+            this.renderAqaStep1();
+        } else if (this.scrapeState.scraperType === 'ocr') {
+            this.renderOcrStep1();
+        }
+    },
+    
+    // Normalize grouped_papers format to be consistent between AQA and OCR
+    // AQA returns: { tier: { paper: [items] } }
+    // OCR returns: { paper: [items] } (with tier info in each item)
+    // This normalizes both to: { tier: { paper: [items] } }
+    normalizeGroupedPapers(groupedPapers, scraperType) {
+        if (scraperType === 'aqa') {
+            // AQA is already in the correct format
+            return groupedPapers;
+        } else if (scraperType === 'ocr') {
+            // OCR format: { paper: [items with optional tier field] }
+            // Need to restructure into: { tier: { paper: [items] } }
+            const normalized = {};
+            
+            for (const [paperName, items] of Object.entries(groupedPapers)) {
+                for (const item of items) {
+                    // OCR items may have tier field (null if no tier)
+                    const tierName = item.tier || 'No Tier';
+                    
+                    if (!normalized[tierName]) {
+                        normalized[tierName] = {};
+                    }
+                    if (!normalized[tierName][paperName]) {
+                        normalized[tierName][paperName] = [];
+                    }
+                    normalized[tierName][paperName].push(item);
+                }
+            }
+            
+            return normalized;
+        }
+        
+        return groupedPapers;
+    },
+    
     renderScrapeStep2() {
         const data = this.scrapeState.scrapeData;
         const stats = data.stats || {};
-        const groupedPapers = data.grouped_papers || {};
+        const rawGroupedPapers = data.grouped_papers || {};
+        
+        // Normalize the grouped papers structure
+        const groupedPapers = this.normalizeGroupedPapers(rawGroupedPapers, this.scrapeState.scraperType);
         
         // Get DB tiers and ALL papers for this course (from scrapeState.allPapers, not AppState.papers)
         const dbTiers = AppState.tiers.filter(t => t.is_active);
@@ -827,9 +1346,10 @@ const PastPapersSection = {
         const formHTML = `
             <div id="scrapeWizardContent">
                 <div class="scrape-steps-indicator" style="display: flex; margin-bottom: 1.5rem; gap: 0.5rem;">
-                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #dcfce7; color: #16a34a; border-radius: 4px;">✓ 1. Enter URL</div>
-                    <div class="step-indicator active" style="flex: 1; text-align: center; padding: 0.5rem; background: #3678AE; color: white; border-radius: 4px;">2. Map Papers</div>
-                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">3. Review & Import</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #dcfce7; color: #16a34a; border-radius: 4px;">✓ ${this.scrapeState.scraperType.toUpperCase()}</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #dcfce7; color: #16a34a; border-radius: 4px;">✓ Query</div>
+                    <div class="step-indicator active" style="flex: 1; text-align: center; padding: 0.5rem; background: #3678AE; color: white; border-radius: 4px;">Map Papers</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">Import</div>
                 </div>
                 
                 <!-- Stats Summary -->
@@ -856,7 +1376,7 @@ const PastPapersSection = {
                 <div id="mappingError" style="display: none; padding: 1rem; background: #fef2f2; border-radius: 8px; color: #dc2626; margin-bottom: 1rem;"></div>
                 
                 <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end;">
-                    <button type="button" class="ghost-btn" onclick="PastPapersSection.renderScrapeStep1()">← Back</button>
+                    <button type="button" class="ghost-btn" onclick="PastPapersSection.goBackToStep1()">← Back</button>
                     <button type="button" class="primary-btn" onclick="PastPapersSection.handleMappingComplete()">Continue →</button>
                 </div>
             </div>
@@ -911,7 +1431,8 @@ const PastPapersSection = {
     
     generatePastPapersList() {
         const data = this.scrapeState.scrapeData;
-        const groupedPapers = data.grouped_papers || {};
+        const rawGroupedPapers = data.grouped_papers || {};
+        const groupedPapers = this.normalizeGroupedPapers(rawGroupedPapers, this.scrapeState.scraperType);
         const paperMapping = this.scrapeState.paperMapping;
         
         this.scrapeState.pastPapersToImport = [];
@@ -967,9 +1488,10 @@ const PastPapersSection = {
         const formHTML = `
             <div id="scrapeWizardContent">
                 <div class="scrape-steps-indicator" style="display: flex; margin-bottom: 1.5rem; gap: 0.5rem;">
-                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #dcfce7; color: #16a34a; border-radius: 4px;">✓ 1. Enter URL</div>
-                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #dcfce7; color: #16a34a; border-radius: 4px;">✓ 2. Map Tiers/Papers</div>
-                    <div class="step-indicator active" style="flex: 1; text-align: center; padding: 0.5rem; background: #3678AE; color: white; border-radius: 4px;">3. Review & Import</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #dcfce7; color: #16a34a; border-radius: 4px;">✓ ${this.scrapeState.scraperType.toUpperCase()}</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #dcfce7; color: #16a34a; border-radius: 4px;">✓ Query</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #dcfce7; color: #16a34a; border-radius: 4px;">✓ Mapped</div>
+                    <div class="step-indicator active" style="flex: 1; text-align: center; padding: 0.5rem; background: #3678AE; color: white; border-radius: 4px;">Import</div>
                 </div>
                 
                 <!-- Selection Controls -->

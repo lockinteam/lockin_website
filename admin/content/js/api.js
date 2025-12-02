@@ -286,6 +286,19 @@ const API = {
         return this.request('/admin/past_papers/scrape_aqa', 'POST', { url });
     },
     
+    // OCR Scraper
+    async scrapeOcrTypes() {
+        return this.request('/admin/past_papers/scrape_ocr/types', 'POST', {});
+    },
+    
+    async scrapeOcrQualifications(typeId) {
+        return this.request('/admin/past_papers/scrape_ocr/qualifications', 'POST', { type_id: typeId });
+    },
+    
+    async scrapeOcr(qualificationId) {
+        return this.request('/admin/past_papers/scrape_ocr', 'POST', { qualification_id: qualificationId });
+    },
+    
     async bulkCreatePastPapers(paperId, pastPapers) {
         return this.request('/admin/past_papers/bulk_create', 'POST', { 
             paper_id: paperId, 
