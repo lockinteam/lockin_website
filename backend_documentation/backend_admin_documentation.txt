@@ -7170,6 +7170,7 @@ The following admin endpoints are planned for future implementation:
 - ✅ POST /admin/generate/list - List all generation tasks - COMPLETE
 - ✅ DELETE /admin/generate/cancel - Cancel running task - COMPLETE
 - ✅ DELETE /admin/generate/delete - Delete task (with optional content deletion) - COMPLETE
+- ✅ POST /admin/generate/individual - Generate notes/questions for specific topics - COMPLETE
 - ✅ POST /admin/generate/prompts/fetch - Fetch AI prompts - COMPLETE
 - ✅ PUT /admin/generate/prompts/edit - Edit AI prompts - COMPLETE
 
@@ -8173,6 +8174,235 @@ DELETE /admin/generate/delete
 
 **Testing:**
 See `tests/test_admin_generate_delete.py` for comprehensive test suite (3 tests, all passing).
+
+---
+
+### POST /admin/generate/individual
+
+Generate notes and/or questions for specific topics individually.
+
+**Authentication:** Admin or Owner required
+
+**Purpose:** Regenerate or generate content for specific topics without running a full course generation. Useful for:
+- Regenerating failed topic content
+- Updating content for specific topics
+- Testing generation with individual topics
+- Adding content to manually-created topics
+
+**Rate Limit:** 10 requests per minute
+
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "topic_ids": ["uuid1", "uuid2"],  // Required: array of topic UUIDs
+  "generate_notes": true,           // Optional: generate notes (default: false)
+  "generate_questions": true,       // Optional: generate questions (default: false)
+  "replace_existing": false         // Optional: delete existing content first (default: false)
+}
+```
+
+**Required Fields:**
+- `token`: Admin session token
+- `topic_ids`: Array of one or more topic UUIDs (non-empty)
+
+**Optional Fields:**
+- `generate_notes`: Boolean - generate notes for topics
+- `generate_questions`: Boolean - generate questions for topics
+- `replace_existing`: Boolean - if true, deletes existing notes/questions before generating new ones
+
+**Validation Rules:**
+1. At least one topic_id required
+2. At least one of `generate_notes` or `generate_questions` must be true
+3. All topics must belong to the same course
+4. Course must have a `link_to_specification` URL (PDF)
+5. Topics must exist and be active
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Individual content generation completed",
+  "data": {
+    "course_id": "course-uuid",
+    "course_title": "GCSE Computer Science",
+    "topics_processed": 2,
+    "notes_generated": 2,
+    "questions_generated": 2,
+    "total_questions": 10,
+    "errors": 0,
+    "results": [
+      {
+        "topic_id": "uuid1",
+        "topic_name": "Data Types",
+        "tier_title": "Foundation",
+        "notes_generated": true,
+        "questions_generated": true,
+        "questions_count": 5,
+        "error": null
+      },
+      {
+        "topic_id": "uuid2",
+        "topic_name": "Variables",
+        "tier_title": "Foundation",
+        "notes_generated": true,
+        "questions_generated": true,
+        "questions_count": 5,
+        "error": null
+      }
+    ],
+    "total_api_calls": 4
+  }
+}
+```
+
+**Error Responses:**
+
+400 Bad Request (missing token):
+```json
+{
+  "success": false,
+  "message": "Missing required field: token"
+}
+```
+
+400 Bad Request (missing topic_ids):
+```json
+{
+  "success": false,
+  "message": "Missing required field: topic_ids (must be non-empty array)"
+}
+```
+
+400 Bad Request (no generation option):
+```json
+{
+  "success": false,
+  "message": "At least one of generate_notes or generate_questions must be true"
+}
+```
+
+400 Bad Request (topics from different courses):
+```json
+{
+  "success": false,
+  "message": "All topics must belong to the same course"
+}
+```
+
+400 Bad Request (no specification URL):
+```json
+{
+  "success": false,
+  "message": "Course does not have a specification URL. Cannot generate content without specification."
+}
+```
+
+403 Forbidden:
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+404 Not Found:
+```json
+{
+  "success": false,
+  "message": "No topics found with the provided IDs"
+}
+```
+
+500 Internal Server Error (no prompt configured):
+```json
+{
+  "success": false,
+  "message": "No notes prompt found in database"
+}
+```
+
+**Features:**
+- **Selective Generation**: Choose to generate only notes, only questions, or both
+- **Multi-Topic Support**: Process multiple topics in a single request
+- **Replace Mode**: Option to delete existing content before regenerating
+- **Async Processing**: Uses the same rate-limited async generation as full course generation
+- **Detailed Results**: Per-topic success/failure reporting
+- **Reuses Existing System**: Leverages `submit_async_note_generation` and `submit_async_question_generation` from the main generator
+
+**Process Flow:**
+1. Validate admin authentication
+2. Fetch topics with their tier/course context
+3. Verify all topics are from same course
+4. Check course has specification URL
+5. Delete existing content if `replace_existing=true`
+6. Get active prompts from `generation_prompts` table
+7. Submit async generation requests with rate limiting
+8. Wait for all generations to complete
+9. Store generated content in database
+10. Return detailed results
+
+**Use Cases:**
+
+1. **Regenerate failed content**:
+   - A topic failed during full generation
+   - Use individual generation to retry just that topic
+
+2. **Update specific topics**:
+   - Content needs updating for specific topics
+   - Set `replace_existing=true` to regenerate
+
+3. **Add content to new topics**:
+   - Manually created a new topic for an existing course
+   - Generate notes and questions for just that topic
+
+4. **Testing prompts**:
+   - Test new prompts with a single topic before full generation
+   - Quick iteration on prompt quality
+
+**Example Usage:**
+
+```bash
+# Generate notes only for one topic
+curl -X POST http://localhost:5000/admin/generate/individual \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "admin_token",
+    "topic_ids": ["topic-uuid-1"],
+    "generate_notes": true
+  }'
+
+# Generate questions only for multiple topics
+curl -X POST http://localhost:5000/admin/generate/individual \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "admin_token",
+    "topic_ids": ["topic-uuid-1", "topic-uuid-2"],
+    "generate_questions": true
+  }'
+
+# Regenerate both notes and questions, replacing existing
+curl -X POST http://localhost:5000/admin/generate/individual \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "admin_token",
+    "topic_ids": ["topic-uuid-1"],
+    "generate_notes": true,
+    "generate_questions": true,
+    "replace_existing": true
+  }'
+```
+
+**Important Notes:**
+- Topics must have been created (typically by the full generation process)
+- The course must have a valid specification PDF URL
+- Rate limiting applies (10 requests per minute)
+- Each topic requires 1 API call per content type (notes/questions)
+- Generation is synchronous - the request waits for all content to be generated
+- If some topics fail, others will still succeed (partial success possible)
+
+**Testing:**
+See `tests/test_admin_generate_individual.py` for comprehensive test suite.
 
 ---
 

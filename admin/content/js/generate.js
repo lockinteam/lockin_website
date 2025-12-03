@@ -775,6 +775,12 @@ const GenerateSection = {
                     ` : ''}
                     
                     <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: flex-end;">
+                        ${taskData.course_id && (taskData.status === 'completed' || taskData.status === 'failed') ? `
+                            <button class="action-btn" onclick="GenerateSection.openIndividualGenerateModal('${taskData.course_id}', '${UI.escapeHtml(taskData.course_title || 'Course')}')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                Generate for Topics
+                            </button>
+                        ` : ''}
                         <button class="action-btn action-btn-secondary" onclick="UI.closeModal()">Close</button>
                     </div>
                 </div>
@@ -788,6 +794,357 @@ const GenerateSection = {
         }
     },
     
+    // Individual Topic Generation
+    async openIndividualGenerateModal(courseId, courseTitle) {
+        UI.closeModal();
+        
+        // Show loading modal
+        UI.openModal('Generate for Topics', `
+            <div style="text-align: center; padding: 2rem;">
+                <div class="loading-spinner" style="margin: 0 auto 1rem;"></div>
+                <p style="color: #64748B;">Loading topics for ${UI.escapeHtml(courseTitle)}...</p>
+            </div>
+        `);
+        
+        try {
+            // Load tiers for this course
+            const tiersData = await API.getTiers(courseId, false);
+            const tiers = tiersData.data?.tiers || [];
+            
+            if (tiers.length === 0) {
+                UI.openModal('Generate for Topics', `
+                    <div class="content-empty" style="padding: 2rem;">
+                        <h3>No Tiers Found</h3>
+                        <p>This course doesn't have any tiers with topics yet.</p>
+                        <button class="action-btn action-btn-secondary" onclick="UI.closeModal()">Close</button>
+                    </div>
+                `);
+                return;
+            }
+            
+            // Load topics for each tier
+            const tiersWithTopics = [];
+            for (const tier of tiers) {
+                const topicsData = await API.getTopics({ tierId: tier.id }, true);
+                tiersWithTopics.push({
+                    ...tier,
+                    topics: topicsData.data?.topics || []
+                });
+            }
+            
+            // Check if there are any topics at all
+            const totalTopics = tiersWithTopics.reduce((sum, t) => sum + t.topics.length, 0);
+            if (totalTopics === 0) {
+                UI.openModal('Generate for Topics', `
+                    <div class="content-empty" style="padding: 2rem;">
+                        <h3>No Topics Found</h3>
+                        <p>This course doesn't have any topics yet.</p>
+                        <button class="action-btn action-btn-secondary" onclick="UI.closeModal()">Close</button>
+                    </div>
+                `);
+                return;
+            }
+            
+            // Build the modal content
+            this.renderIndividualGenerateModal(courseId, courseTitle, tiersWithTopics);
+            
+        } catch (error) {
+            console.error('Error loading topics:', error);
+            UI.showToast('Failed to load topics: ' + error.message, 'error');
+            UI.closeModal();
+        }
+    },
+    
+    renderIndividualGenerateModal(courseId, courseTitle, tiersWithTopics) {
+        // Build tier sections with topics
+        let tiersHTML = '';
+        for (const tier of tiersWithTopics) {
+            if (tier.topics.length === 0) continue;
+            
+            const topicsHTML = tier.topics.map(topic => {
+                const notesCount = topic.notes_count || 0;
+                const questionsCount = topic.questions_count || 0;
+                const hasContent = notesCount > 0 || questionsCount > 0;
+                
+                return `
+                    <label class="individual-topic-item ${hasContent ? 'has-content' : 'no-content'}">
+                        <input type="checkbox" name="topicIds" value="${topic.id}" class="topic-checkbox">
+                        <div class="topic-info">
+                            <span class="topic-name">${UI.escapeHtml(topic.name)}</span>
+                            <div class="topic-stats">
+                                <span class="stat ${notesCount > 0 ? 'has' : 'empty'}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                                    ${notesCount} notes
+                                </span>
+                                <span class="stat ${questionsCount > 0 ? 'has' : 'empty'}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                    ${questionsCount} questions
+                                </span>
+                            </div>
+                        </div>
+                    </label>
+                `;
+            }).join('');
+            
+            tiersHTML += `
+                <div class="tier-section">
+                    <div class="tier-header">
+                        <label class="tier-select-all">
+                            <input type="checkbox" class="tier-checkbox" data-tier="${tier.id}" onchange="GenerateSection.toggleTierTopics(this, '${tier.id}')">
+                            <span class="tier-title">${UI.escapeHtml(tier.title)}</span>
+                            <span class="tier-count">(${tier.topics.length} topics)</span>
+                        </label>
+                    </div>
+                    <div class="tier-topics" id="tier-topics-${tier.id}">
+                        ${topicsHTML}
+                    </div>
+                </div>
+            `;
+        }
+        
+        const formHTML = `
+            <form id="individualGenerateForm" onsubmit="GenerateSection.handleIndividualGenerate(event); return false;">
+                <h2>Generate Content for Topics</h2>
+                <p class="form-description">Select specific topics to generate notes and/or questions for <strong>${UI.escapeHtml(courseTitle)}</strong>.</p>
+                
+                <div class="individual-gen-options" style="margin-bottom: 1.5rem;">
+                    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                        <label class="option-checkbox">
+                            <input type="checkbox" name="generateNotes" id="genNotes" checked>
+                            <span>Generate Notes</span>
+                        </label>
+                        <label class="option-checkbox">
+                            <input type="checkbox" name="generateQuestions" id="genQuestions" checked>
+                            <span>Generate Questions</span>
+                        </label>
+                        <label class="option-checkbox warning">
+                            <input type="checkbox" name="replaceExisting" id="replaceExisting">
+                            <span>Replace Existing Content</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="selection-controls" style="margin-bottom: 1rem; display: flex; gap: 0.5rem;">
+                    <button type="button" class="action-btn action-btn-secondary" onclick="GenerateSection.selectAllTopics(true)" style="font-size: 0.85rem; padding: 0.4rem 0.75rem;">Select All</button>
+                    <button type="button" class="action-btn action-btn-secondary" onclick="GenerateSection.selectAllTopics(false)" style="font-size: 0.85rem; padding: 0.4rem 0.75rem;">Deselect All</button>
+                    <button type="button" class="action-btn action-btn-secondary" onclick="GenerateSection.selectTopicsWithoutContent()" style="font-size: 0.85rem; padding: 0.4rem 0.75rem;">Select Without Content</button>
+                    <span class="selection-count" id="selectionCount" style="margin-left: auto; font-size: 0.9rem; color: var(--color-grey-text);">0 topics selected</span>
+                </div>
+                
+                <div class="topics-container" style="max-height: 400px; overflow-y: auto; border: 1px solid rgba(187, 202, 220, 0.5); border-radius: 10px; padding: 0.5rem;">
+                    ${tiersHTML}
+                </div>
+                
+                <div style="padding: 1rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px; margin-top: 1rem; border-left: 4px solid rgb(245, 158, 11);">
+                    <strong style="color: rgb(180, 120, 0);">⚠️ Note:</strong>
+                    <ul style="margin: 0.5rem 0 0 1.5rem; line-height: 1.6; font-size: 0.875rem;">
+                        <li>Generation is synchronous and may take several minutes</li>
+                        <li>If "Replace Existing" is checked, current content will be deleted first</li>
+                        <li>Rate limited to 10 requests per minute</li>
+                    </ul>
+                </div>
+                
+                ${UI.createModalActions(
+                    'UI.closeModal()',
+                    'document.getElementById("individualGenerateForm").requestSubmit()',
+                    'Start Generation',
+                    false
+                )}
+            </form>
+        `;
+        
+        const modalContent = document.getElementById('modalContent');
+        if (modalContent) {
+            modalContent.innerHTML = formHTML;
+        } else {
+            UI.openModal('Generate for Topics', formHTML);
+        }
+        
+        // Add change listeners to update selection count
+        this.setupTopicSelectionListeners();
+    },
+    
+    setupTopicSelectionListeners() {
+        const checkboxes = document.querySelectorAll('.topic-checkbox');
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', () => this.updateSelectionCount());
+        });
+        this.updateSelectionCount();
+    },
+    
+    updateSelectionCount() {
+        const checked = document.querySelectorAll('.topic-checkbox:checked').length;
+        const countEl = document.getElementById('selectionCount');
+        if (countEl) {
+            countEl.textContent = `${checked} topic${checked !== 1 ? 's' : ''} selected`;
+        }
+    },
+    
+    toggleTierTopics(tierCheckbox, tierId) {
+        const tierContainer = document.getElementById(`tier-topics-${tierId}`);
+        if (!tierContainer) return;
+        
+        const topicCheckboxes = tierContainer.querySelectorAll('.topic-checkbox');
+        topicCheckboxes.forEach(cb => {
+            cb.checked = tierCheckbox.checked;
+        });
+        this.updateSelectionCount();
+    },
+    
+    selectAllTopics(select) {
+        const checkboxes = document.querySelectorAll('.topic-checkbox');
+        checkboxes.forEach(cb => cb.checked = select);
+        
+        // Also update tier checkboxes
+        const tierCheckboxes = document.querySelectorAll('.tier-checkbox');
+        tierCheckboxes.forEach(cb => cb.checked = select);
+        
+        this.updateSelectionCount();
+    },
+    
+    selectTopicsWithoutContent() {
+        const items = document.querySelectorAll('.individual-topic-item');
+        items.forEach(item => {
+            const checkbox = item.querySelector('.topic-checkbox');
+            if (checkbox) {
+                checkbox.checked = item.classList.contains('no-content');
+            }
+        });
+        
+        // Update tier checkboxes based on their topics
+        const tierCheckboxes = document.querySelectorAll('.tier-checkbox');
+        tierCheckboxes.forEach(tierCb => {
+            const tierId = tierCb.dataset.tier;
+            const tierContainer = document.getElementById(`tier-topics-${tierId}`);
+            if (tierContainer) {
+                const topicCbs = tierContainer.querySelectorAll('.topic-checkbox');
+                const allChecked = Array.from(topicCbs).every(cb => cb.checked);
+                tierCb.checked = allChecked && topicCbs.length > 0;
+            }
+        });
+        
+        this.updateSelectionCount();
+    },
+    
+    async handleIndividualGenerate(event) {
+        event.preventDefault();
+        
+        // Get selected topics
+        const selectedTopics = Array.from(document.querySelectorAll('.topic-checkbox:checked')).map(cb => cb.value);
+        
+        if (selectedTopics.length === 0) {
+            UI.showToast('Please select at least one topic', 'error');
+            return;
+        }
+        
+        // Get options
+        const generateNotes = document.getElementById('genNotes')?.checked || false;
+        const generateQuestions = document.getElementById('genQuestions')?.checked || false;
+        const replaceExisting = document.getElementById('replaceExisting')?.checked || false;
+        
+        if (!generateNotes && !generateQuestions) {
+            UI.showToast('Please select at least one content type to generate', 'error');
+            return;
+        }
+        
+        // Confirm if replacing existing content
+        if (replaceExisting) {
+            if (!UI.confirm(`⚠️ WARNING: This will DELETE existing content for ${selectedTopics.length} topic(s) before regenerating.\\n\\nAre you sure you want to continue?`)) {
+                return;
+            }
+        }
+        
+        try {
+            UI.closeModal();
+            UI.showLoading(`Generating content for ${selectedTopics.length} topic(s)... This may take several minutes.`);
+            
+            const result = await API.generateIndividual(selectedTopics, {
+                generateNotes,
+                generateQuestions,
+                replaceExisting
+            });
+            
+            // Show results
+            const data = result.data;
+            const successCount = data.results?.filter(r => !r.error).length || 0;
+            const errorCount = data.errors || 0;
+            
+            if (errorCount === 0) {
+                UI.showToast(`Successfully generated content for ${successCount} topic(s). Notes: ${data.notes_generated}, Questions: ${data.total_questions}`, 'success');
+            } else {
+                UI.showToast(`Completed with ${errorCount} error(s). Notes: ${data.notes_generated}, Questions: ${data.total_questions}`, 'warning');
+            }
+            
+            // Show detailed results modal
+            this.showIndividualGenerateResults(data);
+            
+        } catch (error) {
+            console.error('Individual generation error:', error);
+            UI.showToast('Generation failed: ' + error.message, 'error');
+        }
+    },
+    
+    showIndividualGenerateResults(data) {
+        const results = data.results || [];
+        
+        const resultsHTML = results.map(r => {
+            const statusClass = r.error ? 'error' : 'success';
+            const statusIcon = r.error 
+                ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            
+            return `
+                <div class="result-item ${statusClass}">
+                    <span class="result-icon">${statusIcon}</span>
+                    <div class="result-info">
+                        <span class="result-topic">${UI.escapeHtml(r.topic_name)}</span>
+                        <span class="result-tier">${UI.escapeHtml(r.tier_title || '')}</span>
+                    </div>
+                    <div class="result-details">
+                        ${r.error ? `<span class="error-text">${UI.escapeHtml(r.error)}</span>` : `
+                            ${r.notes_generated ? '<span class="gen-badge notes">Notes ✓</span>' : ''}
+                            ${r.questions_generated ? `<span class="gen-badge questions">${r.questions_count} Questions</span>` : ''}
+                        `}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        const modalHTML = `
+            <div class="individual-results">
+                <h2>Generation Results</h2>
+                <div class="results-summary">
+                    <div class="summary-stat">
+                        <span class="stat-value">${data.topics_processed || 0}</span>
+                        <span class="stat-label">Topics Processed</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="stat-value">${data.notes_generated || 0}</span>
+                        <span class="stat-label">Notes Generated</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="stat-value">${data.total_questions || 0}</span>
+                        <span class="stat-label">Questions Generated</span>
+                    </div>
+                    <div class="summary-stat ${data.errors > 0 ? 'has-errors' : ''}">
+                        <span class="stat-value">${data.errors || 0}</span>
+                        <span class="stat-label">Errors</span>
+                    </div>
+                </div>
+                
+                <div class="results-list" style="max-height: 300px; overflow-y: auto; margin-top: 1rem;">
+                    ${resultsHTML}
+                </div>
+                
+                <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+                    <button class="action-btn action-btn-secondary" onclick="UI.closeModal()">Close</button>
+                </div>
+            </div>
+        `;
+        
+        UI.openModal('Generation Results', modalHTML);
+    },
+
     async handleCancel(taskId) {
         if (!UI.confirm('Are you sure you want to cancel this generation task? Partial progress will be preserved.')) {
             return;

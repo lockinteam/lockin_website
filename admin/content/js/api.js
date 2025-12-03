@@ -443,7 +443,16 @@ const API = {
             tiers: courseInfo.tiers
         });
     },
-    
+
+    async generateIndividual(topicIds, options = {}) {
+        return await this.request('/admin/generate/individual', 'POST', {
+            topic_ids: topicIds,
+            generate_notes: options.generateNotes || false,
+            generate_questions: options.generateQuestions || false,
+            replace_existing: options.replaceExisting || false
+        });
+    },
+
     async getGenerateStatus(taskId) {
         const response = await this.request('/admin/generate/status', 'POST', {
             task_id: taskId
