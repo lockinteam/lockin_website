@@ -167,16 +167,25 @@ const API = {
     },
     
     // Topics
-    async getTopics(paperId, includeInactive = false) {
-        return this.request('/admin/topics', 'POST', { paper_id: paperId, include_inactive: includeInactive });
+    // Topics now belong to tiers, not papers directly
+    // Can filter by tier_id, course_id, or paper_id
+    async getTopics(filters = {}, includeInactive = false) {
+        const body = { include_inactive: includeInactive };
+        if (filters.tierId) body.tier_id = filters.tierId;
+        if (filters.courseId) body.course_id = filters.courseId;
+        if (filters.paperId) body.paper_id = filters.paperId;
+        return this.request('/admin/topics', 'POST', body);
     },
     
     async getTopic(topicId) {
         return this.request('/admin/topics/get', 'POST', { topic_id: topicId });
     },
     
-    async createTopic(paperId, name, sortOrder = 0) {
-        return this.request('/admin/topics/create', 'POST', { paper_id: paperId, name, sort_order: sortOrder });
+    // Topics are created with tier_id (required), optionally linked to papers
+    async createTopic(tierId, name, sortOrder = 0, paperIds = []) {
+        const body = { tier_id: tierId, name, sort_order: sortOrder };
+        if (paperIds && paperIds.length > 0) body.paper_ids = paperIds;
+        return this.request('/admin/topics/create', 'POST', body);
     },
     
     async updateTopic(topicId, updates) {
@@ -185,6 +194,15 @@ const API = {
     
     async deleteTopic(topicId) {
         return this.request('/admin/topics/delete', 'DELETE', { topic_id: topicId });
+    },
+    
+    // Link/unlink topics from papers (many-to-many relationship)
+    async linkTopicToPaper(topicId, paperId, sortOrder = 0) {
+        return this.request('/admin/topics/link', 'POST', { topic_id: topicId, paper_id: paperId, sort_order: sortOrder });
+    },
+    
+    async unlinkTopicFromPaper(topicId, paperId) {
+        return this.request('/admin/topics/unlink', 'DELETE', { topic_id: topicId, paper_id: paperId });
     },
     
     // Notes

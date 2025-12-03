@@ -43,17 +43,14 @@ const QuestionsSection = {
                 AppState.setPapers(papersData.data.papers || []);
             }
             
-            // Check if a paper is selected
-            if (!AppState.filters.questions.paperId) {
-                this.renderPaperSelection();
-                return;
+            // Load topics for selected tier (topics now belong to tiers)
+            // Topics can be filtered by paper optionally
+            const filters = { tierId: AppState.filters.questions.tierId };
+            if (AppState.filters.questions.paperId) {
+                filters.paperId = AppState.filters.questions.paperId;
             }
-            
-            // Load topics for selected paper if not loaded
-            if (AppState.topics.length === 0 || AppState.topics[0]?.paper_id !== AppState.filters.questions.paperId) {
-                const topicsData = await API.getTopics(AppState.filters.questions.paperId, false);
-                AppState.setTopics(topicsData.data.topics || []);
-            }
+            const topicsData = await API.getTopics(filters, false);
+            AppState.setTopics(topicsData.data.topics || []);
             
             // Check if a topic is selected
             if (!AppState.filters.questions.topicId) {
@@ -1162,25 +1159,25 @@ const QuestionsSection = {
         `);
         
         try {
-            // Get all papers for this course/tier
-            const papersData = await API.getPapers(
-                courseId,
-                level === 'tier' || level === 'paper' ? tierId : null,
-                true // include inactive
-            );
-            let papers = papersData.data.papers || [];
+            // Get all tiers for this course
+            const tiersData = await API.getTiers(courseId, true);
+            let tiers = tiersData.data.tiers || [];
             
-            // If paper level, filter to just that paper
-            if (level === 'paper' && paperId) {
-                papers = papers.filter(p => p.id === paperId);
+            // If tier or paper level, filter to just that tier
+            if ((level === 'tier' || level === 'paper') && tierId) {
+                tiers = tiers.filter(t => t.id === tierId);
             }
             
-            // Fetch questions for each topic in each paper
+            // Fetch questions for each topic in each tier
             let allQuestions = [];
-            for (const paper of papers) {
+            for (const tier of tiers) {
                 try {
-                    // Get topics for this paper
-                    const topicsData = await API.getTopics(paper.id, true);
+                    // Get topics for this tier (optionally filtered by paper)
+                    const filters = { tierId: tier.id };
+                    if (level === 'paper' && paperId) {
+                        filters.paperId = paperId;
+                    }
+                    const topicsData = await API.getTopics(filters, true);
                     const topics = topicsData.data.topics || [];
                     
                     for (const topic of topics) {
@@ -1189,8 +1186,7 @@ const QuestionsSection = {
                             const questions = (qData.data.questions || []).map(q => ({
                                 ...q,
                                 topic_name: topic.name,
-                                paper_name: paper.name,
-                                tier_name: paper.tier_name || ''
+                                tier_name: tier.title || ''
                             }));
                             allQuestions = allQuestions.concat(questions);
                         } catch (e) {
@@ -1198,7 +1194,7 @@ const QuestionsSection = {
                         }
                     }
                 } catch (e) {
-                    console.error(`Error fetching topics for paper ${paper.id}:`, e);
+                    console.error(`Error fetching topics for tier ${tier.id}:`, e);
                 }
             }
             

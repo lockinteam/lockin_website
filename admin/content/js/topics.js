@@ -1,4 +1,7 @@
 // Topics section management
+// Topics now belong to TIERS, not papers directly.
+// Topics can be linked to multiple papers within the same tier via junction table.
+// Hierarchy: Course → Tier → Topics → Content (Notes, Questions, Podcasts)
 
 const TopicsSection = {
     includeInactive: true,
@@ -24,32 +27,34 @@ const TopicsSection = {
             const tiersData = await API.getTiers(AppState.filters.topics.courseId, true);
             AppState.setTiers(tiersData.data.tiers || []);
             
-            // Check if we need to show tier selection
+            // Check if we need to show tier selection (tier is REQUIRED for topics)
             if (AppState.tiers.length > 0 && !AppState.filters.topics.tierId) {
                 this.renderTierSelection();
                 return;
             }
             
-            // Load papers for selected course/tier if not loaded
-            if (!AppState.filters.topics.paperId || AppState.papers.length === 0) {
-                const papersData = await API.getPapers(
-                    AppState.filters.topics.courseId,
-                    AppState.filters.topics.tierId,
-                    false
-                );
-                AppState.setPapers(papersData.data.papers || []);
-            }
-            
-            // Check if a paper is selected
-            if (!AppState.filters.topics.paperId) {
-                this.renderPaperSelection();
+            // If course has no tiers, show message to create tiers first
+            if (AppState.tiers.length === 0) {
+                this.renderNoTiersMessage();
                 return;
             }
             
-            // Load topics for selected paper
-            const data = await API.getTopics(AppState.filters.topics.paperId, this.includeInactive);
+            // Load papers for selected tier (optional filter, for display/linking)
+            const papersData = await API.getPapers(
+                AppState.filters.topics.courseId,
+                AppState.filters.topics.tierId,
+                false
+            );
+            AppState.setPapers(papersData.data.papers || []);
+            
+            // Load topics for selected tier (or filter by paper if selected)
+            const filters = { tierId: AppState.filters.topics.tierId };
+            if (AppState.filters.topics.paperId) {
+                filters.paperId = AppState.filters.topics.paperId;
+            }
+            const data = await API.getTopics(filters, this.includeInactive);
             AppState.setTopics(data.data.topics || []);
-            this.render(data.data.paper);
+            this.render(data.data);
         } catch (error) {
             UI.showEmpty('Error Loading Topics', error.message);
             UI.showToast(error.message, 'error');
@@ -79,7 +84,7 @@ const TopicsSection = {
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
                 </svg>
                 <h3>Select a Course</h3>
-                <p>Choose a course from the dropdown above, then select a paper to view topics.</p>
+                <p>Choose a course from the dropdown above, then select a tier to view topics.</p>
             </div>
         `;
         
@@ -118,35 +123,19 @@ const TopicsSection = {
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
                 </svg>
                 <h3>Select a Tier</h3>
-                <p>Choose a tier from the dropdown above, then select a paper to view topics.</p>
+                <p>Topics belong to tiers. Choose a tier from the dropdown above to view and manage its topics.</p>
             </div>
         `;
         
         UI.elements.contentArea.innerHTML = selectionHTML;
     },
     
-    renderPaperSelection() {
-        const papers = AppState.papers;
+    renderNoTiersMessage() {
         const courses = AppState.courses;
-        const tiers = AppState.tiers.filter(t => t.is_active);
-        
         const courseOptions = courses.map(c => ({ 
             value: c.id, 
             label: UI.formatCourseLabel(c) 
         }));
-        
-        const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
-        
-        const paperOptions = papers.map(p => ({ value: p.id, label: p.name }));
-        
-        const tierFilterHTML = tiers.length > 0 ? `
-            <div class="filter-group">
-                <label class="filter-label">Tier</label>
-                <select class="filter-select" id="topicTierFilter" onchange="TopicsSection.onTierChange()">
-                    ${tierOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.topics.tierId ? 'selected' : ''}>${opt.label}</option>`).join('')}
-                </select>
-            </div>
-        ` : '';
         
         const selectionHTML = `
             <div class="content-filters">
@@ -156,28 +145,22 @@ const TopicsSection = {
                         ${courseOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.topics.courseId ? 'selected' : ''}>${opt.label}</option>`).join('')}
                     </select>
                 </div>
-                ${tierFilterHTML}
-                <div class="filter-group">
-                    <label class="filter-label">Paper</label>
-                    <select class="filter-select" id="topicPaperFilter" onchange="TopicsSection.onPaperChange()">
-                        <option value="">-- Choose a paper --</option>
-                        ${paperOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
-                    </select>
-                </div>
             </div>
             <div class="content-empty">
                 <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
                 </svg>
-                <h3>Select a Paper</h3>
-                <p>Choose a paper from the dropdown above to view and manage its topics.</p>
+                <h3>No Tiers Found</h3>
+                <p>This course doesn't have any tiers yet. Topics belong to tiers, so you need to create tiers first.</p>
+                <p style="margin-top: 10px;"><a href="#" onclick="ContentManagement.showSection('tiers'); return false;" style="color: var(--accent-primary);">Go to Tiers section to create tiers →</a></p>
             </div>
         `;
         
         UI.elements.contentArea.innerHTML = selectionHTML;
     },
     
-    render(paperInfo) {
+    render(contextData) {
         let topics = AppState.topics;
         
         // Apply search filter
@@ -211,7 +194,10 @@ const TopicsSection = {
         
         const tierOptions = tiers.map(t => ({ value: t.id, label: t.title }));
         
-        const paperOptions = papers.map(p => ({ value: p.id, label: p.name }));
+        // Paper filter is optional - shows all topics in tier by default
+        const paperOptions = [{ value: '', label: 'All Papers' }].concat(
+            papers.map(p => ({ value: p.id, label: p.name }))
+        );
         
         const createBtnHTML = UI.renderActionBtn(
             'Create Topic',
@@ -224,6 +210,15 @@ const TopicsSection = {
                 <label class="filter-label">Tier</label>
                 <select class="filter-select" id="topicTierFilter" onchange="TopicsSection.onTierChange()">
                     ${tierOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.topics.tierId ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+            </div>
+        ` : '';
+        
+        const paperFilterHTML = papers.length > 0 ? `
+            <div class="filter-group">
+                <label class="filter-label">Filter by Paper</label>
+                <select class="filter-select" id="topicPaperFilter" onchange="TopicsSection.onPaperChange()">
+                    ${paperOptions.map(opt => `<option value="${opt.value}" ${opt.value === (AppState.filters.topics.paperId || '') ? 'selected' : ''}>${opt.label}</option>`).join('')}
                 </select>
             </div>
         ` : '';
@@ -241,12 +236,7 @@ const TopicsSection = {
                     </select>
                 </div>
                 ${tierFilterHTML}
-                <div class="filter-group">
-                    <label class="filter-label">Paper</label>
-                    <select class="filter-select" id="topicPaperFilter" onchange="TopicsSection.onPaperChange()">
-                        ${paperOptions.map(opt => `<option value="${opt.value}" ${opt.value === AppState.filters.topics.paperId ? 'selected' : ''}>${opt.label}</option>`).join('')}
-                    </select>
-                </div>
+                ${paperFilterHTML}
                 <div class="filter-checkbox-group">
                     <input type="checkbox" id="includeInactiveTopics" ${this.includeInactive ? 'checked' : ''} onchange="TopicsSection.toggleIncludeInactive()">
                     <label for="includeInactiveTopics">Show Inactive</label>
@@ -260,7 +250,7 @@ const TopicsSection = {
         let contentHTML = '';
         
         if (topics.length === 0) {
-            const message = this.includeInactive ? 'No topics found for this paper.' : 'No active topics found. Try showing inactive topics.';
+            const message = this.includeInactive ? 'No topics found for this tier.' : 'No active topics found. Try showing inactive topics.';
             contentHTML = `
                 <div class="content-empty">
                     <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -288,6 +278,12 @@ const TopicsSection = {
         const badgeClass = topic.is_active ? 'badge-active' : 'badge-inactive';
         const badgeText = topic.is_active ? 'Active' : 'Inactive';
         
+        // Show linked papers if available
+        const linkedPapers = topic.papers || [];
+        const linkedPapersText = linkedPapers.length > 0 
+            ? linkedPapers.map(p => p.name || p.code).join(', ')
+            : 'Not linked to any paper';
+        
         return `
             <div class="content-card">
                 <div class="card-header">
@@ -298,6 +294,10 @@ const TopicsSection = {
                     <div class="meta-row">
                         <span class="meta-label">Sort Order</span>
                         <span class="meta-value">${topic.sort_order}</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">Linked Papers</span>
+                        <span class="meta-value" title="${UI.escapeHtml(linkedPapersText)}">${linkedPapers.length > 0 ? linkedPapers.length + ' paper(s)' : 'None'}</span>
                     </div>
                     <div class="meta-row">
                         <span class="meta-label">Notes</span>
@@ -330,7 +330,11 @@ const TopicsSection = {
         const input = document.getElementById('topicSearchInput');
         const cursorPosition = input.selectionStart;
         this.searchQuery = input.value;
-        this.render(AppState.findPaperById(AppState.filters.topics.paperId));
+        const filters = { tierId: AppState.filters.topics.tierId };
+        if (AppState.filters.topics.paperId) {
+            filters.paperId = AppState.filters.topics.paperId;
+        }
+        this.render({ tier_id: AppState.filters.topics.tierId });
         // Restore focus and cursor position
         setTimeout(() => {
             const newInput = document.getElementById('topicSearchInput');
@@ -369,15 +373,25 @@ const TopicsSection = {
     },
     
     openCreateModal() {
-        if (!AppState.filters.topics.paperId) {
-            UI.showToast('Please select a paper first', 'warning');
+        if (!AppState.filters.topics.tierId) {
+            UI.showToast('Please select a tier first', 'warning');
             return;
         }
+        
+        // Get papers for this tier to allow optional linking
+        const papers = AppState.papers;
+        const paperCheckboxes = papers.length > 0 ? papers.map(p => `
+            <label class="checkbox-label">
+                <input type="checkbox" name="topicPapers" value="${p.id}">
+                ${UI.escapeHtml(p.name)}${p.code ? ` (${UI.escapeHtml(p.code)})` : ''}
+            </label>
+        `).join('') : '<p style="color: var(--text-secondary);">No papers in this tier yet.</p>';
         
         const formHTML = `
             <form id="createTopicForm" class="modal-form" onsubmit="TopicsSection.handleCreate(event)">
                 ${UI.createFormRow('Topic Name', UI.createTextInput('topicName', '', 'e.g., Introduction to Algebra', true))}
                 ${UI.createFormRow('Sort Order', UI.createNumberInput('topicSortOrder', '0', '0', 0), 'Lower numbers appear first')}
+                ${papers.length > 0 ? UI.createFormRow('Link to Papers', `<div class="checkbox-group">${paperCheckboxes}</div>`, 'Optional: Select papers to link this topic to') : ''}
                 ${UI.createModalActions('UI.closeModal()', null, 'Create Topic')}
             </form>
         `;
@@ -388,6 +402,17 @@ const TopicsSection = {
     openEditModal(topicId) {
         const topic = AppState.findTopicById(topicId);
         if (!topic) return;
+        
+        // Get papers for this tier
+        const papers = AppState.papers;
+        const linkedPaperIds = (topic.papers || []).map(p => p.id);
+        
+        const paperCheckboxes = papers.length > 0 ? papers.map(p => `
+            <label class="checkbox-label">
+                <input type="checkbox" name="topicPapers" value="${p.id}" ${linkedPaperIds.includes(p.id) ? 'checked' : ''}>
+                ${UI.escapeHtml(p.name)}${p.code ? ` (${UI.escapeHtml(p.code)})` : ''}
+            </label>
+        `).join('') : '<p style="color: var(--text-secondary);">No papers in this tier yet.</p>';
         
         const formHTML = `
             <form id="editTopicForm" class="modal-form" onsubmit="TopicsSection.handleUpdate(event, '${topicId}')">
@@ -400,6 +425,7 @@ const TopicsSection = {
                         { value: 'false', label: 'Inactive' }
                     ], topic.is_active ? 'true' : 'false')
                 )}
+                ${papers.length > 0 ? UI.createFormRow('Linked Papers', `<div class="checkbox-group">${paperCheckboxes}</div>`, 'Select papers to link this topic to') : ''}
                 ${UI.createModalActions('UI.closeModal()', null, 'Update Topic')}
             </form>
         `;
@@ -413,13 +439,17 @@ const TopicsSection = {
         const name = document.getElementById('topicName').value.trim();
         const sortOrder = parseInt(document.getElementById('topicSortOrder').value) || 0;
         
+        // Get selected paper IDs
+        const paperCheckboxes = document.querySelectorAll('input[name="topicPapers"]:checked');
+        const paperIds = Array.from(paperCheckboxes).map(cb => cb.value);
+        
         if (!name) {
             UI.showToast('Topic name is required', 'error');
             return;
         }
         
         try {
-            await API.createTopic(AppState.filters.topics.paperId, name, sortOrder);
+            await API.createTopic(AppState.filters.topics.tierId, name, sortOrder, paperIds);
             UI.closeModal();
             UI.showToast('Topic created successfully', 'success');
             await this.load();
@@ -435,13 +465,17 @@ const TopicsSection = {
         const sortOrder = parseInt(document.getElementById('topicSortOrder').value) || 0;
         const isActive = document.getElementById('topicStatus').value === 'true';
         
+        // Get selected paper IDs
+        const paperCheckboxes = document.querySelectorAll('input[name="topicPapers"]:checked');
+        const paperIds = Array.from(paperCheckboxes).map(cb => cb.value);
+        
         if (!name) {
             UI.showToast('Topic name is required', 'error');
             return;
         }
         
         try {
-            await API.updateTopic(topicId, { name, sort_order: sortOrder, is_active: isActive });
+            await API.updateTopic(topicId, { name, sort_order: sortOrder, is_active: isActive, paper_ids: paperIds });
             UI.closeModal();
             UI.showToast('Topic updated successfully', 'success');
             await this.load();

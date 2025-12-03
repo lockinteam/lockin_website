@@ -3074,17 +3074,21 @@ python3 tests/test_admin_tiers.py
 
 ## Admin Papers Management Endpoints
 
-**Content Hierarchy**: Years → Subjects → Courses → Papers (with optional Tier grouping) → Topics → Content
+**Content Hierarchy**: Years → Subjects → Courses → Tiers → Papers → Topics → Content
 
-Papers are exam components that organize topics within a course. Each paper belongs to one course (required `course_id`) and may optionally belong to a tier (`tier_id` optional) for grouping/filtering. Papers have optional code and percentage_of_grade fields. Papers use **two-stage delete** (soft → permanent) with CASCADE to topics.
+Papers are exam components that belong to a tier within a course. Each paper belongs to one tier (required `tier_id`). Papers have optional code and percentage_of_grade fields. Papers use **two-stage delete** (soft → permanent) with CASCADE to paper-topic links.
+
+**Topic Relationship**: Topics belong to **tiers** and are linked to papers via a many-to-many junction table (`paper_topics`). A single topic can appear in multiple papers within the same tier. Use `topic_ids` when creating/updating papers to link existing topics, or create topics separately and link them using `/admin/topics/link`. Note: Topics are now tier-specific - the same topic name can exist in different tiers (e.g., "Algebra" in Foundation and Higher with different content).
 
 **Key Points**:
-- Papers belong to courses (required `course_id`) and optionally to tiers (`tier_id` optional)
-- All paper endpoints require `course_id`; `tier_id` is optional for filtering
-- Hierarchy: Years → Subjects → Courses → Papers (with optional Tier grouping) → Topics
+- Papers belong to tiers (required `tier_id`)
+- Topics belong to tiers (required `tier_id`)
+- Hierarchy: Years → Subjects → Courses → Tiers → Papers → Topics
 - Full context includes tier information in responses
+- Topics are linked to papers via junction table (many-to-many relationship)
+- Same topic name allowed in different tiers (each has unique tier-specific content)
 
-**Working with tiers**: Use `/admin/tiers` (list) or `/admin/tiers/get` to fetch tier options for a course. When creating/updating papers, you can optionally assign them to a tier using `tier_id`, or leave it null to have papers visible across all tiers.
+**Working with tiers**: Use `/admin/tiers` (list) or `/admin/tiers/get` to fetch tier options for a course. Papers and topics are now required to have a tier_id.
 
 ### 1. List Papers by Course
 
@@ -3230,7 +3234,7 @@ curl -X POST https://backend.lockin.tech/admin/papers \
 
 **Auth**: Admin or Owner
 
-**Description**: Get detailed information about a specific paper including course context, optional tier information, and all topics.
+**Description**: Get detailed information about a specific paper including course context, optional tier information, and all linked topics.
 
 **Request Body**:
 ```json
@@ -3265,7 +3269,6 @@ curl -X POST https://backend.lockin.tech/admin/papers \
       "topics": [
         {
           "id": "uuid",
-          "paper_id": "uuid",
           "name": "Number Operations",
           "sort_order": 1,
           "is_active": true,
@@ -3273,7 +3276,6 @@ curl -X POST https://backend.lockin.tech/admin/papers \
         },
         {
           "id": "uuid",
-          "paper_id": "uuid",
           "name": "Fractions and Decimals",
           "sort_order": 2,
           "is_active": true,
@@ -3283,6 +3285,9 @@ curl -X POST https://backend.lockin.tech/admin/papers \
     }
   }
 }
+```
+
+**Note**: Topics are fetched via the `paper_topics` junction table. A topic can be linked to multiple papers within the same course. The `sort_order` shown is the topic's position within this specific paper.
 ```
 
 **Error Responses**:
@@ -3323,7 +3328,7 @@ if (data.success) {
 
 **Auth**: Admin or Owner
 
-**Description**: Create a new paper for a course with optional tier assignment.
+**Description**: Create a new paper for a course with optional tier assignment and topic linking.
 
 **Request Body**:
 ```json
@@ -3333,7 +3338,8 @@ if (data.success) {
   "tier_id": "uuid-of-tier",  // Optional: assign to specific tier
   "name": "Paper 1 (Non-Calculator)",
   "code": "P1",
-  "percentage_of_grade": 33.33
+  "percentage_of_grade": 33.33,
+  "topic_ids": ["uuid-1", "uuid-2"]  // Optional: link existing topics
 }
 ```
 
@@ -3345,6 +3351,7 @@ if (data.success) {
 - `tier_id`: UUID of tier (must belong to the specified course if provided)
 - `code`: Short code for the paper
 - `percentage_of_grade`: Numeric value between 0 and 100
+- `topic_ids`: Array of topic UUIDs to link (topics must belong to the same course)
 
 **Success Response** (201 Created):
 ```json
@@ -3361,7 +3368,8 @@ if (data.success) {
       "percentage_of_grade": 33.33,
       "is_active": true,
       "created_at": "2024-01-15T10:30:00.000000",
-      "added_by_user_id": "uuid"
+      "added_by_user_id": "uuid",
+      "topics_linked": 2  // Number of topics linked (if topic_ids provided)
     }
   }
 }
@@ -3441,7 +3449,7 @@ curl -X POST https://backend.lockin.tech/admin/papers/create \
 
 **Auth**: Admin or Owner
 
-**Description**: Update an existing paper's details. Papers cannot change their course_id.
+**Description**: Update an existing paper's details including topic links. Papers cannot change their course_id.
 
 **Request Body**:
 ```json
@@ -3452,7 +3460,8 @@ curl -X POST https://backend.lockin.tech/admin/papers/create \
   "code": "P1-NEW",
   "tier_id": "uuid-of-tier",  // Optional: assign to different tier (must belong to same course)
   "percentage_of_grade": 35.0,
-  "is_active": true
+  "is_active": true,
+  "topic_ids": ["uuid-1", "uuid-2", "uuid-3"]  // Optional: replace all topic links
 }
 ```
 
@@ -3466,8 +3475,9 @@ curl -X POST https://backend.lockin.tech/admin/papers/create \
 - `tier_id`: New tier assignment (must belong to paper's existing course, or null to unassign)
 - `percentage_of_grade`: New percentage (0-100)
 - `is_active`: Reactivate soft-deleted papers
+- `topic_ids`: Array of topic UUIDs to link (replaces all existing links; topics must belong to same course)
 
-**Note**: `course_id` cannot be updated (would break referential integrity)
+**Note**: `course_id` cannot be updated (would break referential integrity). When `topic_ids` is provided, it replaces ALL existing topic links for this paper.
 
 **Success Response** (200 OK):
 ```json
@@ -3599,7 +3609,8 @@ const reactivate = await fetch(`${baseUrl}/admin/papers/update`, {
   
 - **Stage 2 (Permanent Delete)**: 
   - Physically removes paper from database
-  - CASCADE deletes all topics
+  - CASCADE deletes paper-topic links (but NOT topics themselves)
+  - Topics remain and can be linked to other papers
   - Cannot be reversed
 
 **Error Responses**:
@@ -3703,7 +3714,14 @@ python3 tests/test_admin_papers.py
 ---
 ## Topics Management
 
-Topics are subject areas within papers. Topics use **soft delete** (can be reactivated).
+Topics are subject areas within a tier that can be linked to **multiple papers** via a many-to-many relationship. Each topic belongs to exactly one tier (required `tier_id`). If the same topic content appears in multiple tiers (e.g., "Algebra" in both Foundation and Higher), it must be created as separate topics per tier since the content is tier-specific.
+
+**Key Concepts:**
+- Topics belong to **tiers** (via `tier_id`) - NOT courses directly
+- Topics can be linked to **multiple papers** within their tier via the `paper_topics` junction table
+- Topic names must be unique within a tier (case-insensitive)
+- Same topic name can exist in different tiers (e.g., "Algebra" in Foundation and Higher with different content)
+- Notes, questions, and podcasts belong to topics (not papers)
 
 ### 1. List Topics
 
@@ -3711,43 +3729,38 @@ Topics are subject areas within papers. Topics use **soft delete** (can be react
 
 **Auth**: Admin or Owner
 
-**Description**: List all topics for a specific paper with resource counts.
+**Description**: List all topics with resource counts. Can filter by `tier_id`, `course_id`, or `paper_id`.
 
 **Request Body**:
 ```json
 {
   "token": "session_token",
-  "paper_id": "uuid",
-  "include_inactive": false  // Optional: include soft-deleted topics
+  "tier_id": "uuid",             // Option 1: List all topics in tier
+  "course_id": "uuid",           // Option 2: List all topics in course (across all tiers)
+  "paper_id": "uuid",            // Option 3: List topics linked to paper via junction table
+  "include_inactive": false      // Optional: include soft-deleted topics
 }
 ```
+
+**Note**: Must provide one of `tier_id`, `course_id`, or `paper_id`.
 
 **Success Response** (200 OK):
 ```json
 {
   "success": true,
-  "message": "Retrieved 5 topics for paper 'Paper 1'",
+  "message": "Retrieved 5 topics for tier 'Higher'",
   "data": {
-    "paper": {
-      "id": "uuid",
-      "name": "Paper 1",
-      "code": "P1",
-      "tier": {
-        "id": "uuid",
-        "title": "Higher",
-        "code": "HIGH"
-      },
-      "course": {
-        "id": "uuid",
-        "title": "Mathematics",
-        "year_name": "A-Level (12/13)",
-        "subject_name": "Mathematics"
-      }
-    },
+    "tier_id": "uuid",
+    "tier_title": "Higher",
+    "course_id": "uuid",
+    "course_title": "Mathematics",
+    "year_name": "A-Level (12/13)",
+    "subject_name": "Mathematics",
     "topics": [
       {
         "id": "uuid",
-        "paper_id": "uuid",
+        "tier_id": "uuid",
+        "course_id": "uuid",
         "name": "Algebra",
         "sort_order": 1,
         "is_active": true,
@@ -3758,7 +3771,11 @@ Topics are subject areas within papers. Topics use **soft delete** (can be react
         "podcasts_count": 2,
         "has_notes": true,
         "has_questions": true,
-        "has_podcast": true
+        "has_podcast": true,
+        "papers": [
+          {"id": "uuid", "name": "Paper 1", "code": "P1"},
+          {"id": "uuid", "name": "Paper 3", "code": "P3"}
+        ]
       }
     ],
     "count": 5
@@ -3766,22 +3783,27 @@ Topics are subject areas within papers. Topics use **soft delete** (can be react
 }
 ```
 
-**Database Optimization**: 2 trips
-- Verify paper exists (1 query with LEFT JOINs)
-- Get topics with resource counts (1 query with LEFT JOINs + GROUP BY)
-
 **JavaScript Example**:
 ```javascript
+// List all topics in a tier
 const response = await fetch(`${backend_url}/admin/topics`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     token: sessionToken,
-    paper_id: paperId,
-    include_inactive: false
+    tier_id: tierId
   })
 });
-const data = await response.json();
+
+// List topics linked to a specific paper
+const paperTopics = await fetch(`${backend_url}/admin/topics`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: sessionToken,
+    paper_id: paperId
+  })
+});
 ```
 
 ---
@@ -3792,7 +3814,7 @@ const data = await response.json();
 
 **Auth**: Admin or Owner
 
-**Description**: Get a single topic with all related content (notes, questions, podcasts).
+**Description**: Get a single topic with all related content (notes, questions, podcasts) and linked papers.
 
 **Request Body**:
 ```json
@@ -3810,59 +3832,28 @@ const data = await response.json();
   "data": {
     "topic": {
       "id": "uuid",
-      "paper_id": "uuid",
+      "tier_id": "uuid",
+      "course_id": "uuid",
       "name": "Algebra",
       "sort_order": 1,
       "is_active": true,
       "created_at": "2025-10-01T12:00:00.000000",
       "added_by_user_id": "uuid",
-      "paper": {
+      "tier_title": "Higher",
+      "tier_code": "H",
+      "course": {
         "id": "uuid",
-        "name": "Paper 1",
-        "code": "P1",
-        "tier": {
-          "id": "uuid",
-          "title": "Higher",
-          "code": "HIGH"
-        },
-        "course": {
-          "id": "uuid",
-          "title": "Mathematics",
-          "year_name": "A-Level (12/13)",
-          "subject_name": "Mathematics"
-        }
+        "title": "Mathematics",
+        "year_name": "A-Level (12/13)",
+        "subject_name": "Mathematics"
       },
-      "notes": [
-        {
-          "id": "uuid",
-          "content": "Algebraic expressions...",
-          "is_active": true,
-          "created_at": "2025-10-01T12:00:00.000000",
-          "added_by_user_id": "uuid"
-        }
+      "papers": [
+        {"id": "uuid", "name": "Paper 1", "code": "P1"},
+        {"id": "uuid", "name": "Paper 3", "code": "P3"}
       ],
-      "questions": [
-        {
-          "id": "uuid",
-          "question": "Solve: 2x + 5 = 15",
-          "is_active": true,
-          "created_at": "2025-10-01T12:00:00.000000",
-          "added_by_user_id": "uuid",
-          "options_count": 4
-        }
-      ],
-      "podcasts": [
-        {
-          "id": "uuid",
-          "name": "Introduction to Algebra",
-          "url": "https://...",
-          "length_seconds": 600,
-          "file_size": 1048576,
-          "is_active": true,
-          "created_at": "2025-10-01T12:00:00.000000",
-          "added_by_user_id": "uuid"
-        }
-      ],
+      "notes": [...],
+      "questions": [...],
+      "podcasts": [...],
       "content_summary": {
         "notes_count": 5,
         "questions_count": 12,
@@ -3876,12 +3867,6 @@ const data = await response.json();
 }
 ```
 
-**Database Optimization**: 4 trips
-- Get topic with paper/course/year/subject context (1 query)
-- Get all notes for topic (1 query)
-- Get all questions with options_count (1 query)
-- Get all podcasts for topic (1 query)
-
 ---
 
 ### 3. Create Topic
@@ -3890,15 +3875,16 @@ const data = await response.json();
 
 **Auth**: Admin or Owner
 
-**Description**: Create a new topic within a paper.
+**Description**: Create a new topic within a tier. Optionally link it to papers in that tier.
 
 **Request Body**:
 ```json
 {
   "token": "session_token",
-  "paper_id": "uuid",
+  "tier_id": "uuid",                // Required: tier this topic belongs to
   "name": "Algebra",
-  "sort_order": 1  // Optional: defaults to 0
+  "sort_order": 1,                  // Optional: defaults to 0
+  "paper_ids": ["uuid1", "uuid2"]   // Optional: papers to link this topic to
 }
 ```
 
@@ -3910,26 +3896,26 @@ const data = await response.json();
   "data": {
     "topic": {
       "id": "uuid",
-      "paper_id": "uuid",
+      "tier_id": "uuid",
+      "course_id": "uuid",
       "name": "Algebra",
       "sort_order": 1,
       "is_active": true,
       "created_at": "2025-10-01T12:00:00.000000",
-      "added_by_user_id": "uuid"
+      "added_by_user_id": "uuid",
+      "papers": [
+        {"id": "uuid1", "name": "Paper 1", "code": "P1"},
+        {"id": "uuid2", "name": "Paper 3", "code": "P3"}
+      ]
     }
   }
 }
 ```
 
 **Validation**:
-- Paper must exist
-- Topic name must be unique within the paper
-- sort_order must be an integer if provided
-
-**Database Optimization**: 3 trips
-- Verify paper exists (1 query)
-- Check for duplicate name (1 query)
-- Insert topic with RETURNING (1 query)
+- Tier must exist
+- Topic name must be unique within the tier (case-insensitive)
+- If `paper_ids` provided, all papers must belong to the same tier
 
 ---
 
@@ -3939,7 +3925,7 @@ const data = await response.json();
 
 **Auth**: Admin or Owner
 
-**Description**: Update topic name, sort_order, and/or active status. Can reactivate soft-deleted topics.
+**Description**: Update topic name, sort_order, active status, and/or linked papers.
 
 **Request Body**:
 ```json
@@ -3948,9 +3934,12 @@ const data = await response.json();
   "topic_id": "uuid",
   "name": "Advanced Algebra",        // Optional
   "sort_order": 2,                   // Optional
-  "is_active": true                  // Optional: reactivate topic
+  "is_active": true,                 // Optional: reactivate topic
+  "paper_ids": ["uuid1", "uuid2"]    // Optional: replace linked papers
 }
 ```
+
+**Note**: `tier_id` cannot be changed after creation. To move a topic to a different tier, delete and recreate it.
 
 **Success Response** (200 OK):
 ```json
@@ -3960,12 +3949,12 @@ const data = await response.json();
   "data": {
     "topic": {
       "id": "uuid",
-      "paper_id": "uuid",
+      "tier_id": "uuid",
+      "course_id": "uuid",
       "name": "Advanced Algebra",
       "sort_order": 2,
       "is_active": true,
-      "created_at": "2025-10-01T12:00:00.000000",
-      "added_by_user_id": "uuid"
+      "papers": [...]
     }
   }
 }
@@ -3973,17 +3962,82 @@ const data = await response.json();
 
 **Validation**:
 - Topic must exist
-- If changing name, new name must be unique within the paper
-- At least one field must be provided to update
-
-**Database Optimization**: 3 trips
-- Verify topic exists and get paper_id (1 query)
-- Check for duplicate name if name is changing (1 query)
-- Update topic with RETURNING (1 query)
+- If changing name, new name must be unique within the tier
+- If `paper_ids` provided, all papers must belong to the topic's tier
 
 ---
 
-### 5. Delete Topic
+### 5. Link Topic to Paper
+
+**Endpoint**: `POST /admin/topics/link`
+
+**Auth**: Admin or Owner
+
+**Description**: Link an existing topic to a paper via the junction table.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "topic_id": "uuid",
+  "paper_id": "uuid",
+  "sort_order": 1  // Optional: order of topic within this paper
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Topic 'Algebra' linked to paper 'Paper 1' successfully",
+  "data": {
+    "topic": {"id": "uuid", "name": "Algebra"},
+    "paper": {"id": "uuid", "name": "Paper 1", "code": "P1"},
+    "sort_order": 1
+  }
+}
+```
+
+**Validation**:
+- Topic and paper must exist
+- Topic and paper must belong to the same tier
+
+---
+
+### 6. Unlink Topic from Paper
+
+**Endpoint**: `DELETE /admin/topics/unlink`
+
+**Auth**: Admin or Owner
+
+**Description**: Remove a topic from a paper (deletes the junction table entry).
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "topic_id": "uuid",
+  "paper_id": "uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Topic 'Algebra' unlinked from paper 'Paper 1' successfully",
+  "data": {
+    "topic": {"id": "uuid", "name": "Algebra"},
+    "paper": {"id": "uuid", "name": "Paper 1", "code": "P1"}
+  }
+}
+```
+
+**Note**: This only removes the link. The topic and its content (notes, questions, podcasts) remain in the database. Use the delete endpoint to remove a topic entirely.
+
+---
+
+### 7. Delete Topic
 
 **Endpoint**: `DELETE /admin/topics/delete`
 
@@ -4021,44 +4075,67 @@ const data = await response.json();
   "data": {
     "topic_id": "uuid",
     "name": "Algebra",
-    "note": "Topic has been permanently deleted from the database. This action cannot be reversed. Associated notes, questions, and podcasts were also removed (CASCADE)."
+    "note": "Topic has been permanently deleted from the database. This action cannot be reversed. Associated notes, questions, podcasts, and paper links were also removed (CASCADE)."
   }
 }
 ```
 
-**Implementation Notes**:
-- **Two-stage delete** - requires two explicit calls
-- **First call**: Sets `is_active = false` (soft delete)
-- **Second call**: Permanently deletes record from database
-- **⚠️ CASCADE WARNING**: Permanent delete cascades to notes, questions, and podcasts
-- Can be reactivated after soft delete using update endpoint
+---
 
-**Database Optimization**: 1 trip per call
-- Single UPDATE...RETURNING query with WHERE clause
+### Topics Many-to-Many Relationship
+
+**Database Schema**:
+```sql
+-- Topics belong to courses
+topics (
+  id UUID PRIMARY KEY,
+  course_id UUID NOT NULL REFERENCES courses(id),
+  name VARCHAR NOT NULL,
+  sort_order INTEGER,
+  is_active BOOLEAN DEFAULT true,
+  ...
+)
+
+-- Junction table for topic-paper links
+paper_topics (
+  id UUID PRIMARY KEY,
+  paper_id UUID NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+  topic_id UUID NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
+  sort_order INTEGER DEFAULT 0,
+  UNIQUE(paper_id, topic_id)
+)
+```
+
+**Benefits**:
+- Topics can be shared across multiple papers without duplication
+- Content (notes, questions, podcasts) is created once per topic
+- Reduces storage and maintenance overhead
+- AI generation automatically deduplicates topics by name
 
 ---
 
 ### Topics Management Tests
 
-**Test Coverage** (14/14 passing):
+**Test Coverage** (15/15 passing):
 - ✅ Authentication & authorization
-- ✅ Create topic with required fields
-- ✅ Create topic with sort_order
-- ✅ Duplicate name prevention within paper
-- ✅ Invalid sort_order validation
-- ✅ List multiple topics with resource counts
-- ✅ List with include_inactive parameter
-- ✅ Get single topic with all content
-- ✅ Update topic name
-- ✅ Update topic sort_order
-- ✅ Duplicate name prevention on update
+- ✅ Create topic with course_id
+- ✅ Create topic with paper_ids
+- ✅ Duplicate name prevention within course
+- ✅ List topics by course_id
+- ✅ List topics by paper_id
+- ✅ Get topic returns papers array
+- ✅ Link topic to paper
+- ✅ Link topic to second paper (many-to-many)
+- ✅ Unlink topic from paper
+- ✅ Update topic with paper_ids
 - ✅ Soft delete topic
-- ✅ Reactivate deactivated topic
-- ✅ Prevent double deletion
+- ✅ Permanent delete topic
+- ✅ Paper endpoints with junction table
+- ✅ Profile endpoint with junction table
 
 **Run Tests**:
 ```bash
-python3 tests/test_admin_topics.py
+python3 tests/test_topic_paper_many_to_many.py
 ```
 
 ---

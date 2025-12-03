@@ -39,17 +39,14 @@ const PodcastsSection = {
                 AppState.setPapers(papersData.data.papers || []);
             }
             
-            // Check if a paper is selected
-            if (!AppState.filters.podcasts.paperId) {
-                this.renderPaperSelection();
-                return;
+            // Load topics for selected tier (topics now belong to tiers)
+            // Topics can be filtered by paper optionally
+            const filters = { tierId: AppState.filters.podcasts.tierId };
+            if (AppState.filters.podcasts.paperId) {
+                filters.paperId = AppState.filters.podcasts.paperId;
             }
-            
-            // Load topics for selected paper if not loaded
-            if (AppState.topics.length === 0 || AppState.topics[0]?.paper_id !== AppState.filters.podcasts.paperId) {
-                const topicsData = await API.getTopics(AppState.filters.podcasts.paperId, false);
-                AppState.setTopics(topicsData.data.topics || []);
-            }
+            const topicsData = await API.getTopics(filters, false);
+            AppState.setTopics(topicsData.data.topics || []);
             
             // Check if a topic is selected
             if (!AppState.filters.podcasts.topicId) {
