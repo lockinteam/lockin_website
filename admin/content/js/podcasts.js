@@ -356,6 +356,35 @@ const PodcastsSection = {
         const duration = podcast.length_seconds ? `${Math.floor(podcast.length_seconds / 60)}:${(podcast.length_seconds % 60).toString().padStart(2, '0')}` : 'N/A';
         const fileSize = podcast.file_size ? `${(podcast.file_size / 1048576).toFixed(2)} MB` : 'N/A';
         
+        // Audio player HTML
+        const audioPlayerHTML = podcast.url ? `
+            <div class="podcast-player" style="margin-top: 0.75rem; padding: 0.75rem; background: #f8fafc; border-radius: 8px;">
+                <audio id="audio-${podcast.id}" src="${UI.escapeHtml(podcast.url)}" preload="metadata" style="display: none;"></audio>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <button class="play-btn" id="playBtn-${podcast.id}" onclick="PodcastsSection.togglePlay('${podcast.id}')" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #3678AE; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <svg id="playIcon-${podcast.id}" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        <svg id="pauseIcon-${podcast.id}" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display: none;">
+                            <rect x="6" y="4" width="4" height="16"></rect>
+                            <rect x="14" y="4" width="4" height="16"></rect>
+                        </svg>
+                    </button>
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 0.25rem;">
+                        <input type="range" id="progress-${podcast.id}" class="audio-progress" value="0" min="0" max="100" style="width: 100%; cursor: pointer; accent-color: #3678AE;" onchange="PodcastsSection.seekAudio('${podcast.id}', this.value)" oninput="PodcastsSection.seekAudio('${podcast.id}', this.value)">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b;">
+                            <span id="currentTime-${podcast.id}">0:00</span>
+                            <span id="duration-${podcast.id}">${duration}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ` : `
+            <div style="margin-top: 0.75rem; padding: 0.75rem; background: #fef2f2; border-radius: 8px; color: #991b1b; font-size: 0.85rem;">
+                No audio URL available
+            </div>
+        `;
+        
         return `
             <div class="content-card">
                 <div class="card-header">
@@ -376,6 +405,7 @@ const PodcastsSection = {
                         <span class="meta-value">${UI.formatDate(podcast.created_at)}</span>
                     </div>
                 </div>
+                ${audioPlayerHTML}
                 <div class="card-actions">
                     <button class="card-action-btn" onclick="PodcastsSection.openEditModal('${podcast.id}')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -388,6 +418,112 @@ const PodcastsSection = {
                 </div>
             </div>
         `;
+    },
+    
+    // Audio player controls
+    currentlyPlaying: null,
+    
+    togglePlay(podcastId) {
+        const audio = document.getElementById(`audio-${podcastId}`);
+        const playIcon = document.getElementById(`playIcon-${podcastId}`);
+        const pauseIcon = document.getElementById(`pauseIcon-${podcastId}`);
+        
+        if (!audio) return;
+        
+        // Stop any currently playing audio
+        if (this.currentlyPlaying && this.currentlyPlaying !== podcastId) {
+            const prevAudio = document.getElementById(`audio-${this.currentlyPlaying}`);
+            const prevPlayIcon = document.getElementById(`playIcon-${this.currentlyPlaying}`);
+            const prevPauseIcon = document.getElementById(`pauseIcon-${this.currentlyPlaying}`);
+            if (prevAudio) {
+                prevAudio.pause();
+                if (prevPlayIcon) prevPlayIcon.style.display = 'block';
+                if (prevPauseIcon) prevPauseIcon.style.display = 'none';
+            }
+        }
+        
+        if (audio.paused) {
+            audio.play().then(() => {
+                playIcon.style.display = 'none';
+                pauseIcon.style.display = 'block';
+                this.currentlyPlaying = podcastId;
+                this.startProgressUpdate(podcastId);
+            }).catch(err => {
+                UI.showToast('Failed to play audio: ' + err.message, 'error');
+            });
+        } else {
+            audio.pause();
+            playIcon.style.display = 'block';
+            pauseIcon.style.display = 'none';
+            this.currentlyPlaying = null;
+        }
+    },
+    
+    seekAudio(podcastId, value) {
+        const audio = document.getElementById(`audio-${podcastId}`);
+        if (!audio || !audio.duration) return;
+        
+        const time = (value / 100) * audio.duration;
+        audio.currentTime = time;
+        this.updateTimeDisplay(podcastId, time, audio.duration);
+    },
+    
+    startProgressUpdate(podcastId) {
+        const audio = document.getElementById(`audio-${podcastId}`);
+        if (!audio) return;
+        
+        const updateProgress = () => {
+            if (audio.paused) return;
+            
+            const progress = document.getElementById(`progress-${podcastId}`);
+            const currentTimeEl = document.getElementById(`currentTime-${podcastId}`);
+            
+            if (progress && audio.duration) {
+                progress.value = (audio.currentTime / audio.duration) * 100;
+            }
+            
+            if (currentTimeEl) {
+                this.updateTimeDisplay(podcastId, audio.currentTime, audio.duration);
+            }
+            
+            if (!audio.paused) {
+                requestAnimationFrame(updateProgress);
+            }
+        };
+        
+        // Setup ended event
+        audio.onended = () => {
+            const playIcon = document.getElementById(`playIcon-${podcastId}`);
+            const pauseIcon = document.getElementById(`pauseIcon-${podcastId}`);
+            const progress = document.getElementById(`progress-${podcastId}`);
+            
+            if (playIcon) playIcon.style.display = 'block';
+            if (pauseIcon) pauseIcon.style.display = 'none';
+            if (progress) progress.value = 0;
+            this.updateTimeDisplay(podcastId, 0, audio.duration);
+            this.currentlyPlaying = null;
+        };
+        
+        requestAnimationFrame(updateProgress);
+    },
+    
+    updateTimeDisplay(podcastId, currentTime, duration) {
+        const currentTimeEl = document.getElementById(`currentTime-${podcastId}`);
+        const durationEl = document.getElementById(`duration-${podcastId}`);
+        
+        const formatTime = (seconds) => {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        };
+        
+        if (currentTimeEl) {
+            currentTimeEl.textContent = formatTime(currentTime);
+        }
+        if (durationEl && duration) {
+            durationEl.textContent = formatTime(duration);
+        }
     },
     
     onSearchChange() {
