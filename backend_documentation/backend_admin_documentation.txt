@@ -5375,6 +5375,7 @@ python3 tests/test_admin_notes.py
         "topic_id": "uuid",
         "name": "Cell Structure Overview",
         "url": "https://storage.lockin.tech/podcasts/cell-structure.mp3",
+        "script": "HOST: Welcome to today's session on Cell Structure...\n\nSTUDENT: That sounds interesting!...",
         "length_seconds": 600,
         "file_size": 15728640,
         "is_active": true,
@@ -5417,6 +5418,7 @@ python3 tests/test_admin_notes.py
   "topic_id": "uuid",
   "name": "Cell Structure Overview",
   "url": "https://storage.lockin.tech/podcasts/cell-structure.mp3",
+  "script": "HOST: Welcome...",  // Optional: AI-generated podcast script
   "length_seconds": 600,          // Optional: duration in seconds
   "file_size": 15728640           // Optional: file size in bytes
 }
@@ -5426,6 +5428,7 @@ python3 tests/test_admin_notes.py
 - `topic_id`: Required, must be valid UUID of existing active topic
 - `name`: Required, non-empty string
 - `url`: Required, non-empty string (URL to podcast file)
+- `script`: Optional, text content of podcast script for TTS conversion
 - `length_seconds`: Optional, must be >= 0 if provided
 - `file_size`: Optional, must be >= 0 if provided
 
@@ -5440,6 +5443,7 @@ python3 tests/test_admin_notes.py
       "topic_id": "uuid",
       "name": "Cell Structure Overview",
       "url": "https://storage.lockin.tech/podcasts/cell-structure.mp3",
+      "script": "HOST: Welcome to today's session...",
       "length_seconds": 600,
       "file_size": 15728640,
       "is_active": true,
@@ -5506,6 +5510,7 @@ python3 tests/test_admin_notes.py
   "podcast_id": "uuid",
   "name": "Updated Podcast Name",          // Optional
   "url": "https://new-url.com/podcast.mp3", // Optional
+  "script": "Updated script content...",   // Optional: can be set to null to clear
   "length_seconds": 720,                    // Optional
   "file_size": 20971520,                    // Optional
   "is_active": false                        // Optional: soft delete
@@ -5515,6 +5520,7 @@ python3 tests/test_admin_notes.py
 **Validation**:
 - `podcast_id`: Required, must be valid UUID of existing podcast
 - At least one field to update must be provided
+- `script`: Optional, can be set to null to clear the script
 - `length_seconds`: Must be >= 0 if provided
 - `file_size`: Must be >= 0 if provided
 
@@ -5529,6 +5535,7 @@ python3 tests/test_admin_notes.py
       "topic_id": "uuid",
       "name": "Updated Podcast Name",
       "url": "https://new-url.com/podcast.mp3",
+      "script": "Updated script content...",
       "length_seconds": 720,
       "file_size": 20971520,
       "is_active": false,
@@ -7407,6 +7414,7 @@ Start full AI-powered course content generation (Step 2).
   "subject_code": "9618",
   "description": "Course description (can be edited)",
   "link_to_specification": "https://optional-override-url.pdf",
+  "generate_podcasts": true,  // Optional: default true - set to false to skip podcast script generation
   "tiers": [
     {
       "title": "AS Level",
@@ -7430,6 +7438,9 @@ Start full AI-powered course content generation (Step 2).
 - `description`: Course description (can be edited from Step 1)
 - `tiers`: Array of tier objects (title, code, sort_order) - required, non-empty
 
+**Optional Fields:**
+- `generate_podcasts`: Boolean (default: true) - set to false to skip podcast script generation
+
 **Conditional Fields:**
 - If `subject_id` is provided: Uses existing subject
 - If `subject_id` is null: `subject_name` is required, creates new subject
@@ -7450,10 +7461,11 @@ Start full AI-powered course content generation (Step 2).
 The background worker processes the task through these stages:
 1. **Generating Papers/Topics**: Extracts paper structure and all topics using AI
 2. **Generating Notes**: Creates comprehensive notes for each topic using AI
-3. **Generating Questions**: Creates practice questions for each topic using AI
-4. **Completed**: Marks task as complete
+3. **Generating Podcast Scripts** (if `generate_podcasts` is true): Creates conversational podcast scripts for TTS conversion
+4. **Generating Questions**: Creates practice questions for each topic using AI
+5. **Completed**: Marks task as complete
 
-Each stage uses the active prompt for that stage (papers_topics, notes, questions) from the `generation_prompts` table, which references a model in the `models` table. The system automatically routes to the appropriate AI provider (Google Gemini or Cerebras) based on the model's provider field.
+Each stage uses the active prompt for that stage (papers_topics, notes, podcast_script, questions) from the `generation_prompts` table, which references a model in the `models` table. The system automatically routes to the appropriate AI provider (Google Gemini or Cerebras) based on the model's provider field.
 
 **Success Response (201 Created):**
 ```json
@@ -8179,7 +8191,7 @@ See `tests/test_admin_generate_delete.py` for comprehensive test suite (3 tests,
 
 ### POST /admin/generate/individual
 
-Generate notes and/or questions for specific topics individually.
+Generate notes, podcast scripts, and/or questions for specific topics individually.
 
 **Authentication:** Admin or Owner required
 
@@ -8195,10 +8207,11 @@ Generate notes and/or questions for specific topics individually.
 ```json
 {
   "token": "admin_session_token",
-  "topic_ids": ["uuid1", "uuid2"],  // Required: array of topic UUIDs
-  "generate_notes": true,           // Optional: generate notes (default: false)
-  "generate_questions": true,       // Optional: generate questions (default: false)
-  "replace_existing": false         // Optional: delete existing content first (default: false)
+  "topic_ids": ["uuid1", "uuid2"],       // Required: array of topic UUIDs
+  "generate_notes": true,                // Optional: generate notes (default: false)
+  "generate_podcast_scripts": true,      // Optional: generate podcast scripts (default: false)
+  "generate_questions": true,            // Optional: generate questions (default: false)
+  "replace_existing": false              // Optional: delete existing content first (default: false)
 }
 ```
 
@@ -8208,12 +8221,13 @@ Generate notes and/or questions for specific topics individually.
 
 **Optional Fields:**
 - `generate_notes`: Boolean - generate notes for topics
+- `generate_podcast_scripts`: Boolean - generate podcast scripts for topics
 - `generate_questions`: Boolean - generate questions for topics
-- `replace_existing`: Boolean - if true, deletes existing notes/questions before generating new ones
+- `replace_existing`: Boolean - if true, deletes existing notes/podcasts/questions before generating new ones
 
 **Validation Rules:**
 1. At least one topic_id required
-2. At least one of `generate_notes` or `generate_questions` must be true
+2. At least one of `generate_notes`, `generate_podcast_scripts`, or `generate_questions` must be true
 3. All topics must belong to the same course
 4. Course must have a `link_to_specification` URL (PDF)
 5. Topics must exist and be active
@@ -8228,6 +8242,7 @@ Generate notes and/or questions for specific topics individually.
     "course_title": "GCSE Computer Science",
     "topics_processed": 2,
     "notes_generated": 2,
+    "podcast_scripts_generated": 2,
     "questions_generated": 2,
     "total_questions": 10,
     "errors": 0,
@@ -8237,6 +8252,7 @@ Generate notes and/or questions for specific topics individually.
         "topic_name": "Data Types",
         "tier_title": "Foundation",
         "notes_generated": true,
+        "podcast_script_generated": true,
         "questions_generated": true,
         "questions_count": 5,
         "error": null
@@ -8246,12 +8262,13 @@ Generate notes and/or questions for specific topics individually.
         "topic_name": "Variables",
         "tier_title": "Foundation",
         "notes_generated": true,
+        "podcast_script_generated": true,
         "questions_generated": true,
         "questions_count": 5,
         "error": null
       }
     ],
-    "total_api_calls": 4
+    "total_api_calls": 6
   }
 }
 ```
@@ -8278,7 +8295,7 @@ Generate notes and/or questions for specific topics individually.
 ```json
 {
   "success": false,
-  "message": "At least one of generate_notes or generate_questions must be true"
+  "message": "At least one of generate_notes, generate_podcast_scripts, or generate_questions must be true"
 }
 ```
 
@@ -8425,7 +8442,7 @@ Fetch all AI generation prompts with optional filtering by stage.
 
 **Request Parameters:**
 - `token`: Admin session token (required)
-- `stage`: Filter by generation stage (optional) - one of: `course_info`, `papers_topics`, `notes`, `questions`
+- `stage`: Filter by generation stage (optional) - one of: `course_info`, `papers_topics`, `notes`, `podcast_script`, `questions`
 - `include_inactive`: Include inactive prompts (optional, default: `false`)
 
 **Example Requests:**
@@ -8525,7 +8542,7 @@ Content-Type: application/json
 ```json
 {
   "success": false,
-  "message": "Invalid stage. Must be one of: course_info, papers_topics, notes, questions"
+  "message": "Invalid stage. Must be one of: course_info, papers_topics, notes, podcast_script, questions"
 }
 ```
 

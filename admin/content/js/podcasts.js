@@ -352,6 +352,20 @@ const PodcastsSection = {
         const badgeText = podcast.is_active ? 'Active' : 'Inactive';
         const duration = podcast.length_seconds ? `${Math.floor(podcast.length_seconds / 60)}:${(podcast.length_seconds % 60).toString().padStart(2, '0')}` : 'N/A';
         const fileSize = podcast.file_size ? `${(podcast.file_size / 1048576).toFixed(2)} MB` : 'N/A';
+        const hasScript = podcast.script && podcast.script.trim().length > 0;
+        
+        // Script preview (first 150 chars)
+        const scriptPreviewHTML = hasScript ? `
+            <div class="script-preview" style="margin-top: 0.75rem; padding: 0.75rem; background: #f0fdf4; border-radius: 8px; border-left: 3px solid #22c55e;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span style="font-size: 0.75rem; font-weight: 600; color: #15803d;">📝 Script Available</span>
+                    <button type="button" class="card-action-btn" onclick="PodcastsSection.viewScript('${podcast.id}')" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">View Full</button>
+                </div>
+                <p style="font-size: 0.8rem; color: #374151; margin: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                    ${UI.escapeHtml(podcast.script.substring(0, 150))}${podcast.script.length > 150 ? '...' : ''}
+                </p>
+            </div>
+        ` : '';
         
         // Audio player HTML
         const audioPlayerHTML = podcast.url ? `
@@ -398,10 +412,15 @@ const PodcastsSection = {
                         <span class="meta-value">${fileSize}</span>
                     </div>
                     <div class="meta-row">
+                        <span class="meta-label">Script</span>
+                        <span class="meta-value">${hasScript ? '✓ Available' : '—'}</span>
+                    </div>
+                    <div class="meta-row">
                         <span class="meta-label">Created</span>
                         <span class="meta-value">${UI.formatDate(podcast.created_at)}</span>
                     </div>
                 </div>
+                ${scriptPreviewHTML}
                 ${audioPlayerHTML}
                 <div class="card-actions">
                     <button class="card-action-btn" onclick="PodcastsSection.openEditModal('${podcast.id}')">
@@ -576,6 +595,7 @@ const PodcastsSection = {
                 ${UI.createFormRow('Podcast Name', UI.createTextInput('podcastName', '', 'e.g., Introduction to Cell Biology', true))}
                 ${UI.createFormRow('Audio File', UI.createFileOrUrlInput('podcastFile', '', 'audio/*', 'https://storage.example.com/podcast.mp3'), 'Upload audio or enter URL')}
                 ${UI.createFormRow('Duration (seconds)', UI.createNumberInput('podcastLength', '', '600', 0), 'Optional - leave blank to auto-detect from file')}
+                ${UI.createFormRow('Script', `<textarea id="podcastScript" class="form-input" rows="6" placeholder="Podcast script content for TTS conversion..."></textarea>`, 'Optional - AI-generated script for text-to-speech')}
                 ${UI.createModalActions('UI.closeModal()', null, 'Create Podcast')}
             </form>
         `;
@@ -587,11 +607,14 @@ const PodcastsSection = {
         const podcast = AppState.findPodcastById(podcastId);
         if (!podcast) return;
         
+        const scriptValue = podcast.script ? UI.escapeHtml(podcast.script) : '';
+        
         const formHTML = `
             <form id="editPodcastForm" class="modal-form" onsubmit="PodcastsSection.handleUpdate(event, '${podcastId}')">
                 ${UI.createFormRow('Podcast Name', UI.createTextInput('podcastName', podcast.name, '', true))}
                 ${UI.createFormRow('Audio File', UI.createFileOrUrlInput('podcastFile', podcast.url || '', 'audio/*', 'https://storage.example.com/podcast.mp3'), 'Upload audio or enter URL')}
                 ${UI.createFormRow('Duration (seconds)', UI.createNumberInput('podcastLength', podcast.length_seconds || '', '', 0), 'Optional')}
+                ${UI.createFormRow('Script', `<textarea id="podcastScript" class="form-input" rows="6" placeholder="Podcast script content for TTS conversion...">${scriptValue}</textarea>`, 'Optional - AI-generated script for text-to-speech')}
                 ${UI.createFormRow(
                     'Status',
                     UI.createSelect('podcastStatus', [
@@ -611,6 +634,7 @@ const PodcastsSection = {
         
         const name = document.getElementById('podcastName').value.trim();
         const length = document.getElementById('podcastLength').value;
+        const script = document.getElementById('podcastScript').value.trim() || null;
         
         let lengthValue = length ? parseInt(length) : null;
         
@@ -646,7 +670,7 @@ const PodcastsSection = {
                 return;
             }
             
-            await API.createPodcast(AppState.filters.podcasts.topicId, name, url, lengthValue, fileSizeValue);
+            await API.createPodcast(AppState.filters.podcasts.topicId, name, url, lengthValue, fileSizeValue, script);
             UI.closeModal();
             UI.showToast('Podcast created successfully', 'success');
             await this.load();
@@ -661,6 +685,8 @@ const PodcastsSection = {
         const name = document.getElementById('podcastName').value.trim();
         const length = document.getElementById('podcastLength').value;
         const isActive = document.getElementById('podcastStatus').value === 'true';
+        const scriptInput = document.getElementById('podcastScript');
+        const script = scriptInput ? (scriptInput.value.trim() || null) : undefined;
         
         let lengthValue = length ? parseInt(length) : null;
         
@@ -696,7 +722,12 @@ const PodcastsSection = {
                 return;
             }
             
-            await API.updatePodcast(podcastId, { name, url, length_seconds: lengthValue, file_size: fileSizeValue, is_active: isActive });
+            const updates = { name, url, length_seconds: lengthValue, file_size: fileSizeValue, is_active: isActive };
+            if (script !== undefined) {
+                updates.script = script;
+            }
+            
+            await API.updatePodcast(podcastId, updates);
             UI.closeModal();
             UI.showToast('Podcast updated successfully', 'success');
             await this.load();
@@ -763,6 +794,50 @@ const PodcastsSection = {
             
             audio.src = objectUrl;
         });
+    },
+    
+    // View full script in a modal
+    viewScript(podcastId) {
+        const podcast = AppState.findPodcastById(podcastId);
+        if (!podcast || !podcast.script) {
+            UI.showToast('No script available', 'warning');
+            return;
+        }
+        
+        const modalHTML = `
+            <div class="script-view">
+                <h2 style="margin-bottom: 0.5rem;">${UI.escapeHtml(podcast.name)}</h2>
+                <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 1rem;">Podcast Script</p>
+                <div style="background: #f8fafc; border-radius: 8px; padding: 1rem; max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-family: inherit; font-size: 0.9rem; line-height: 1.6;">
+${UI.escapeHtml(podcast.script)}
+                </div>
+                <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; justify-content: flex-end;">
+                    <button class="action-btn action-btn-secondary" onclick="PodcastsSection.copyScript('${podcastId}')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        Copy Script
+                    </button>
+                    <button class="action-btn action-btn-secondary" onclick="UI.closeModal()">Close</button>
+                </div>
+            </div>
+        `;
+        
+        UI.openModal('View Script', modalHTML);
+    },
+    
+    // Copy script to clipboard
+    async copyScript(podcastId) {
+        const podcast = AppState.findPodcastById(podcastId);
+        if (!podcast || !podcast.script) {
+            UI.showToast('No script available', 'warning');
+            return;
+        }
+        
+        try {
+            await navigator.clipboard.writeText(podcast.script);
+            UI.showToast('Script copied to clipboard', 'success');
+        } catch (error) {
+            UI.showToast('Failed to copy script', 'error');
+        }
     }
 };
 

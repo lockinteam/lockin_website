@@ -905,13 +905,17 @@ const GenerateSection = {
         const formHTML = `
             <form id="individualGenerateForm" onsubmit="GenerateSection.handleIndividualGenerate(event); return false;">
                 <h2>Generate Content for Topics</h2>
-                <p class="form-description">Select specific topics to generate notes and/or questions for <strong>${UI.escapeHtml(courseTitle)}</strong>.</p>
+                <p class="form-description">Select specific topics to generate notes, podcast scripts, and/or questions for <strong>${UI.escapeHtml(courseTitle)}</strong>.</p>
                 
                 <div class="individual-gen-options" style="margin-bottom: 1.5rem;">
                     <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
                         <label class="option-checkbox">
                             <input type="checkbox" name="generateNotes" id="genNotes" checked>
                             <span>Generate Notes</span>
+                        </label>
+                        <label class="option-checkbox">
+                            <input type="checkbox" name="generatePodcastScripts" id="genPodcastScripts" checked>
+                            <span>Generate Podcast Scripts</span>
                         </label>
                         <label class="option-checkbox">
                             <input type="checkbox" name="generateQuestions" id="genQuestions" checked>
@@ -1039,10 +1043,11 @@ const GenerateSection = {
         
         // Get options
         const generateNotes = document.getElementById('genNotes')?.checked || false;
+        const generatePodcastScripts = document.getElementById('genPodcastScripts')?.checked || false;
         const generateQuestions = document.getElementById('genQuestions')?.checked || false;
         const replaceExisting = document.getElementById('replaceExisting')?.checked || false;
         
-        if (!generateNotes && !generateQuestions) {
+        if (!generateNotes && !generatePodcastScripts && !generateQuestions) {
             UI.showToast('Please select at least one content type to generate', 'error');
             return;
         }
@@ -1060,6 +1065,7 @@ const GenerateSection = {
             
             const result = await API.generateIndividual(selectedTopics, {
                 generateNotes,
+                generatePodcastScripts,
                 generateQuestions,
                 replaceExisting
             });
@@ -1070,9 +1076,9 @@ const GenerateSection = {
             const errorCount = data.errors || 0;
             
             if (errorCount === 0) {
-                UI.showToast(`Successfully generated content for ${successCount} topic(s). Notes: ${data.notes_generated}, Questions: ${data.total_questions}`, 'success');
+                UI.showToast(`Successfully generated content for ${successCount} topic(s). Notes: ${data.notes_generated}, Scripts: ${data.podcast_scripts_generated || 0}, Questions: ${data.total_questions}`, 'success');
             } else {
-                UI.showToast(`Completed with ${errorCount} error(s). Notes: ${data.notes_generated}, Questions: ${data.total_questions}`, 'warning');
+                UI.showToast(`Completed with ${errorCount} error(s). Notes: ${data.notes_generated}, Scripts: ${data.podcast_scripts_generated || 0}, Questions: ${data.total_questions}`, 'warning');
             }
             
             // Show detailed results modal
@@ -1103,6 +1109,7 @@ const GenerateSection = {
                     <div class="result-details">
                         ${r.error ? `<span class="error-text">${UI.escapeHtml(r.error)}</span>` : `
                             ${r.notes_generated ? '<span class="gen-badge notes">Notes ✓</span>' : ''}
+                            ${r.podcast_script_generated ? '<span class="gen-badge scripts">Script ✓</span>' : ''}
                             ${r.questions_generated ? `<span class="gen-badge questions">${r.questions_count} Questions</span>` : ''}
                         `}
                     </div>
@@ -1121,6 +1128,10 @@ const GenerateSection = {
                     <div class="summary-stat">
                         <span class="stat-value">${data.notes_generated || 0}</span>
                         <span class="stat-label">Notes Generated</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="stat-value">${data.podcast_scripts_generated || 0}</span>
+                        <span class="stat-label">Scripts Generated</span>
                     </div>
                     <div class="summary-stat">
                         <span class="stat-value">${data.total_questions || 0}</span>
@@ -1283,11 +1294,12 @@ const GenerateSection = {
             `;
         } else {
             // Group prompts by stage - dynamically handle any stage
-            const knownStageOrder = ['course_info', 'papers_topics', 'notes', 'questions', 'podcasts'];
+            const knownStageOrder = ['course_info', 'papers_topics', 'notes', 'podcast_script', 'questions', 'podcasts'];
             const stageLabels = {
                 'course_info': 'Course Info Extraction',
                 'papers_topics': 'Papers & Topics Structure',
                 'notes': 'Notes Generation',
+                'podcast_script': 'Podcast Script Generation',
                 'questions': 'Questions Generation',
                 'podcasts': 'Podcast Generation'
             };

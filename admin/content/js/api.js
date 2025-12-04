@@ -270,10 +270,11 @@ const API = {
         return this.request('/admin/podcasts', 'POST', { topic_id: topicId });
     },
     
-    async createPodcast(topicId, name, url, lengthSeconds = null, fileSize = null) {
+    async createPodcast(topicId, name, url, lengthSeconds = null, fileSize = null, script = null) {
         const body = { topic_id: topicId, name, url };
         if (lengthSeconds !== null) body.length_seconds = lengthSeconds;
         if (fileSize !== null) body.file_size = fileSize;
+        if (script !== null) body.script = script;
         return this.request('/admin/podcasts/create', 'POST', body);
     },
     
@@ -454,6 +455,7 @@ const API = {
         return await this.request('/admin/generate/individual', 'POST', {
             topic_ids: topicIds,
             generate_notes: options.generateNotes || false,
+            generate_podcast_scripts: options.generatePodcastScripts || false,
             generate_questions: options.generateQuestions || false,
             replace_existing: options.replaceExisting || false
         });

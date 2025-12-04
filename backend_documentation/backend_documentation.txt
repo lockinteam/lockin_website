@@ -57,7 +57,7 @@ All responses include rate limit headers:
 - `POST /fetch/profile` - Get complete user profile with all enrollments, courses, papers, topics, and XP stats
 - `POST /fetch/tiers` - List tier options for a course (Foundation/Higher, AS/A2, etc.)
 - `POST /fetch/notes` - Get notes content for a specific topic
-- `POST /fetch/podcast` - Get podcast audio content for a specific topic
+- `POST /fetch/podcast` - Get podcast audio/script content for a specific topic
 - `POST /fetch/questions` - Get questions and answer options for a topic, paper, or course (includes user performance data)
 - `GET /fetch/leaderboard/global` - Get global leaderboard with top users by total XP
 - `GET /fetch/leaderboard/weekly` - Get weekly leaderboard with top users by XP earned in last 7 days
@@ -828,6 +828,57 @@ fetch('https://backend.lockin.tech/fetch/tiers', {
 - Invalid topic_id format (400)
 - Token not found, invalid, or expired (401)
 - Notes not found for this topic (404)
+- Server error (500)
+
+### Fetch Podcast
+
+**Endpoint**: `POST backend_url/fetch/podcast`
+
+**Description**: Fetch the podcast for a specific topic. Returns podcast audio URL and optional AI-generated script for the topic.
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token",
+  "topic_id": "topic_uuid"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Podcast fetched successfully",
+  "data": {
+    "id": "podcast_uuid",
+    "topic_id": "topic_uuid",
+    "title": "Cell Biology - Podcast",
+    "audio_url": "https://storage.lockin.tech/podcasts/cell-biology.mp3",
+    "script": "HOST: Welcome to today's session on Cell Biology!\\n\\nSTUDENT: That sounds interesting!...",
+    "length_seconds": 600,
+    "file_size": 15728640,
+    "created_at": "2024-01-01T00:00:00.000000+00:00",
+    "is_active": true
+  }
+}
+```
+
+**Response Fields**:
+- `id`: UUID of the podcast
+- `topic_id`: UUID of the associated topic
+- `title`: Podcast title (typically "{topic_name} - Podcast")
+- `audio_url`: URL to the podcast audio file (may be null if only script exists)
+- `script`: AI-generated podcast script for TTS conversion (may be null)
+- `length_seconds`: Duration in seconds (null if unknown)
+- `file_size`: File size in bytes (null if unknown)
+- `created_at`: Creation timestamp
+- `is_active`: Whether the podcast is active
+
+**Error Cases**:
+- Missing token or topic_id (400)
+- Invalid topic_id format (400)
+- Token not found, invalid, or expired (401)
+- Podcast not found for this topic (404)
 - Server error (500)
 
 ### GET /fetch/leaderboard/global
