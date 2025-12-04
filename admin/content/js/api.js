@@ -168,12 +168,18 @@ const API = {
     
     // Topics
     // Topics now belong to tiers, not papers directly
-    // Can filter by tier_id, course_id, or paper_id
+    // Can filter by tier_id, course_id, or paper_id (only ONE allowed)
     async getTopics(filters = {}, includeInactive = false) {
         const body = { include_inactive: includeInactive };
-        if (filters.tierId) body.tier_id = filters.tierId;
-        if (filters.courseId) body.course_id = filters.courseId;
-        if (filters.paperId) body.paper_id = filters.paperId;
+        // API only accepts ONE of: tier_id, course_id, or paper_id
+        // Priority: paper_id (most specific) > tier_id > course_id
+        if (filters.paperId) {
+            body.paper_id = filters.paperId;
+        } else if (filters.tierId) {
+            body.tier_id = filters.tierId;
+        } else if (filters.courseId) {
+            body.course_id = filters.courseId;
+        }
         return this.request('/admin/topics', 'POST', body);
     },
     
