@@ -438,7 +438,7 @@ const API = {
     },
     
     async generateContent(taskId, courseInfo) {
-        return await this.request('/admin/generate/content', 'POST', {
+        const body = {
             task_id: taskId,
             course_title: courseInfo.course_title,
             year_id: courseInfo.year_id,
@@ -448,7 +448,12 @@ const API = {
             description: courseInfo.description,
             link_to_specification: courseInfo.link_to_specification,
             tiers: courseInfo.tiers
-        });
+        };
+        // Only include generate_podcasts if explicitly set (defaults to true on backend)
+        if (courseInfo.generate_podcasts !== undefined) {
+            body.generate_podcasts = courseInfo.generate_podcasts;
+        }
+        return await this.request('/admin/generate/content', 'POST', body);
     },
 
     async generateIndividual(topicIds, options = {}) {

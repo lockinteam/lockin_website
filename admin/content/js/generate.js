@@ -330,6 +330,7 @@ const GenerateSection = {
                 ${progress.completed_notes !== undefined ? `
                     <div class="progress-details">
                         <span>Notes: ${progress.completed_notes}/${progress.total_topics}</span>
+                        ${progress.completed_podcast_scripts !== undefined ? `<span>Scripts: ${progress.completed_podcast_scripts}/${progress.total_topics}</span>` : ''}
                         <span>Questions: ${progress.completed_questions}/${progress.total_topics}</span>
                     </div>
                 ` : ''}
@@ -352,6 +353,9 @@ const GenerateSection = {
         // Handle dynamic statuses like "generating_notes_uuid"
         if (status && status.startsWith('generating_notes')) {
             return { label: 'Generating Notes', class: 'active' };
+        }
+        if (status && status.startsWith('generating_podcast_scripts')) {
+            return { label: 'Generating Podcast Scripts', class: 'active' };
         }
         if (status && status.startsWith('generating_questions')) {
             return { label: 'Generating Questions', class: 'active' };
@@ -555,11 +559,22 @@ const GenerateSection = {
                         'Leave blank to use uploaded PDF'
                     )}
                     
+                    <div class="form-row">
+                        <label class="filter-label">Generation Options</label>
+                        <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                            <label class="option-checkbox">
+                                <input type="checkbox" name="generatePodcasts" id="genPodcastsOption" checked>
+                                <span>Generate Podcast Scripts</span>
+                            </label>
+                        </div>
+                        <p class="form-help">Uncheck to skip podcast script generation (can be generated later per-topic).</p>
+                    </div>
+                    
                     <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px; margin-top: 1rem;">
                         <strong>What happens next:</strong>
                         <ul style="margin: 0.5rem 0 0 1.5rem; line-height: 1.8;">
                             <li>Course will be created in the database</li>
-                            <li>AI will generate papers, topics, notes, and questions</li>
+                            <li>AI will generate papers, topics, notes, podcast scripts, and questions</li>
                             <li>Generation runs in the background (~5-15 minutes)</li>
                             <li>You can monitor progress in real-time</li>
                         </ul>
@@ -644,6 +659,9 @@ const GenerateSection = {
             UI.closeModal();
             UI.showLoading('Starting content generation...');
             
+            // Get generate_podcasts option
+            const generatePodcasts = document.getElementById('genPodcastsOption')?.checked ?? true;
+            
             const data = await API.generateContent(taskId, {
                 course_title: courseTitle,
                 year_id: yearId,
@@ -652,7 +670,8 @@ const GenerateSection = {
                 subject_code: subjectCode,
                 description: description,
                 link_to_specification: linkToSpec || null,
-                tiers: tiers
+                tiers: tiers,
+                generate_podcasts: generatePodcasts
             });
             
             UI.showToast('Content generation started successfully', 'success');
