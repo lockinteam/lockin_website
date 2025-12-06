@@ -3,8 +3,14 @@
 const GenerateSection = {
     pollInterval: null,
     pollIntervalMs: 5000, // Poll every 5 seconds
-    currentView: 'tasks', // 'tasks', 'prompts', or 'models'
+    currentView: 'tasks', // 'tasks', 'prompts', 'models', or 'localTts'
     modelSearchQuery: '', // Search query for models
+    
+    // Local TTS state
+    localTtsVoices: [],
+    localTtsLanguages: [],
+    localTtsApiUrl: 'http://127.0.0.1:8880',
+    localTtsHealthy: false,
     
     async load() {
         if (this.currentView === 'tasks') {
@@ -35,6 +41,14 @@ const GenerateSection = {
             } catch (error) {
                 console.error('Load error:', error);
                 UI.showToast('Failed to load AI models', 'error');
+            }
+        } else if (this.currentView === 'localTts') {
+            UI.showLoading('Checking local TTS server...');
+            try {
+                await this.loadLocalTts();
+            } catch (error) {
+                console.error('Load error:', error);
+                this.renderLocalTtsOffline();
             }
         }
     },
@@ -140,7 +154,7 @@ const GenerateSection = {
         
         const viewTabsHTML = `
             <div class="content-filters" style="margin-bottom: 1rem;">
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                     <button class="action-btn ${this.currentView === 'tasks' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('tasks')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
                         Generation Tasks
@@ -152,6 +166,10 @@ const GenerateSection = {
                     <button class="action-btn ${this.currentView === 'models' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('models')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6m9.66-9H16m-8 0H1.34M17.66 17.66l-4.24-4.24m-2.83 0l-4.24 4.24M17.66 6.34l-4.24 4.24m-2.83 0l-4.24-4.24"></path></svg>
                         AI Models
+                    </button>
+                    <button class="action-btn ${this.currentView === 'localTts' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('localTts')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                        Local TTS
                     </button>
                 </div>
             </div>
@@ -1275,8 +1293,8 @@ const GenerateSection = {
         
         const viewTabsHTML = `
             <div class="content-filters" style="margin-bottom: 1rem;">
-                <div style="display: flex; gap: 0.5rem; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                         <button class="action-btn ${this.currentView === 'tasks' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('tasks')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
                             Generation Tasks
@@ -1288,6 +1306,10 @@ const GenerateSection = {
                         <button class="action-btn ${this.currentView === 'models' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('models')">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6m9.66-9H16m-8 0H1.34M17.66 17.66l-4.24-4.24m-2.83 0l-4.24 4.24M17.66 6.34l-4.24 4.24m-2.83 0l-4.24-4.24"></path></svg>
                             AI Models
+                        </button>
+                        <button class="action-btn ${this.currentView === 'localTts' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('localTts')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                            Local TTS
                         </button>
                     </div>
                     <button class="action-btn" onclick="GenerateSection.openBulkChangeModelModal()" title="Change model for all prompts">
@@ -1671,7 +1693,7 @@ const GenerateSection = {
         
         const viewTabsHTML = `
             <div class="content-filters" style="margin-bottom: 1rem;">
-                <div style="display: flex; gap: 0.5rem;">
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                     <button class="action-btn ${this.currentView === 'tasks' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('tasks')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
                         Generation Tasks
@@ -1683,6 +1705,10 @@ const GenerateSection = {
                     <button class="action-btn ${this.currentView === 'models' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('models')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6m9.66-9H16m-8 0H1.34M17.66 17.66l-4.24-4.24m-2.83 0l-4.24 4.24M17.66 6.34l-4.24 4.24m-2.83 0l-4.24-4.24"></path></svg>
                         AI Models
+                    </button>
+                    <button class="action-btn ${this.currentView === 'localTts' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('localTts')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                        Local TTS
                     </button>
                 </div>
             </div>
@@ -2083,6 +2109,764 @@ const GenerateSection = {
             console.error('Toggle model status error:', error);
             UI.showToast('Failed to update model status: ' + error.message, 'error');
         }
+    },
+    
+    // ========================================
+    // LOCAL TTS PODCAST GENERATION
+    // ========================================
+    
+    async loadLocalTts() {
+        // Check if local TTS server is healthy by fetching voices
+        try {
+            const response = await fetch(`${this.localTtsApiUrl}/voices`, {
+                method: 'GET',
+                signal: AbortSignal.timeout(5000) // 5 second timeout
+            });
+            
+            if (!response.ok) {
+                throw new Error('TTS server returned error');
+            }
+            
+            const data = await response.json();
+            this.localTtsVoices = data.voices || [];
+            this.localTtsLanguages = data.languages || [];
+            this.localTtsHealthy = true;
+            
+            // Load courses for selection
+            const coursesData = await API.getCourses({ includeInactive: false });
+            AppState.setCourses(coursesData.data?.courses || []);
+            
+            this.renderLocalTts();
+        } catch (error) {
+            console.error('Local TTS health check failed:', error);
+            this.localTtsHealthy = false;
+            this.localTtsVoices = [];
+            this.localTtsLanguages = [];
+            this.renderLocalTtsOffline();
+        }
+    },
+    
+    renderLocalTtsOffline() {
+        const viewTabsHTML = this.getLocalTtsViewTabs();
+        
+        const contentHTML = `
+            <div class="content-empty" style="padding: 3rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #ef4444;">
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                    <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
+                    <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .38-.03.75-.08 1.12"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+                <h3 style="color: #ef4444;">Local TTS Server Offline</h3>
+                <p style="max-width: 400px; margin: 1rem auto;">
+                    Cannot connect to the local Kokoro TTS server at <code>${this.localTtsApiUrl}</code>
+                </p>
+                <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin-top: 1rem; max-width: 500px; text-align: left;">
+                    <strong>To start the TTS server:</strong>
+                    <ol style="margin: 0.5rem 0 0 1.5rem; line-height: 1.8;">
+                        <li>Navigate to the local_tts directory</li>
+                        <li>Run: <code>python server.py</code></li>
+                        <li>Wait for "Server running on http://127.0.0.1:8880"</li>
+                    </ol>
+                </div>
+                <button class="action-btn" onclick="GenerateSection.load()" style="margin-top: 1.5rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"></path></svg>
+                    Retry Connection
+                </button>
+            </div>
+        `;
+        
+        UI.elements.contentArea.innerHTML = viewTabsHTML + contentHTML;
+    },
+    
+    getLocalTtsViewTabs() {
+        return `
+            <div class="content-filters" style="margin-bottom: 1rem;">
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="action-btn ${this.currentView === 'tasks' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('tasks')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        Generation Tasks
+                    </button>
+                    <button class="action-btn ${this.currentView === 'prompts' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('prompts')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        AI Prompts
+                    </button>
+                    <button class="action-btn ${this.currentView === 'models' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('models')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6m9.66-9H16m-8 0H1.34M17.66 17.66l-4.24-4.24m-2.83 0l-4.24 4.24M17.66 6.34l-4.24 4.24m-2.83 0l-4.24-4.24"></path></svg>
+                        AI Models
+                    </button>
+                    <button class="action-btn ${this.currentView === 'localTts' ? '' : 'action-btn-secondary'}" onclick="GenerateSection.switchView('localTts')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                        Local TTS
+                    </button>
+                </div>
+            </div>
+        `;
+    },
+    
+    renderLocalTts() {
+        const viewTabsHTML = this.getLocalTtsViewTabs();
+        const courses = AppState.courses;
+        
+        const courseOptions = courses.map(c => ({
+            value: c.id,
+            label: UI.formatCourseLabel(c)
+        }));
+        
+        const statusHTML = `
+            <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: #f0fdf4; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #22c55e;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                <span style="color: #166534; font-weight: 500;">Local TTS Server Online</span>
+                <span style="color: #15803d; font-size: 0.85rem; margin-left: auto;">${this.localTtsVoices.length} voices available</span>
+            </div>
+        `;
+        
+        const formHTML = `
+            <div class="content-filters">
+                <div class="filter-group" style="flex: 1;">
+                    <label class="filter-label">Select Course</label>
+                    <select class="filter-select" id="localTtsCourseSelect" onchange="GenerateSection.onLocalTtsCourseChange()">
+                        <option value="">-- Choose a course --</option>
+                        ${courseOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+        `;
+        
+        const emptyHTML = `
+            <div class="content-empty" style="padding: 2rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+                <h3>Generate Podcast Audio</h3>
+                <p>Select a course to generate podcast audio from existing scripts using local TTS.</p>
+            </div>
+        `;
+        
+        UI.elements.contentArea.innerHTML = viewTabsHTML + statusHTML + formHTML + emptyHTML;
+    },
+    
+    async onLocalTtsCourseChange() {
+        const courseId = document.getElementById('localTtsCourseSelect').value;
+        if (!courseId) {
+            this.renderLocalTts();
+            return;
+        }
+        
+        // Show loading state
+        const contentArea = UI.elements.contentArea;
+        const existingContent = contentArea.innerHTML;
+        
+        // Find the content-empty div and replace with loading
+        const emptyDiv = contentArea.querySelector('.content-empty');
+        if (emptyDiv) {
+            emptyDiv.innerHTML = `
+                <div class="loading-spinner" style="margin: 0 auto 1rem;"></div>
+                <p style="color: #64748B;">Loading topics with podcast scripts...</p>
+            `;
+        }
+        
+        try {
+            // Get course info
+            const courseData = await API.getCourse(courseId);
+            const course = courseData.data?.course;
+            
+            // Load tiers for this course
+            const tiersData = await API.getTiers(courseId, false);
+            const tiers = tiersData.data?.tiers || [];
+            
+            if (tiers.length === 0) {
+                this.renderLocalTtsNoTiers();
+                return;
+            }
+            
+            // Load topics for each tier and check for podcast scripts
+            const tiersWithTopics = [];
+            for (const tier of tiers) {
+                const topicsData = await API.getTopics({ tierId: tier.id }, false);
+                const topics = topicsData.data?.topics || [];
+                
+                // For each topic, we need to check if it has a podcast with a script
+                // Load podcasts for each topic
+                const topicsWithPodcastInfo = [];
+                for (const topic of topics) {
+                    const podcastData = await API.getPodcasts(topic.id);
+                    const podcasts = podcastData.data?.podcasts || [];
+                    
+                    // Find if there's a podcast with a script
+                    const podcastWithScript = podcasts.find(p => p.script && p.script.trim().length > 0);
+                    const podcastWithAudio = podcasts.find(p => p.url && p.url.trim().length > 0);
+                    
+                    topicsWithPodcastInfo.push({
+                        ...topic,
+                        hasScript: !!podcastWithScript,
+                        scriptPodcastId: podcastWithScript?.id || null,
+                        scriptPreview: podcastWithScript?.script?.substring(0, 100) || null,
+                        hasAudio: !!podcastWithAudio,
+                        existingAudioUrl: podcastWithAudio?.url || null
+                    });
+                }
+                
+                tiersWithTopics.push({
+                    ...tier,
+                    topics: topicsWithPodcastInfo
+                });
+            }
+            
+            this.renderLocalTtsTopicSelection(course, tiersWithTopics);
+            
+        } catch (error) {
+            console.error('Error loading course topics:', error);
+            UI.showToast('Failed to load course topics: ' + error.message, 'error');
+        }
+    },
+    
+    renderLocalTtsNoTiers() {
+        const viewTabsHTML = this.getLocalTtsViewTabs();
+        
+        UI.elements.contentArea.innerHTML = viewTabsHTML + `
+            <div class="content-empty" style="padding: 2rem;">
+                <h3>No Tiers Found</h3>
+                <p>This course doesn't have any tiers with topics yet.</p>
+                <button class="action-btn action-btn-secondary" onclick="GenerateSection.renderLocalTts()">Back</button>
+            </div>
+        `;
+    },
+    
+    renderLocalTtsTopicSelection(course, tiersWithTopics) {
+        const viewTabsHTML = this.getLocalTtsViewTabs();
+        
+        // Build voice options with flags and clear gender labels
+        const voicePrefixMap = {
+            'af': { flag: '🇺🇸', lang: 'American', gender: '♀ Female' },
+            'am': { flag: '🇺🇸', lang: 'American', gender: '♂ Male' },
+            'bf': { flag: '🇬🇧', lang: 'British', gender: '♀ Female' },
+            'bm': { flag: '🇬🇧', lang: 'British', gender: '♂ Male' },
+            'jf': { flag: '🇯🇵', lang: 'Japanese', gender: '♀ Female' },
+            'jm': { flag: '🇯🇵', lang: 'Japanese', gender: '♂ Male' },
+            'zf': { flag: '🇨🇳', lang: 'Chinese', gender: '♀ Female' },
+            'zm': { flag: '🇨🇳', lang: 'Chinese', gender: '♂ Male' },
+            'kf': { flag: '🇰🇷', lang: 'Korean', gender: '♀ Female' },
+            'km': { flag: '🇰🇷', lang: 'Korean', gender: '♂ Male' },
+            'ff': { flag: '🇫🇷', lang: 'French', gender: '♀ Female' },
+            'fm': { flag: '🇫🇷', lang: 'French', gender: '♂ Male' },
+            'df': { flag: '🇩🇪', lang: 'German', gender: '♀ Female' },
+            'dm': { flag: '🇩🇪', lang: 'German', gender: '♂ Male' },
+            'sf': { flag: '🇪🇸', lang: 'Spanish', gender: '♀ Female' },
+            'sm': { flag: '🇪🇸', lang: 'Spanish', gender: '♂ Male' },
+            'if': { flag: '🇮🇹', lang: 'Italian', gender: '♀ Female' },
+            'im': { flag: '🇮🇹', lang: 'Italian', gender: '♂ Male' },
+            'pf': { flag: '🇧🇷', lang: 'Portuguese', gender: '♀ Female' },
+            'pm': { flag: '🇧🇷', lang: 'Portuguese', gender: '♂ Male' }
+        };
+        
+        const voiceOptions = this.localTtsVoices.map(v => {
+            const prefix = v.substring(0, 2);
+            const info = voicePrefixMap[prefix];
+            const voiceName = v.substring(3).charAt(0).toUpperCase() + v.substring(4);
+            let label = info 
+                ? `${info.flag} ${info.gender} - ${voiceName} (${info.lang})`
+                : v;
+            return { value: v, label, prefix };
+        });
+        
+        // Sort voices: group by language, then by gender (female first), then by name
+        voiceOptions.sort((a, b) => {
+            const aInfo = voicePrefixMap[a.prefix] || { lang: 'ZZZ', gender: '' };
+            const bInfo = voicePrefixMap[b.prefix] || { lang: 'ZZZ', gender: '' };
+            if (aInfo.lang !== bInfo.lang) return aInfo.lang.localeCompare(bInfo.lang);
+            if (aInfo.gender !== bInfo.gender) return aInfo.gender.localeCompare(bInfo.gender);
+            return a.value.localeCompare(b.value);
+        });
+        
+        // Build language options with flags
+        const langFlagMap = {
+            'en-us': '🇺🇸', 'en-gb': '🇬🇧', 'ja': '🇯🇵', 'zh': '🇨🇳',
+            'ko': '🇰🇷', 'fr-fr': '🇫🇷', 'de': '🇩🇪', 'es': '🇪🇸',
+            'it': '🇮🇹', 'pt-br': '🇧🇷'
+        };
+        const languageOptions = this.localTtsLanguages.map(lang => ({
+            code: lang.code,
+            label: `${langFlagMap[lang.code] || '🌐'} ${lang.name}`
+        }));
+        
+        // Count topics with scripts
+        let topicsWithScripts = 0;
+        let topicsWithoutScripts = 0;
+        let topicsWithExistingAudio = 0;
+        
+        tiersWithTopics.forEach(tier => {
+            tier.topics.forEach(topic => {
+                if (topic.hasScript) {
+                    topicsWithScripts++;
+                    if (topic.hasAudio) topicsWithExistingAudio++;
+                } else {
+                    topicsWithoutScripts++;
+                }
+            });
+        });
+        
+        // Build tier sections with topics
+        let tiersHTML = '';
+        for (const tier of tiersWithTopics) {
+            if (tier.topics.length === 0) continue;
+            
+            const topicsHTML = tier.topics.map(topic => {
+                const hasScript = topic.hasScript;
+                const hasAudio = topic.hasAudio;
+                
+                let statusBadge = '';
+                let itemClass = 'individual-topic-item';
+                let disabled = '';
+                let tooltip = '';
+                
+                if (!hasScript) {
+                    itemClass += ' disabled no-script';
+                    disabled = 'disabled';
+                    statusBadge = '<span class="topic-status-badge no-script" title="No podcast script available">No Script</span>';
+                    tooltip = 'title="Cannot generate audio: No podcast script available for this topic"';
+                } else if (hasAudio) {
+                    itemClass += ' has-audio';
+                    statusBadge = '<span class="topic-status-badge has-audio" title="Already has audio - will be replaced">Has Audio</span>';
+                }
+                
+                return `
+                    <label class="${itemClass}" ${tooltip}>
+                        <input type="checkbox" name="topicIds" value="${topic.id}" 
+                            data-podcast-id="${topic.scriptPodcastId || ''}"
+                            class="topic-checkbox" ${disabled} ${!hasScript ? 'disabled' : ''}>
+                        <div class="topic-info">
+                            <span class="topic-name">${UI.escapeHtml(topic.name)}</span>
+                            ${statusBadge}
+                        </div>
+                    </label>
+                `;
+            }).join('');
+            
+            tiersHTML += `
+                <div class="tier-section">
+                    <div class="tier-header">
+                        <label class="tier-select-all">
+                            <input type="checkbox" class="tier-checkbox" data-tier="${tier.id}" onchange="GenerateSection.toggleLocalTtsTierTopics(this, '${tier.id}')">
+                            <span class="tier-title">${UI.escapeHtml(tier.title)}</span>
+                            <span class="tier-count">(${tier.topics.filter(t => t.hasScript).length}/${tier.topics.length} with scripts)</span>
+                        </label>
+                    </div>
+                    <div class="tier-topics" id="local-tts-tier-${tier.id}">
+                        ${topicsHTML}
+                    </div>
+                </div>
+            `;
+        }
+        
+        const formHTML = `
+            <form id="localTtsGenerateForm" onsubmit="GenerateSection.handleLocalTtsGenerate(event); return false;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: #f0fdf4; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #22c55e;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    <span style="color: #166534; font-weight: 500;">Local TTS Server Online</span>
+                    <button type="button" class="action-btn action-btn-secondary" onclick="GenerateSection.renderLocalTts()" style="margin-left: auto; padding: 0.25rem 0.75rem; font-size: 0.85rem;">
+                        ← Back to Course Selection
+                    </button>
+                </div>
+                
+                <h3 style="margin-bottom: 0.5rem;">${UI.escapeHtml(course.title)}</h3>
+                <p style="color: #64748b; margin-bottom: 1.5rem;">Generate podcast audio from existing scripts for <strong>${course.year_name} ${course.subject_name}</strong></p>
+                
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px; margin-bottom: 1.5rem;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: 600; color: #22c55e;">${topicsWithScripts}</div>
+                        <div style="font-size: 0.85rem; color: #64748b;">With Scripts</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: 600; color: #f59e0b;">${topicsWithExistingAudio}</div>
+                        <div style="font-size: 0.85rem; color: #64748b;">Already Have Audio</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: 600; color: #94a3b8;">${topicsWithoutScripts}</div>
+                        <div style="font-size: 0.85rem; color: #64748b;">No Script</div>
+                    </div>
+                </div>
+                
+                <div style="background: #fff; border: 1px solid rgba(187, 202, 220, 0.5); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;">
+                    <h4 style="margin-bottom: 1rem; color: #1e293b;">Voice Settings</h4>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <label class="filter-label">Language</label>
+                        <select class="filter-select" id="localTtsLanguage" style="max-width: 250px;">
+                            ${languageOptions.map(l => `<option value="${l.code}" ${l.code === 'en-us' ? 'selected' : ''}>${l.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label class="filter-label">Speaker 1 Voice</label>
+                            <select class="filter-select" id="localTtsSpeaker1Voice">
+                                ${voiceOptions.map(v => `<option value="${v.value}" ${v.value === 'af_sarah' ? 'selected' : ''}>${v.label}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="filter-label">Speaker 1 Speed: <span id="localTtsSpeaker1SpeedValue">1.0</span>x</label>
+                            <input type="range" class="form-range" id="localTtsSpeaker1Speed" value="1.0" min="0.5" max="2.0" step="0.05" oninput="document.getElementById('localTtsSpeaker1SpeedValue').textContent = this.value">
+                        </div>
+                        <div>
+                            <label class="filter-label">Speaker 2 Voice</label>
+                            <select class="filter-select" id="localTtsSpeaker2Voice">
+                                ${voiceOptions.map(v => `<option value="${v.value}" ${v.value === 'am_adam' ? 'selected' : ''}>${v.label}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="filter-label">Speaker 2 Speed: <span id="localTtsSpeaker2SpeedValue">1.0</span>x</label>
+                            <input type="range" class="form-range" id="localTtsSpeaker2Speed" value="1.0" min="0.5" max="2.0" step="0.05" oninput="document.getElementById('localTtsSpeaker2SpeedValue').textContent = this.value">
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <label class="filter-label">Pause Between Speakers: <span id="localTtsPauseDurationValue">0.3</span>s</label>
+                        <input type="range" class="form-range" id="localTtsPauseDuration" value="0.3" min="0.1" max="1.5" step="0.1" style="max-width: 300px;" oninput="document.getElementById('localTtsPauseDurationValue').textContent = this.value">
+                    </div>
+                </div>
+                
+                <div class="selection-controls" style="margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button type="button" class="action-btn action-btn-secondary" onclick="GenerateSection.selectAllLocalTtsTopics(true)" style="font-size: 0.85rem; padding: 0.4rem 0.75rem;">Select All With Scripts</button>
+                    <button type="button" class="action-btn action-btn-secondary" onclick="GenerateSection.selectAllLocalTtsTopics(false)" style="font-size: 0.85rem; padding: 0.4rem 0.75rem;">Deselect All</button>
+                    <button type="button" class="action-btn action-btn-secondary" onclick="GenerateSection.selectLocalTtsTopicsWithoutAudio()" style="font-size: 0.85rem; padding: 0.4rem 0.75rem;">Select Without Audio</button>
+                    <span class="selection-count" id="localTtsSelectionCount" style="margin-left: auto; font-size: 0.9rem; color: var(--color-grey-text);">0 topics selected</span>
+                </div>
+                
+                <div class="topics-container" style="max-height: 350px; overflow-y: auto; border: 1px solid rgba(187, 202, 220, 0.5); border-radius: 10px; padding: 0.5rem;">
+                    ${tiersHTML}
+                </div>
+                
+                <div style="padding: 1rem; background: rgba(245, 158, 11, 0.1); border-radius: 8px; margin-top: 1rem; border-left: 4px solid rgb(245, 158, 11);">
+                    <strong style="color: rgb(180, 120, 0);">⚠️ Note:</strong>
+                    <ul style="margin: 0.5rem 0 0 1.5rem; line-height: 1.6; font-size: 0.875rem;">
+                        <li>Audio generation runs locally and may take ~1-2 seconds per minute of audio</li>
+                        <li>Topics with existing audio will have their podcast URL replaced</li>
+                        <li>Generated audio will be automatically uploaded to storage</li>
+                    </ul>
+                </div>
+                
+                ${UI.createModalActions(
+                    'GenerateSection.renderLocalTts()',
+                    'document.getElementById("localTtsGenerateForm").requestSubmit()',
+                    'Generate Podcast Audio',
+                    false
+                )}
+            </form>
+        `;
+        
+        UI.elements.contentArea.innerHTML = viewTabsHTML + formHTML;
+        
+        // Setup selection listeners
+        this.setupLocalTtsSelectionListeners();
+    },
+    
+    setupLocalTtsSelectionListeners() {
+        const checkboxes = document.querySelectorAll('#localTtsGenerateForm .topic-checkbox:not([disabled])');
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', () => this.updateLocalTtsSelectionCount());
+        });
+        this.updateLocalTtsSelectionCount();
+    },
+    
+    updateLocalTtsSelectionCount() {
+        const checked = document.querySelectorAll('#localTtsGenerateForm .topic-checkbox:checked').length;
+        const countEl = document.getElementById('localTtsSelectionCount');
+        if (countEl) {
+            countEl.textContent = `${checked} topic${checked !== 1 ? 's' : ''} selected`;
+        }
+    },
+    
+    toggleLocalTtsTierTopics(tierCheckbox, tierId) {
+        const tierContainer = document.getElementById(`local-tts-tier-${tierId}`);
+        if (!tierContainer) return;
+        
+        const topicCheckboxes = tierContainer.querySelectorAll('.topic-checkbox:not([disabled])');
+        topicCheckboxes.forEach(cb => {
+            cb.checked = tierCheckbox.checked;
+        });
+        this.updateLocalTtsSelectionCount();
+    },
+    
+    selectAllLocalTtsTopics(select) {
+        const checkboxes = document.querySelectorAll('#localTtsGenerateForm .topic-checkbox:not([disabled])');
+        checkboxes.forEach(cb => cb.checked = select);
+        
+        // Update tier checkboxes
+        const tierCheckboxes = document.querySelectorAll('#localTtsGenerateForm .tier-checkbox');
+        tierCheckboxes.forEach(cb => cb.checked = select);
+        
+        this.updateLocalTtsSelectionCount();
+    },
+    
+    selectLocalTtsTopicsWithoutAudio() {
+        const items = document.querySelectorAll('#localTtsGenerateForm .individual-topic-item');
+        items.forEach(item => {
+            const checkbox = item.querySelector('.topic-checkbox:not([disabled])');
+            if (checkbox) {
+                // Select only if it doesn't have audio (no has-audio class)
+                checkbox.checked = !item.classList.contains('has-audio');
+            }
+        });
+        
+        // Update tier checkboxes
+        const tierCheckboxes = document.querySelectorAll('#localTtsGenerateForm .tier-checkbox');
+        tierCheckboxes.forEach(tierCb => {
+            const tierId = tierCb.dataset.tier;
+            const tierContainer = document.getElementById(`local-tts-tier-${tierId}`);
+            if (tierContainer) {
+                const enabledCbs = tierContainer.querySelectorAll('.topic-checkbox:not([disabled])');
+                const allChecked = Array.from(enabledCbs).every(cb => cb.checked);
+                tierCb.checked = allChecked && enabledCbs.length > 0;
+            }
+        });
+        
+        this.updateLocalTtsSelectionCount();
+    },
+    
+    async handleLocalTtsGenerate(event) {
+        event.preventDefault();
+        
+        // Get selected topics with their podcast IDs
+        const selectedCheckboxes = Array.from(document.querySelectorAll('#localTtsGenerateForm .topic-checkbox:checked'));
+        
+        if (selectedCheckboxes.length === 0) {
+            UI.showToast('Please select at least one topic', 'error');
+            return;
+        }
+        
+        const selectedTopics = selectedCheckboxes.map(cb => ({
+            topicId: cb.value,
+            podcastId: cb.dataset.podcastId
+        }));
+        
+        // Get voice settings
+        const language = document.getElementById('localTtsLanguage').value;
+        const speaker1Voice = document.getElementById('localTtsSpeaker1Voice').value;
+        const speaker1Speed = parseFloat(document.getElementById('localTtsSpeaker1Speed').value) || 1.0;
+        const speaker2Voice = document.getElementById('localTtsSpeaker2Voice').value;
+        const speaker2Speed = parseFloat(document.getElementById('localTtsSpeaker2Speed').value) || 1.0;
+        const pauseDuration = parseFloat(document.getElementById('localTtsPauseDuration').value) || 0.3;
+        
+        // Confirm
+        if (!UI.confirm(`Generate podcast audio for ${selectedTopics.length} topic(s)?\\n\\nThis will:\\n• Generate audio using local TTS\\n• Upload audio files to storage\\n• Update podcast entries with new audio URLs\\n\\nTopics with existing audio will be replaced.`)) {
+            return;
+        }
+        
+        // Start generation
+        await this.executeLocalTtsGeneration(selectedTopics, {
+            language,
+            speaker1Voice,
+            speaker1Speed,
+            speaker2Voice,
+            speaker2Speed,
+            pauseDuration
+        });
+    },
+    
+    async executeLocalTtsGeneration(selectedTopics, settings) {
+        const totalTopics = selectedTopics.length;
+        let completed = 0;
+        let errors = 0;
+        const results = [];
+        
+        // Show progress modal
+        UI.openModal('Generating Podcast Audio', `
+            <div id="localTtsProgressContainer">
+                <p style="margin-bottom: 1rem;">Generating audio for ${totalTopics} topic(s)...</p>
+                <div class="progress-bar-container" style="height: 24px; background: #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 1rem;">
+                    <div id="localTtsProgressBar" style="height: 100%; background: linear-gradient(90deg, #3678AE, #5BA0D0); width: 0%; transition: width 0.3s ease;"></div>
+                </div>
+                <div id="localTtsProgressText" style="text-align: center; color: #64748b; font-size: 0.9rem;">0 / ${totalTopics} completed</div>
+                <div id="localTtsCurrentTopic" style="text-align: center; margin-top: 0.5rem; font-size: 0.85rem; color: #94a3b8;">Preparing...</div>
+                <div id="localTtsErrorLog" style="margin-top: 1rem; max-height: 150px; overflow-y: auto;"></div>
+            </div>
+        `);
+        
+        const progressBar = document.getElementById('localTtsProgressBar');
+        const progressText = document.getElementById('localTtsProgressText');
+        const currentTopicEl = document.getElementById('localTtsCurrentTopic');
+        const errorLog = document.getElementById('localTtsErrorLog');
+        
+        for (const { topicId, podcastId } of selectedTopics) {
+            let topicName = `Topic ${topicId.substring(0, 8)}...`;
+            let currentStep = 'initializing';
+            
+            try {
+                // Update current topic display
+                currentTopicEl.textContent = `Processing topic ${completed + 1} of ${totalTopics}...`;
+                
+                // Step 1: Fetch podcast script
+                currentStep = 'fetching script';
+                const podcastData = await API.getPodcasts(topicId);
+                const podcasts = podcastData.data?.podcasts || [];
+                const podcast = podcasts.find(p => p.id === podcastId);
+                
+                if (!podcast || !podcast.script) {
+                    throw new Error('Podcast script not found');
+                }
+                
+                topicName = podcastData.data?.topic?.name || topicName;
+                currentTopicEl.textContent = `Generating audio for: ${topicName}`;
+                
+                // Step 2: Generate audio using local TTS
+                currentStep = 'generating audio';
+                const audioBlob = await this.generateLocalTtsAudio(podcast.script, settings);
+                
+                // Step 3: Upload audio to storage
+                currentStep = 'uploading audio';
+                currentTopicEl.textContent = `Uploading audio for: ${topicName}`;
+                const fileName = `podcast_${topicId}_${Date.now()}.wav`;
+                const file = new File([audioBlob], fileName, { type: 'audio/wav' });
+                
+                const uploadResult = await API.uploadFile(file);
+                
+                // Step 4: Update podcast with new URL
+                currentStep = 'updating podcast';
+                const audioUrl = uploadResult.file_url;
+                const fileSizeBytes = audioBlob.size;
+                
+                // Get audio duration
+                let durationSeconds = null;
+                try {
+                    durationSeconds = await this.getAudioBlobDuration(audioBlob);
+                } catch (e) {
+                    console.warn('Could not determine audio duration:', e);
+                }
+                
+                await API.updatePodcast(podcastId, {
+                    url: audioUrl,
+                    file_size: fileSizeBytes,
+                    length_seconds: durationSeconds
+                });
+                
+                results.push({ topicId, topicName, success: true });
+                completed++;
+                
+            } catch (error) {
+                console.error(`Error processing topic ${topicId} (${currentStep}):`, error);
+                errors++;
+                completed++;
+                
+                const errorMsg = `${currentStep}: ${error.message}`;
+                results.push({ topicId, topicName, success: false, error: errorMsg });
+                
+                // Show error in log
+                if (errorLog) {
+                    errorLog.innerHTML += `<div style="color: #ef4444; font-size: 0.85rem; padding: 0.25rem 0;">❌ Error: ${UI.escapeHtml(error.message)}</div>`;
+                }
+            }
+            
+            // Update progress
+            const percent = Math.round((completed / totalTopics) * 100);
+            if (progressBar) progressBar.style.width = `${percent}%`;
+            if (progressText) progressText.textContent = `${completed} / ${totalTopics} completed`;
+        }
+        
+        // Show completion
+        this.showLocalTtsResults(results, completed, errors);
+    },
+    
+    async generateLocalTtsAudio(script, settings) {
+        const response = await fetch(`${this.localTtsApiUrl}/v1/audio/podcast`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                script: script,
+                speaker1_voice: settings.speaker1Voice,
+                speaker1_speed: settings.speaker1Speed,
+                speaker2_voice: settings.speaker2Voice,
+                speaker2_speed: settings.speaker2Speed,
+                lang: settings.language || 'en-us',
+                pause_duration: settings.pauseDuration
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `TTS generation failed (${response.status})`);
+        }
+        
+        return await response.blob();
+    },
+    
+    async getAudioBlobDuration(blob) {
+        return new Promise((resolve, reject) => {
+            const audio = new Audio();
+            const objectUrl = URL.createObjectURL(blob);
+            
+            audio.addEventListener('loadedmetadata', () => {
+                URL.revokeObjectURL(objectUrl);
+                if (audio.duration === Infinity || isNaN(audio.duration)) {
+                    reject(new Error('Could not determine duration'));
+                } else {
+                    resolve(Math.round(audio.duration));
+                }
+            });
+            
+            audio.addEventListener('error', () => {
+                URL.revokeObjectURL(objectUrl);
+                reject(new Error('Could not load audio'));
+            });
+            
+            audio.src = objectUrl;
+        });
+    },
+    
+    showLocalTtsResults(results, completed, errors) {
+        const successCount = completed - errors;
+        
+        const resultsHTML = results.map(r => {
+            const statusClass = r.success ? 'success' : 'error';
+            const statusIcon = r.success 
+                ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+            
+            return `
+                <div class="result-item ${statusClass}">
+                    <span class="result-icon">${statusIcon}</span>
+                    <div class="result-info">
+                        <span class="result-topic">${UI.escapeHtml(r.topicName || r.topicId)}</span>
+                    </div>
+                    <div class="result-details">
+                        ${r.success ? '<span class="gen-badge notes">Audio ✓</span>' : `<span class="error-text">${UI.escapeHtml(r.error)}</span>`}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        const modalHTML = `
+            <div class="individual-results">
+                <h2>Local TTS Generation Complete</h2>
+                <div class="results-summary">
+                    <div class="summary-stat">
+                        <span class="stat-value">${completed}</span>
+                        <span class="stat-label">Topics Processed</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="stat-value">${successCount}</span>
+                        <span class="stat-label">Audio Generated</span>
+                    </div>
+                    <div class="summary-stat ${errors > 0 ? 'has-errors' : ''}">
+                        <span class="stat-value">${errors}</span>
+                        <span class="stat-label">Errors</span>
+                    </div>
+                </div>
+                
+                <div class="results-list" style="max-height: 300px; overflow-y: auto; margin-top: 1rem;">
+                    ${resultsHTML}
+                </div>
+                
+                <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+                    <button class="action-btn action-btn-secondary" onclick="UI.closeModal(); GenerateSection.load();">Close</button>
+                </div>
+            </div>
+        `;
+        
+        UI.openModal('Generation Results', modalHTML);
     },
     
     // Cleanup on section unload
