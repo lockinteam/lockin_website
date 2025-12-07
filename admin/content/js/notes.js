@@ -469,7 +469,7 @@ const NotesSection = {
             </form>
         `;
         
-        UI.openModal('Create New Notes', formHTML);
+        UI.openModal('Create New Notes', formHTML, 'xlarge');
     },
     
     openEditModal(noteId) {
@@ -495,7 +495,7 @@ const NotesSection = {
             </form>
         `;
         
-        UI.openModal('Edit Notes', formHTML);
+        UI.openModal('Edit Notes', formHTML, 'xlarge');
     },
     
     async handleCreate(event, editorId) {

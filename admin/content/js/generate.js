@@ -901,7 +901,9 @@ const GenerateSection = {
             const topicsHTML = tier.topics.map(topic => {
                 const notesCount = topic.notes_count || 0;
                 const questionsCount = topic.questions_count || 0;
-                const hasContent = notesCount > 0 || questionsCount > 0;
+                const hasPodcastScript = topic.has_podcast_script || false;
+                const hasPodcastFile = topic.has_podcast_file || false;
+                const hasContent = notesCount > 0 || questionsCount > 0 || hasPodcastScript || hasPodcastFile;
                 
                 return `
                     <label class="individual-topic-item ${hasContent ? 'has-content' : 'no-content'}">
@@ -912,6 +914,14 @@ const GenerateSection = {
                                 <span class="stat ${notesCount > 0 ? 'has' : 'empty'}">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
                                     ${notesCount} notes
+                                </span>
+                                <span class="stat ${hasPodcastScript ? 'has' : 'empty'}" title="Podcast Script">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                    Script
+                                </span>
+                                <span class="stat ${hasPodcastFile ? 'has' : 'empty'}" title="Podcast Audio">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
+                                    Audio
                                 </span>
                                 <span class="stat ${questionsCount > 0 ? 'has' : 'empty'}">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -1123,8 +1133,62 @@ const GenerateSection = {
             
         } catch (error) {
             console.error('Individual generation error:', error);
-            UI.showToast('Generation failed: ' + error.message, 'error');
+            
+            // Check for specific error about missing page ranges
+            if (error.message && error.message.includes('missing page range')) {
+                this.showMissingPageRangesError(error);
+            } else {
+                UI.showToast('Generation failed: ' + error.message, 'error');
+            }
         }
+    },
+    
+    showMissingPageRangesError(error) {
+        // Parse the error to extract topic names if available
+        let topicsList = '';
+        let hint = 'Re-run full course generation to populate page ranges for all topics.';
+        
+        // Try to extract details from error message
+        // Error format: "Cannot generate content: X topic(s) are missing page range data..."
+        // Details may include topics_missing_page_ranges array
+        
+        const modalHTML = `
+            <div class="individual-results">
+                <h2 style="color: var(--color-error);">Generation Failed</h2>
+                
+                <div style="padding: 1.5rem; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border-left: 4px solid var(--color-error); margin: 1rem 0;">
+                    <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--color-error); flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        <div>
+                            <strong style="color: var(--color-error);">Missing Page Range Data</strong>
+                            <p style="margin: 0.5rem 0 0; color: var(--color-text-primary); font-size: 0.9rem;">
+                                ${UI.escapeHtml(error.message)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px; margin-top: 1rem;">
+                    <strong>Why does this happen?</strong>
+                    <p style="margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--color-grey-text);">
+                        Individual topic generation requires page range data (start_page, end_page) to extract the relevant portion of the specification PDF. This data is only populated during full course generation.
+                    </p>
+                </div>
+                
+                <div style="padding: 1rem; background: rgba(59, 130, 246, 0.1); border-radius: 8px; margin-top: 1rem; border-left: 4px solid rgb(59, 130, 246);">
+                    <strong style="color: rgb(59, 130, 246);">💡 Solution</strong>
+                    <p style="margin: 0.5rem 0 0; font-size: 0.875rem;">
+                        Run a full course generation first. This will analyze the specification PDF and store the page ranges for each topic. After that, you can use individual generation to regenerate specific topics.
+                    </p>
+                </div>
+                
+                <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+                    <button class="action-btn action-btn-secondary" onclick="UI.closeModal()">Close</button>
+                </div>
+            </div>
+        `;
+        
+        UI.openModal('Generation Error', modalHTML);
     },
     
     showIndividualGenerateResults(data) {

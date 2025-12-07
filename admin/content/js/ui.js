@@ -217,8 +217,9 @@ const UI = {
         // Apply size class to modal
         const modal = this.elements.modalOverlay.querySelector('.modal');
         if (modal) {
-            modal.classList.remove('modal-large', 'modal-small');
+            modal.classList.remove('modal-large', 'modal-xlarge', 'modal-small');
             if (size === 'large') modal.classList.add('modal-large');
+            else if (size === 'xlarge') modal.classList.add('modal-xlarge');
             else if (size === 'small') modal.classList.add('modal-small');
         }
         

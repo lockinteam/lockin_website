@@ -3772,6 +3772,8 @@ Topics are subject areas within a tier that can be linked to **multiple papers**
         "has_notes": true,
         "has_questions": true,
         "has_podcast": true,
+        "has_podcast_script": true,
+        "has_podcast_file": true,
         "papers": [
           {"id": "uuid", "name": "Paper 1", "code": "P1"},
           {"id": "uuid", "name": "Paper 3", "code": "P3"}
@@ -3782,6 +3784,11 @@ Topics are subject areas within a tier that can be linked to **multiple papers**
   }
 }
 ```
+
+**Field Descriptions**:
+- `has_podcast`: True if topic has any active podcast
+- `has_podcast_script`: True if topic has an active podcast with an AI-generated script (script field is not null)
+- `has_podcast_file`: True if topic has an active podcast with an audio file uploaded (url field is not empty)
 
 **JavaScript Example**:
 ```javascript
@@ -8231,6 +8238,7 @@ Generate notes, podcast scripts, and/or questions for specific topics individual
 3. All topics must belong to the same course
 4. Course must have a `link_to_specification` URL (PDF)
 5. Topics must exist and be active
+6. **All topics must have `start_page` and `end_page` data** (populated during full generation)
 
 **Success Response (200 OK):**
 ```json
@@ -8315,6 +8323,29 @@ Generate notes, podcast scripts, and/or questions for specific topics individual
 }
 ```
 
+400 Bad Request (missing page ranges):
+```json
+{
+  "success": false,
+  "message": "Cannot generate content: 3 topic(s) are missing page range data. Topics must be created via full generation to have page ranges.",
+  "details": {
+    "topics_missing_page_ranges": ["Topic 1", "Topic 2", "Topic 3"],
+    "hint": "Re-run full course generation to populate page ranges for all topics"
+  }
+}
+```
+
+500 Internal Server Error (PDF extraction failed):
+```json
+{
+  "success": false,
+  "message": "Failed to extract PDF chunks: Connection timeout",
+  "details": {
+    "hint": "Check that the specification URL is accessible and points to a valid PDF"
+  }
+}
+```
+
 403 Forbidden:
 ```json
 {
@@ -8340,24 +8371,27 @@ Generate notes, podcast scripts, and/or questions for specific topics individual
 ```
 
 **Features:**
-- **Selective Generation**: Choose to generate only notes, only questions, or both
+- **Selective Generation**: Choose to generate only notes, only questions, only podcast scripts, or any combination
 - **Multi-Topic Support**: Process multiple topics in a single request
 - **Replace Mode**: Option to delete existing content before regenerating
 - **Async Processing**: Uses the same rate-limited async generation as full course generation
 - **Detailed Results**: Per-topic success/failure reporting
-- **Reuses Existing System**: Leverages `submit_async_note_generation` and `submit_async_question_generation` from the main generator
+- **Reuses Existing System**: Leverages `submit_async_note_generation`, `submit_async_podcast_script_generation`, and `submit_async_question_generation` from the main generator
+- **Efficient Token Usage**: Uses stored page ranges to extract only relevant PDF pages per topic, drastically reducing API token usage compared to sending the full specification
 
 **Process Flow:**
 1. Validate admin authentication
-2. Fetch topics with their tier/course context
+2. Fetch topics with their tier/course context and page ranges
 3. Verify all topics are from same course
 4. Check course has specification URL
-5. Delete existing content if `replace_existing=true`
-6. Get active prompts from `generation_prompts` table
-7. Submit async generation requests with rate limiting
-8. Wait for all generations to complete
-9. Store generated content in database
-10. Return detailed results
+5. **Verify all topics have page range data** (start_page, end_page)
+6. **Extract PDF chunks using stored page ranges** (reduces token usage)
+7. Delete existing content if `replace_existing=true`
+8. Get active prompts from `generation_prompts` table
+9. Submit async generation requests with rate limiting (using topic-specific PDF chunks)
+10. Wait for all generations to complete
+11. Store generated content in database
+12. Return detailed results
 
 **Use Cases:**
 
