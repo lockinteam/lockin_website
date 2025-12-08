@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="pageTitle">Article | Lockin.tech</title>
+    <meta name="description" id="metaDescription" content="">
+    <link rel="stylesheet" href="../../css/variables.css">
+    <link rel="stylesheet" href="articles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container article-page">
+        <!-- Header -->
+        <header class="header">
+            <a href="/" class="logo-link">
+                <span class="logo-text">Lockin</span>
+            </a>
+            <div class="header-content">
+                <a href="/resources/articles/" class="breadcrumb">← Back to Articles</a>
+            </div>
+            <a href="/resources/" class="back-to-resources">Resources</a>
+        </header>
+
+        <!-- Article Content -->
+        <article id="articleContent" class="article-content">
+            <div class="loading">Loading article...</div>
+        </article>
+
+        <!-- Related Articles -->
+        <section id="relatedArticles" class="related-articles"></section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer__inner">
+                    <div class="footer__brand">
+                        <img src="../../static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="footer__logo" width="164" height="40" loading="lazy">
+                        <p class="footer__tagline">
+                            The all-in-one study companion for UK students. Lock in to your success with notes, podcasts, questions, and past papers.
+                        </p>
+                    </div>
+                    
+                    <nav class="footer__nav">
+                        <h4 class="footer__nav-title">Product</h4>
+                        <ul class="footer__nav-list">
+                            <li><a href="/#features" class="footer__nav-link">Features</a></li>
+                            <li><a href="/#pricing" class="footer__nav-link">Pricing</a></li>
+                            <li><a href="/online" class="footer__nav-link">Web App</a></li>
+                        </ul>
+                    </nav>
+                    
+                    <nav class="footer__nav">
+                        <h4 class="footer__nav-title">Resources</h4>
+                        <ul class="footer__nav-list">
+                            <li><a href="/#how-it-works" class="footer__nav-link">How It Works</a></li>
+                            <li><a href="/resources/articles/" class="footer__nav-link">Study Articles</a></li>
+                            <li><a href="/resources/pass-rates/" class="footer__nav-link">Pass Rates</a></li>
+                        </ul>
+                    </nav>
+                    
+                    <nav class="footer__nav">
+                        <h4 class="footer__nav-title">Support</h4>
+                        <ul class="footer__nav-list">
+                            <li><a href="mailto:support@lockin.tech" class="footer__nav-link">Contact Us</a></li>
+                            <li><a href="#" class="footer__nav-link">Help Centre</a></li>
+                            <li><a href="#" class="footer__nav-link">FAQs</a></li>
+                        </ul>
+                    </nav>
+                </div>
+                
+                <div class="footer__bottom">
+                    <p class="footer__copyright">
+                        © <span id="year"></span> Lockin.tech. All rights reserved.
+                    </p>
+                    <div class="footer__legal">
+                        <a href="/tos/#terms" class="footer__legal-link">Terms of Service</a>
+                        <a href="/tos/#privacy" class="footer__legal-link">Privacy Policy</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+
+        <script>
+            document.getElementById('year').textContent = new Date().getFullYear();
+        </script>
+    </div>
+
+    <script src="articles.js"></script>
+    <script>
+        // Load article based on URL parameter
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const articleSlug = urlParams.get('id');
+            if (articleSlug) {
+                loadArticle(articleSlug);
+            } else {
+                window.location.href = '/resources/articles/';
+            }
+        });
+    </script>
+</body>
+</html>

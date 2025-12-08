@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UK A-Level Results</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="title">UK A-Level Results</h1>
+            <p class="subtitle">National Grade Distribution by Subject</p>
+        </header>
+
+        <!-- Navigation -->
+        <div id="navigationBar" class="navigation-bar" style="display: none;">
+            <button class="back-btn" onclick="showHomePage()">← Back to All Subjects</button>
+        </div>
+
+        <!-- Search Section -->
+        <div class="search-section">
+            <input 
+                type="text" 
+                id="searchInput" 
+                placeholder="Search for a subject..."
+                autocomplete="off"
+            >
+            <div id="suggestions" class="suggestions"></div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsContainer" class="results-container">
+            <div class="home-page">
+                <div class="home-header">
+                    <h2>All Subjects</h2>
+                    <div class="sort-controls">
+                        <label>Sort by:</label>
+                        <button id="sortAlpha" class="sort-btn active" onclick="sortSubjects('alpha')">Alphabetical</button>
+                        <button id="sortPop" class="sort-btn" onclick="sortSubjects('popularity')">Popularity</button>
+                    </div>
+                </div>
+                <div id="subjectsGrid" class="subjects-list">
+                    <div class="loading">Loading subjects...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Data Source: Joint Council for General Qualifications (JCQ) | 2025 figures are provisional</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
