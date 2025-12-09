@@ -2569,7 +2569,7 @@ const GenerateSection = {
                         <div>
                             <label class="filter-label">Speaker 1 Voice</label>
                             <select class="filter-select" id="localTtsSpeaker1Voice">
-                                ${voiceOptions.map(v => `<option value="${v.value}" ${v.value === 'bf_lily' ? 'selected' : ''}>${v.label}</option>`).join('')}
+                                ${voiceOptions.map(v => `<option value="${v.value}" ${v.value === 'optimal_uk_female' ? 'selected' : ''}>${v.label}</option>`).join('')}
                             </select>
                         </div>
                         <div>
@@ -2579,7 +2579,7 @@ const GenerateSection = {
                         <div>
                             <label class="filter-label">Speaker 2 Voice</label>
                             <select class="filter-select" id="localTtsSpeaker2Voice">
-                                ${voiceOptions.map(v => `<option value="${v.value}" ${v.value === 'bm_lewis' ? 'selected' : ''}>${v.label}</option>`).join('')}
+                                ${voiceOptions.map(v => `<option value="${v.value}" ${v.value === 'optimal_uk_male' ? 'selected' : ''}>${v.label}</option>`).join('')}
                             </select>
                         </div>
                         <div>
