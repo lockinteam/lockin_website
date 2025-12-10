@@ -90,6 +90,21 @@
     text-align: center;
 }
 
+.forgot-password-link {
+    display: inline-block;
+    color: var(--color-grey-text);
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.2s ease;
+    margin-top: 0.25rem;
+}
+
+.forgot-password-link:hover {
+    color: var(--color-primary-blue);
+    text-decoration: underline;
+}
+
 .divider {
     width: 100%;
     text-align: center;
