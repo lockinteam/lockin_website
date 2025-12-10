@@ -2783,8 +2783,8 @@ const GenerateSection = {
                 // Step 3: Upload audio to storage
                 currentStep = 'uploading audio';
                 currentTopicEl.textContent = `Uploading audio for: ${topicName}`;
-                const fileName = `podcast_${topicId}_${Date.now()}.wav`;
-                const file = new File([audioBlob], fileName, { type: 'audio/wav' });
+                const fileName = `podcast_${topicId}_${Date.now()}.mp3`;
+                const file = new File([audioBlob], fileName, { type: 'audio/mpeg' });
                 
                 const uploadResult = await API.uploadFile(file);
                 
@@ -2845,7 +2845,8 @@ const GenerateSection = {
                 speaker2_voice: settings.speaker2Voice,
                 speaker2_speed: settings.speaker2Speed,
                 lang: settings.language || 'en-us',
-                pause_duration: settings.pauseDuration
+                pause_duration: settings.pauseDuration,
+                output_format: 'mp3'
             })
         });
         
