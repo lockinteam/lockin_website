@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - Lockin.tech</title>
+    <meta name="description" content="Verify your Lockin.tech account email address.">
+    <link rel="icon" type="image/png" sizes="32x32" href="../static/assets/favicon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="../static/assets/lockin512.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="../static/assets/lockin512.png">
+    <meta name="theme-color" content="#3678AE">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="verify-email.css">
+</head>
+<body>
+    <div class="verify-container">
+        <div class="back-arrow-container">
+            <a href="/" class="back-arrow-pill" aria-label="Back to home">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </a>
+        </div>
+
+        <div class="verify-content">
+            <!-- Verifying View (Loading state - shown initially when token present) -->
+            <div id="verifyingView" class="verify-view" style="display: none;">
+                <div class="title-section">
+                    <div class="icon-wrapper icon-wrapper--loading">
+                        <svg class="spinner-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                        </svg>
+                    </div>
+                    <h1 class="verify-title">Verifying Email...</h1>
+                    <p class="verify-subtitle">Please wait while we verify your email address.</p>
+                </div>
+            </div>
+
+            <!-- Success View -->
+            <div id="successView" class="verify-view" style="display: none;">
+                <div class="title-section">
+                    <div class="icon-wrapper icon-wrapper--success">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                    </div>
+                    <h1 class="verify-title">Email Verified!</h1>
+                    <p class="verify-subtitle">Your email has been successfully verified. You can now access all features.</p>
+                </div>
+
+                <a href="/online" class="btn btn-primary btn-block">Go to Lockin</a>
+            </div>
+
+            <!-- Already Verified View -->
+            <div id="alreadyVerifiedView" class="verify-view" style="display: none;">
+                <div class="title-section">
+                    <div class="icon-wrapper icon-wrapper--success">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            <path d="M9 12l2 2 4-4"></path>
+                        </svg>
+                    </div>
+                    <h1 class="verify-title">Already Verified</h1>
+                    <p class="verify-subtitle">Your email is already verified. You're all set!</p>
+                </div>
+
+                <a href="/online" class="btn btn-primary btn-block">Go to Lockin</a>
+            </div>
+
+            <!-- Invalid/Expired Token View -->
+            <div id="invalidTokenView" class="verify-view" style="display: none;">
+                <div class="title-section">
+                    <div class="icon-wrapper icon-wrapper--error">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+                    <h1 class="verify-title">Link Expired</h1>
+                    <p class="verify-subtitle">This verification link has expired or is invalid. Please request a new one from your account settings.</p>
+                </div>
+
+                <a href="/online" class="btn btn-primary btn-block">Go to Lockin</a>
+            </div>
+
+            <!-- No Token View (user navigated directly without token) -->
+            <div id="noTokenView" class="verify-view" style="display: none;">
+                <div class="title-section">
+                    <div class="icon-wrapper icon-wrapper--info">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                            <circle cx="12" cy="16" r="1"></circle>
+                        </svg>
+                    </div>
+                    <h1 class="verify-title">Verify Your Email</h1>
+                    <p class="verify-subtitle">To verify your email, click the link we sent to your inbox. Don't have a link? Request one from your account settings.</p>
+                </div>
+
+                <a href="/online" class="btn btn-primary btn-block">Go to Lockin</a>
+            </div>
+
+            <!-- Error View (network/server error) -->
+            <div id="errorView" class="verify-view" style="display: none;">
+                <div class="title-section">
+                    <div class="icon-wrapper icon-wrapper--error">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                        </svg>
+                    </div>
+                    <h1 class="verify-title">Verification Failed</h1>
+                    <p class="verify-subtitle" id="errorMessage">Something went wrong. Please try again later.</p>
+                </div>
+
+                <button onclick="window.location.reload()" class="btn btn-primary btn-block">Try Again</button>
+            </div>
+        </div>
+        
+        <div class="verify-footer">
+            <img src="../static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="footer-logo">
+        </div>
+    </div>
+
+    <script src="verify-email.js"></script>
+</body>
+</html>
+
+<!-- Intellectual Property of Hugisoft (hugisoft.com) -->

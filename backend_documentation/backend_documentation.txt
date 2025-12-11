@@ -52,6 +52,8 @@ All responses include rate limit headers:
 - `POST /auth/logout` - Invalidate session token
 - `POST /auth/request_password_reset` - Request password reset email
 - `POST /auth/reset_password` - Reset password using token from email
+- `POST /auth/request_email_verification` - Request email verification email (requires auth)
+- `POST /auth/verify_email` - Verify email using token from email
 
 **Fetch Data**
 - `POST /fetch/years` - List all available year levels
@@ -61,9 +63,9 @@ All responses include rate limit headers:
 - `POST /fetch/notes` - Get notes content for a specific topic
 - `POST /fetch/podcast` - Get podcast audio/script content for a specific topic
 - `POST /fetch/questions` - Get questions and answer options for a topic, paper, or course (includes user performance data)
-- `GET /fetch/leaderboard/global` - Get global leaderboard with top users by total XP
-- `GET /fetch/leaderboard/weekly` - Get weekly leaderboard with top users by XP earned in last 7 days
-- `GET /fetch/stats` - Get comprehensive user statistics including XP, streaks, ranks, and performance
+- `POST /fetch/leaderboard/global` - Get global leaderboard with top users by total XP (GET also supported)
+- `POST /fetch/leaderboard/weekly` - Get weekly leaderboard with top users by XP earned in last 7 days (GET also supported)
+- `POST /fetch/stats` - Get comprehensive user statistics including XP, streaks, ranks, and performance (GET also supported)
 
 **Update User Data**
 - `POST /update/change_year` - Set/change user's year level
@@ -94,6 +96,8 @@ All responses include rate limit headers:
 - `POST /auth/logout`: **10 requests per minute**
 - `POST /auth/request_password_reset`: **3 requests per minute**
 - `POST /auth/reset_password`: **5 requests per minute**
+- `POST /auth/request_email_verification`: **3 requests per minute**
+- `POST /auth/verify_email`: **5 requests per minute**
 
 ### 1. User Signup
 
@@ -706,6 +710,191 @@ curl -X POST ${backend_url}/auth/reset_password \
 
 ---
 
+## Email Verification Endpoints
+
+### 8. Request Email Verification
+
+**Endpoint**: `POST backend_url/auth/request_email_verification`
+**Rate Limit**: 3 requests per minute
+
+**Description**: Request a verification email to confirm the user's email address. Requires a valid session token. Only sends a verification email if the user's email is not already verified.
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Verification email sent. Please check your inbox."
+}
+```
+
+**Email Content**:
+The user receives an email with a link in the format:
+```
+https://lockin.tech/verify-email?token=<secure_token>
+```
+
+**Token Details**:
+- Token is a URL-safe, cryptographically signed string
+- Contains the user's email address (encrypted)
+- Expires after **1 hour**
+- Uses `itsdangerous` URLSafeTimedSerializer with app's SECRET_KEY
+
+**Error Cases**:
+- Missing token (400)
+- Email already verified (400)
+- Token not found, invalid, or expired (401)
+- Failed to send email (500)
+
+**Notes**:
+- Requires authentication - user must be logged in
+- Will not send email if already verified
+- Uses Mailjet for email delivery with branded HTML template
+
+### 9. Verify Email
+
+**Endpoint**: `POST backend_url/auth/verify_email`
+**Rate Limit**: 5 requests per minute
+
+**Description**: Verify a user's email address using the token received via email. This is the second step of email verification - the user clicks the link in their email which contains the verification token.
+
+**Request Body**:
+```json
+{
+  "token": "verification_token_from_email_link"
+}
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Email verified successfully! You can now access all features."
+}
+```
+
+**Already Verified Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Email is already verified"
+}
+```
+
+**Error Cases**:
+- Missing token (400)
+- Invalid or expired token (400)
+- User not found (404)
+- Verification failed (500)
+
+**Security Notes**:
+- Token expires after 1 hour
+- Idempotent - calling multiple times with valid token is safe
+- No authentication required - token contains all needed info
+
+---
+
+## Email Verification Flow
+
+### Complete Frontend Implementation
+
+**Step 1: User requests verification email (from settings/profile page)**
+
+Show a "Verify Email" button if `email_verified` is false:
+
+```javascript
+// Request email verification
+async function requestEmailVerification(sessionToken) {
+  const response = await fetch(`${backend_url}/auth/request_email_verification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: sessionToken })
+  });
+  
+  const data = await response.json();
+  
+  if (data.success) {
+    showMessage("Verification email sent! Please check your inbox.");
+  } else {
+    showError(data.message);
+  }
+  
+  return data;
+}
+```
+
+**Step 2: User clicks link in email**
+
+The email contains a link like:
+```
+https://lockin.tech/verify-email?token=Imh1Z29Adm9sbnkuc2si.aTmlBg.hZlKBs-KxrI3hqEYuSoFEyzJXBw
+```
+
+Your frontend route `/verify-email` should:
+1. Extract the `token` from the URL query parameters
+2. Automatically submit the token to the backend
+3. Show success or error message
+
+**Step 3: Frontend handles the verification**
+
+```javascript
+// Verify email with token (called when user lands on verify-email page)
+async function verifyEmail(token) {
+  const response = await fetch(`${backend_url}/auth/verify_email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  });
+  
+  const data = await response.json();
+  
+  if (data.success) {
+    showMessage("Email verified successfully!");
+    // Optionally redirect to dashboard
+    redirectTo('/dashboard');
+  } else {
+    showError(data.message);
+  }
+  
+  return data;
+}
+
+// Auto-verify when landing on the page
+function handleVerifyEmailPage() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const token = urlParams.get('token');
+  
+  if (!token) {
+    showError("Invalid verification link. Please request a new verification email.");
+    return;
+  }
+  
+  verifyEmail(token);
+}
+```
+
+### cURL Examples
+
+```bash
+# Request email verification (requires session token)
+curl -X POST ${backend_url}/auth/request_email_verification \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_session_token"}'
+
+# Verify email with token from email link
+curl -X POST ${backend_url}/auth/verify_email \
+  -H "Content-Type: application/json" \
+  -d '{"token": "verification_token_from_email"}'
+```
+
+---
+
 ## Fetch Endpoints
 
 > **Tier-aware content reminder**: Papers now belong directly to courses and optionally to tiers for grouping (Years → Subjects → Courses → Papers, with optional Tier grouping → Topics). Papers always have a `course_id` (required) and may have a `tier_id` (optional) for filtering by difficulty level (Foundation/Higher, Core/Extended, etc.). When enrolling via `/update/enroll_courses`, you can optionally specify a `tier_id` to filter content to that tier only, or omit it to see all papers in the course. Use `/fetch/tiers` to show available tier options when a course has multiple difficulty levels.
@@ -1089,15 +1278,25 @@ fetch('https://backend.lockin.tech/fetch/tiers', {
 - Podcast not found for this topic (404)
 - Server error (500)
 
-### GET /fetch/leaderboard/global
+### POST /fetch/leaderboard/global
 
 Get the global leaderboard showing top users by total XP earned all-time.
 
 **Auth**: Required (valid session token)
 
-**Description**: Returns a ranked list of top users by total XP, along with the requesting user's own rank and XP. Leaderboard shows up to 100 users by default (configurable via `limit` query parameter up to 500).
+**Description**: Returns a ranked list of top users by total XP, along with the requesting user's own rank and XP. Leaderboard shows up to 100 users by default (configurable via `limit` parameter up to 500).
 
-**Query Parameters:**
+> **Backwards Compatibility**: GET requests with query parameters are also supported for legacy clients.
+
+**Request Body (POST - preferred):**
+```json
+{
+  "token": "your_session_token",
+  "limit": 100
+}
+```
+
+**Query Parameters (GET - legacy):**
 - `token` (string, required): Valid session token
 - `limit` (integer, optional): Maximum number of leaderboard entries to return (1-500, default 100)
 
@@ -1141,10 +1340,14 @@ Get the global leaderboard showing top users by total XP earned all-time.
 - `401 Unauthorized`: Invalid or expired token
 - `500 Internal Server Error`: Database error
 
-**Usage Example:**
+**Usage Example (POST - preferred):**
 
 ```javascript
-const response = await fetch(`${backend_url}/fetch/leaderboard/global?token=${sessionToken}&limit=10`);
+const response = await fetch(`${backend_url}/fetch/leaderboard/global`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: sessionToken, limit: 10 })
+});
 const data = await response.json();
 console.log(`You are rank #${data.current_user.rank} with ${data.current_user.total_xp} XP`);
         "title": "What is the word equation for photosynthesis?",
@@ -2267,7 +2470,7 @@ data.data.leaderboard.forEach(user => {
 
 ---
 
-### GET /fetch/leaderboard/weekly
+### POST /fetch/leaderboard/weekly
 
 Get the weekly leaderboard showing top users by XP earned in the last 7 days.
 
@@ -2275,7 +2478,17 @@ Get the weekly leaderboard showing top users by XP earned in the last 7 days.
 
 **Description**: Returns a ranked list of top users by XP earned in the past 7 days, along with the requesting user's own weekly rank and XP. Resets weekly to show who's most active recently.
 
-**Query Parameters:**
+> **Backwards Compatibility**: GET requests with query parameters are also supported for legacy clients.
+
+**Request Body (POST - preferred):**
+```json
+{
+  "token": "your_session_token",
+  "limit": 100
+}
+```
+
+**Query Parameters (GET - legacy):**
 - `token` (string, required): Valid session token
 - `limit` (integer, optional): Maximum number of leaderboard entries to return (1-500, default 100)
 
@@ -2311,17 +2524,21 @@ Get the weekly leaderboard showing top users by XP earned in the last 7 days.
 - `401 Unauthorized`: Invalid or expired token
 - `500 Internal Server Error`: Database error
 
-**Usage Example:**
+**Usage Example (POST - preferred):**
 
 ```javascript
-const response = await fetch(`${backend_url}/fetch/leaderboard/weekly?token=${sessionToken}`);
+const response = await fetch(`${backend_url}/fetch/leaderboard/weekly`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: sessionToken })
+});
 const data = await response.json();
 console.log(`This week you're rank #${data.current_user.rank} with ${data.current_user.weekly_xp} XP`);
 ```
 
 ---
 
-### GET /fetch/stats
+### POST /fetch/stats
 
 Get comprehensive user statistics including XP, streaks, ranks, and question performance.
 
@@ -2329,7 +2546,16 @@ Get comprehensive user statistics including XP, streaks, ranks, and question per
 
 **Description**: Returns detailed statistics about the user's learning progress, including total XP, daily XP, streaks, global rank, question counts, and overall accuracy.
 
-**Query Parameters:**
+> **Backwards Compatibility**: GET requests with query parameters are also supported for legacy clients.
+
+**Request Body (POST - preferred):**
+```json
+{
+  "token": "your_session_token"
+}
+```
+
+**Query Parameters (GET - legacy):**
 - `token` (string, required): Valid session token
 
 **Success Response (200 OK):**
