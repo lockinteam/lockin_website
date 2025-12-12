@@ -2354,26 +2354,29 @@ const GenerateSection = {
                 const topicsData = await API.getTopics({ tierId: tier.id }, false);
                 const topics = topicsData.data?.topics || [];
                 
-                // For each topic, we need to check if it has a podcast with a script
-                // Load podcasts for each topic
-                const topicsWithPodcastInfo = [];
-                for (const topic of topics) {
-                    const podcastData = await API.getPodcasts(topic.id);
-                    const podcasts = podcastData.data?.podcasts || [];
+                // Optimization: Use flags from getTopics directly to avoid N+1 requests
+                // We don't need the podcast ID or script preview at this stage
+                const topicsWithPodcastInfo = topics.map(topic => {
+                    // Check flags from getTopics response
+                    // Fallback to false if undefined (though API should return them)
+                    const hasScript = typeof topic.has_podcast_script !== 'undefined' 
+                        ? topic.has_podcast_script 
+                        : false;
+                        
+                    const hasAudio = typeof topic.has_podcast_file !== 'undefined'
+                        ? topic.has_podcast_file
+                        : false;
                     
-                    // Find if there's a podcast with a script
-                    const podcastWithScript = podcasts.find(p => p.script && p.script.trim().length > 0);
-                    const podcastWithAudio = podcasts.find(p => p.url && p.url.trim().length > 0);
-                    
-                    topicsWithPodcastInfo.push({
+                    return {
                         ...topic,
-                        hasScript: !!podcastWithScript,
-                        scriptPodcastId: podcastWithScript?.id || null,
-                        scriptPreview: podcastWithScript?.script?.substring(0, 100) || null,
-                        hasAudio: !!podcastWithAudio,
-                        existingAudioUrl: podcastWithAudio?.url || null
-                    });
-                }
+                        hasScript: hasScript,
+                        hasAudio: hasAudio,
+                        // We don't have these yet, but we'll fetch them during generation
+                        scriptPodcastId: null, 
+                        scriptPreview: null,
+                        existingAudioUrl: null
+                    };
+                });
                 
                 tiersWithTopics.push({
                     ...tier,
@@ -2755,7 +2758,7 @@ const GenerateSection = {
         const currentTopicEl = document.getElementById('localTtsCurrentTopic');
         const errorLog = document.getElementById('localTtsErrorLog');
         
-        for (const { topicId, podcastId } of selectedTopics) {
+        for (const { topicId } of selectedTopics) {
             let topicName = `Topic ${topicId.substring(0, 8)}...`;
             let currentStep = 'initializing';
             
@@ -2767,11 +2770,15 @@ const GenerateSection = {
                 currentStep = 'fetching script';
                 const podcastData = await API.getPodcasts(topicId);
                 const podcasts = podcastData.data?.podcasts || [];
-                const podcast = podcasts.find(p => p.id === podcastId);
+                
+                // Find the podcast with a script (since we didn't pass an ID)
+                const podcast = podcasts.find(p => p.script && p.script.trim().length > 0);
                 
                 if (!podcast || !podcast.script) {
                     throw new Error('Podcast script not found');
                 }
+                
+                const targetPodcastId = podcast.id;
                 
                 topicName = podcastData.data?.topic?.name || topicName;
                 currentTopicEl.textContent = `Generating audio for: ${topicName}`;
@@ -2801,7 +2808,7 @@ const GenerateSection = {
                     console.warn('Could not determine audio duration:', e);
                 }
                 
-                await API.updatePodcast(podcastId, {
+                await API.updatePodcast(targetPodcastId, {
                     url: audioUrl,
                     file_size: fileSizeBytes,
                     length_seconds: durationSeconds
