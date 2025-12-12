@@ -188,8 +188,8 @@ const API = {
     },
     
     // Topics are created with tier_id (required), optionally linked to papers
-    async createTopic(tierId, name, sortOrder = 0, paperIds = []) {
-        const body = { tier_id: tierId, name, sort_order: sortOrder };
+    async createTopic(tierId, name, sortOrder = 0, paperIds = [], isOptional = false) {
+        const body = { tier_id: tierId, name, sort_order: sortOrder, is_optional: isOptional };
         if (paperIds && paperIds.length > 0) body.paper_ids = paperIds;
         return this.request('/admin/topics/create', 'POST', body);
     },

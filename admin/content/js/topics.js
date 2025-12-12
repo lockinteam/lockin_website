@@ -278,6 +278,11 @@ const TopicsSection = {
         const badgeClass = topic.is_active ? 'badge-active' : 'badge-inactive';
         const badgeText = topic.is_active ? 'Active' : 'Inactive';
         
+        // Optional badge
+        const optionalBadge = topic.is_optional 
+            ? '<span class="card-badge badge-optional" style="background-color: var(--accent-primary); color: white; margin-left: 0.5rem;">Optional</span>' 
+            : '';
+        
         // Show linked papers if available
         const linkedPapers = topic.papers || [];
         const linkedPapersText = linkedPapers.length > 0 
@@ -288,7 +293,7 @@ const TopicsSection = {
             <div class="content-card">
                 <div class="card-header">
                     <h3 class="card-title">${UI.escapeHtml(topic.name)}</h3>
-                    <span class="card-badge ${badgeClass}">${badgeText}</span>
+                    <div class="card-badges"><span class="card-badge ${badgeClass}">${badgeText}</span>${optionalBadge}</div>
                 </div>
                 <div class="card-meta">
                     <div class="meta-row">
@@ -391,6 +396,12 @@ const TopicsSection = {
             <form id="createTopicForm" class="modal-form" onsubmit="TopicsSection.handleCreate(event)">
                 ${UI.createFormRow('Topic Name', UI.createTextInput('topicName', '', 'e.g., Introduction to Algebra', true))}
                 ${UI.createFormRow('Sort Order', UI.createNumberInput('topicSortOrder', '0', '0', 0), 'Lower numbers appear first')}
+                ${UI.createFormRow('Optional Topic', `
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="topicIsOptional" name="topicIsOptional">
+                        Mark as optional (students can choose to include/exclude this topic)
+                    </label>
+                `, 'Optional topics can be selected by students when enrolling')}
                 ${papers.length > 0 ? UI.createFormRow('Link to Papers', `<div class="checkbox-group">${paperCheckboxes}</div>`, 'Optional: Select papers to link this topic to') : ''}
                 ${UI.createModalActions('UI.closeModal()', null, 'Create Topic')}
             </form>
@@ -425,6 +436,12 @@ const TopicsSection = {
                         { value: 'false', label: 'Inactive' }
                     ], topic.is_active ? 'true' : 'false')
                 )}
+                ${UI.createFormRow('Optional Topic', `
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="topicIsOptional" name="topicIsOptional" ${topic.is_optional ? 'checked' : ''}>
+                        Mark as optional (students can choose to include/exclude this topic)
+                    </label>
+                `, 'Optional topics can be selected by students when enrolling')}
                 ${papers.length > 0 ? UI.createFormRow('Linked Papers', `<div class="checkbox-group">${paperCheckboxes}</div>`, 'Select papers to link this topic to') : ''}
                 ${UI.createModalActions('UI.closeModal()', null, 'Update Topic')}
             </form>
@@ -438,6 +455,7 @@ const TopicsSection = {
         
         const name = document.getElementById('topicName').value.trim();
         const sortOrder = parseInt(document.getElementById('topicSortOrder').value) || 0;
+        const isOptional = document.getElementById('topicIsOptional')?.checked || false;
         
         // Get selected paper IDs
         const paperCheckboxes = document.querySelectorAll('input[name="topicPapers"]:checked');
@@ -449,7 +467,7 @@ const TopicsSection = {
         }
         
         try {
-            await API.createTopic(AppState.filters.topics.tierId, name, sortOrder, paperIds);
+            await API.createTopic(AppState.filters.topics.tierId, name, sortOrder, paperIds, isOptional);
             UI.closeModal();
             UI.showToast('Topic created successfully', 'success');
             await this.load();
@@ -464,6 +482,7 @@ const TopicsSection = {
         const name = document.getElementById('topicName').value.trim();
         const sortOrder = parseInt(document.getElementById('topicSortOrder').value) || 0;
         const isActive = document.getElementById('topicStatus').value === 'true';
+        const isOptional = document.getElementById('topicIsOptional')?.checked || false;
         
         // Get selected paper IDs
         const paperCheckboxes = document.querySelectorAll('input[name="topicPapers"]:checked');
@@ -475,7 +494,7 @@ const TopicsSection = {
         }
         
         try {
-            await API.updateTopic(topicId, { name, sort_order: sortOrder, is_active: isActive, paper_ids: paperIds });
+            await API.updateTopic(topicId, { name, sort_order: sortOrder, is_active: isActive, is_optional: isOptional, paper_ids: paperIds });
             UI.closeModal();
             UI.showToast('Topic updated successfully', 'success');
             await this.load();

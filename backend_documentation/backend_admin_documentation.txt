@@ -3763,6 +3763,7 @@ Topics are subject areas within a tier that can be linked to **multiple papers**
         "course_id": "uuid",
         "name": "Algebra",
         "sort_order": 1,
+        "is_optional": false,
         "is_active": true,
         "created_at": "2025-10-01T12:00:00.000000",
         "added_by_user_id": "uuid",
@@ -3843,6 +3844,7 @@ const paperTopics = await fetch(`${backend_url}/admin/topics`, {
       "course_id": "uuid",
       "name": "Algebra",
       "sort_order": 1,
+      "is_optional": false,
       "is_active": true,
       "created_at": "2025-10-01T12:00:00.000000",
       "added_by_user_id": "uuid",
@@ -3891,6 +3893,7 @@ const paperTopics = await fetch(`${backend_url}/admin/topics`, {
   "tier_id": "uuid",                // Required: tier this topic belongs to
   "name": "Algebra",
   "sort_order": 1,                  // Optional: defaults to 0
+  "is_optional": false,             // Optional: mark as optional topic (defaults to false)
   "paper_ids": ["uuid1", "uuid2"]   // Optional: papers to link this topic to
 }
 ```
@@ -3907,6 +3910,7 @@ const paperTopics = await fetch(`${backend_url}/admin/topics`, {
       "course_id": "uuid",
       "name": "Algebra",
       "sort_order": 1,
+      "is_optional": false,
       "is_active": true,
       "created_at": "2025-10-01T12:00:00.000000",
       "added_by_user_id": "uuid",
@@ -3941,6 +3945,7 @@ const paperTopics = await fetch(`${backend_url}/admin/topics`, {
   "topic_id": "uuid",
   "name": "Advanced Algebra",        // Optional
   "sort_order": 2,                   // Optional
+  "is_optional": true,               // Optional: mark as optional topic
   "is_active": true,                 // Optional: reactivate topic
   "paper_ids": ["uuid1", "uuid2"]    // Optional: replace linked papers
 }
@@ -3960,6 +3965,7 @@ const paperTopics = await fetch(`${backend_url}/admin/topics`, {
       "course_id": "uuid",
       "name": "Advanced Algebra",
       "sort_order": 2,
+      "is_optional": true,
       "is_active": true,
       "papers": [...]
     }

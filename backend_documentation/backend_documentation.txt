@@ -66,12 +66,14 @@ All responses include rate limit headers:
 - `POST /fetch/leaderboard/global` - Get global leaderboard with top users by total XP (GET also supported)
 - `POST /fetch/leaderboard/weekly` - Get weekly leaderboard with top users by XP earned in last 7 days (GET also supported)
 - `POST /fetch/stats` - Get comprehensive user statistics including XP, streaks, ranks, and performance (GET also supported)
+- `POST /fetch/optional_topics` - Get available optional topics for a course with enrollment status
 
 **Update User Data**
 - `POST /update/change_year` - Set/change user's year level
 - `POST /update/enroll_courses` - Update user's course enrollments
 - `POST /update/profile_picture` - Update user's profile picture
 - `POST /update/complete_tutorial` - Mark in-app tutorial as completed
+- `POST /update/optional_topics` - Update user's optional topic selections for a course
 
 **File Upload**
 - `POST /upload/presign` - Generate presigned URL for file upload to R2 (5MB limit)
@@ -1065,6 +1067,8 @@ curl -X POST ${backend_url}/auth/verify_email \
                 "name": "Cell Biology",
                 "sort_order": 1,
                 "is_active": true,
+                "is_optional": false,
+                "is_enrolled": true,
                 "created_at": "2024-01-01T00:00:00.000000",
                 "has_notes": true,
                 "has_questions": true,
@@ -1096,6 +1100,12 @@ curl -X POST ${backend_url}/auth/verify_email \
 - If a paper has no topics, `topics` will be `[]`
 - If a paper has no past papers, `past_papers` will be `[]`
 - Resource flags (`has_notes`, `has_questions`, `has_podcast`) are boolean indicators of content availability
+- **Optional Topics**:
+  - `is_optional` indicates if the topic is optional (user can choose to include/exclude it)
+  - `is_enrolled` indicates if the user has opted into this topic:
+    - For non-optional topics: always `true`
+    - For optional topics: `true` if user selected it, `false` otherwise
+  - All topics (optional and non-optional) are always included in the response
 - **Tier Filtering**: 
   - If `enrolled_tier` is `null`, user sees ALL papers from ALL tiers for that course
   - If `enrolled_tier` is set, user only sees papers from that specific tier
@@ -1134,6 +1144,7 @@ curl -X POST ${backend_url}/auth/verify_email \
         "code": "FOUND",
         "sort_order": 0,
         "paper_count": 3,
+        "optional_topic_count": 2,
         "created_at": "2024-01-01T00:00:00.000000"
       },
       {
@@ -1142,6 +1153,7 @@ curl -X POST ${backend_url}/auth/verify_email \
         "code": "HIGH",
         "sort_order": 1,
         "paper_count": 3,
+        "optional_topic_count": 5,
         "created_at": "2024-01-01T00:00:00.000000"
       }
     ],
@@ -1154,6 +1166,7 @@ curl -X POST ${backend_url}/auth/verify_email \
 - If course has no tiers, `tiers` will be `[]` and `tiers_count` will be `0` (200 OK)
 - Tiers are sorted by `sort_order` first, then alphabetically by `title`
 - `paper_count` shows number of active papers in that tier
+- `optional_topic_count` shows number of optional topics in that tier
 - Tiers with 0 papers are still returned (may have papers added later)
 
 **Downstream Usage**:
@@ -1455,7 +1468,8 @@ console.log(`You are rank #${data.current_user.rank} with ${data.current_user.to
   "enrollments": [
     {
       "course_id": "course_uuid_1",
-      "tier_id": "tier_uuid_1"
+      "tier_id": "tier_uuid_1",
+      "optional_topic_ids": ["topic_uuid_1", "topic_uuid_2"]
     },
     {
       "course_id": "course_uuid_2"
@@ -1463,6 +1477,11 @@ console.log(`You are rank #${data.current_user.rank} with ${data.current_user.to
   ]
 }
 ```
+
+**Parameters**:
+- `course_id` (string, required): UUID of the course to enroll in
+- `tier_id` (string, optional): UUID of the tier to filter content
+- `optional_topic_ids` (array, optional): Array of optional topic UUIDs to include in study plan
 
 **Request Body (Legacy Format - Backwards Compatible)**:
 ```json
@@ -1489,7 +1508,11 @@ console.log(`You are rank #${data.current_user.rank} with ${data.current_user.to
         "description": "GCSE Mathematics course",
         "tier_id": "tier_uuid_1",
         "tier_title": "Foundation",
-        "tier_code": "FOUND"
+        "tier_code": "FOUND",
+        "optional_topics": [
+          {"id": "topic_uuid_1", "name": "Further Calculus"},
+          {"id": "topic_uuid_2", "name": "Advanced Statistics"}
+        ]
       },
       {
         "course_id": "course_uuid_2",
@@ -1502,17 +1525,20 @@ console.log(`You are rank #${data.current_user.rank} with ${data.current_user.to
     "deactivated_count": 1,
     "created_count": 1,
     "updated_count": 1,
-    "kept_count": 0
+    "kept_count": 0,
+    "optional_topics_updated": 2
   }
 }
 ```
 
 **Response Fields**:
 - `enrolled`: Array of current active enrollments with tier info (if applicable)
+- `enrolled[].optional_topics`: Array of optional topics user has selected for this course
 - `deactivated_count`: Number of courses removed from enrollments
 - `created_count`: Number of new enrollments created (or reactivated)
 - `updated_count`: Number of enrollments where tier preference changed
 - `kept_count`: Number of enrollments unchanged
+- `optional_topics_updated`: Total number of optional topics selections updated
 
 **Tier Support Examples**:
 
@@ -1763,6 +1789,190 @@ const response = await fetch(`${backend_url}/update/complete_tutorial`, {
 const data = await response.json();
 if (data.success) {
   console.log('Tutorial completed!');
+}
+```
+
+### Update Optional Topics
+
+**Endpoint**: `POST backend_url/update/optional_topics`
+**Rate Limit**: 20 requests per minute
+
+**Description**: Update the user's optional topic selections for a specific course. Optional topics are topics marked as `is_optional=true` that users can choose to include or exclude from their study plan. This endpoint allows users to change their selections after enrollment without re-enrolling in the course.
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token",
+  "course_id": "course_uuid",
+  "optional_topic_ids": ["topic_uuid_1", "topic_uuid_2"]
+}
+```
+
+**Parameters**:
+- `token` (string, required): Valid session token
+- `course_id` (string, required): UUID of the course
+- `optional_topic_ids` (array, required): Array of optional topic UUIDs to include. Pass empty array `[]` to deselect all optional topics.
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Optional topics updated successfully",
+  "data": {
+    "course_id": "course_uuid",
+    "course_title": "Mathematics GCSE",
+    "optional_topics": [
+      {"id": "topic_uuid_1", "name": "Further Calculus"},
+      {"id": "topic_uuid_2", "name": "Advanced Statistics"}
+    ],
+    "added_count": 2,
+    "removed_count": 1
+  }
+}
+```
+
+**Error Cases**:
+- Missing required fields (400)
+- User not enrolled in course (400)
+- Topic not found or not optional (400)
+- Topic does not belong to course/tier (400)
+- Token not found, invalid, or expired (401)
+- Course not found (404)
+- Update failed (500)
+
+**Notes**:
+- User must be enrolled in the course to update optional topics
+- Only topics marked as `is_optional=true` can be selected
+- If user has a tier preference, only optional topics from that tier can be selected
+- Duplicate topic IDs in the array are automatically deduplicated
+- Passing an empty array deselects all optional topics
+
+**Example Usage**:
+```javascript
+// Select some optional topics
+const response = await fetch(`${backend_url}/update/optional_topics`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken,
+    course_id: courseId,
+    optional_topic_ids: [furtherCalculusTopicId, advancedStatsTopicId]
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  console.log(`Selected ${data.data.optional_topics.length} optional topics`);
+}
+
+// Deselect all optional topics
+const deselectResponse = await fetch(`${backend_url}/update/optional_topics`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken,
+    course_id: courseId,
+    optional_topic_ids: []  // Empty array to deselect all
+  })
+});
+```
+
+---
+
+### Fetch Optional Topics
+
+**Endpoint**: `POST backend_url/fetch/optional_topics`
+**Rate Limit**: 60 requests per minute
+
+**Description**: Fetch all available optional topics for a course. Returns optional topics with their current enrollment status (`is_enrolled`), content availability flags, and tier information. This is useful for displaying a list of optional topics the user can choose to include in their study plan.
+
+**Request Body**:
+```json
+{
+  "token": "your_session_token",
+  "course_id": "course_uuid",
+  "tier_id": "tier_uuid"  // Optional: filter to specific tier
+}
+```
+
+**Parameters**:
+- `token` (string, required): Valid session token
+- `course_id` (string, required): UUID of the course
+- `tier_id` (string, optional): UUID of tier to filter optional topics. If omitted, returns optional topics from enrolled tier (or all tiers if no tier preference).
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Optional topics fetched successfully",
+  "data": {
+    "course_id": "course_uuid",
+    "course_title": "Mathematics GCSE",
+    "tier_id": "tier_uuid",
+    "tier_title": "Higher",
+    "optional_topics": [
+      {
+        "id": "topic_uuid_1",
+        "name": "Further Calculus",
+        "tier_id": "tier_uuid",
+        "tier_title": "Higher",
+        "sort_order": 10,
+        "is_enrolled": true,
+        "has_notes": true,
+        "has_questions": true,
+        "has_podcast": false
+      },
+      {
+        "id": "topic_uuid_2",
+        "name": "Advanced Statistics",
+        "tier_id": "tier_uuid",
+        "tier_title": "Higher",
+        "sort_order": 11,
+        "is_enrolled": false,
+        "has_notes": true,
+        "has_questions": true,
+        "has_podcast": true
+      }
+    ],
+    "count": 2
+  }
+}
+```
+
+**Response Fields**:
+- `optional_topics`: Array of optional topics available for selection
+- `is_enrolled`: Whether the user has selected this optional topic
+- `has_notes`, `has_questions`, `has_podcast`: Content availability flags
+
+**Error Cases**:
+- Missing required fields (400)
+- User not enrolled in course (400)
+- Token not found, invalid, or expired (401)
+- Course not found (404)
+- Server error (500)
+
+**Notes**:
+- User must be enrolled in the course to fetch optional topics
+- Only returns topics marked as `is_optional=true`
+- Results are filtered by tier if user has a tier preference or if `tier_id` is specified
+
+**Example Usage**:
+```javascript
+// Fetch all optional topics for a course
+const response = await fetch(`${backend_url}/fetch/optional_topics`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken,
+    course_id: courseId
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  const enrolled = data.data.optional_topics.filter(t => t.is_enrolled);
+  const available = data.data.optional_topics.filter(t => !t.is_enrolled);
+  console.log(`${enrolled.length} selected, ${available.length} available`);
 }
 ```
 

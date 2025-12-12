@@ -347,6 +347,18 @@
     color: rgba(138, 40, 40, 0.9);
 }
 
+.badge-optional {
+    background: rgba(54, 120, 174, 0.15);
+    color: rgba(54, 120, 174, 0.9);
+}
+
+.card-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
 .card-meta {
     display: flex;
     flex-direction: column;
