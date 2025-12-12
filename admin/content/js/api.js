@@ -339,42 +339,71 @@ const API = {
     // File Upload (Admin)
     async uploadFile(file, onProgress = null) {
         const token = AppState.getToken();
+        console.log(`[Upload] Starting upload for ${file.name} (${file.size} bytes)`);
         
         try {
             // Step 1: Get presigned URL
-            const presignResponse = await fetch(`${this.baseUrl}/admin/upload/presign`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    token,
-                    filename: file.name,
-                    content_type: file.type,
-                    file_size: file.size
-                })
-            });
+            console.log('[Upload] Requesting presigned URL...');
+            const presignController = new AbortController();
+            const presignTimeout = setTimeout(() => presignController.abort(), 10000); // 10s timeout for API
+            
+            let presignResponse;
+            try {
+                presignResponse = await fetch(`${this.baseUrl}/admin/upload/presign`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token,
+                        filename: file.name,
+                        content_type: file.type,
+                        file_size: file.size
+                    }),
+                    signal: presignController.signal
+                });
+            } finally {
+                clearTimeout(presignTimeout);
+            }
             
             const presignData = await presignResponse.json();
-            
-            console.log('Presign response:', presignData);
+            console.log('[Upload] Presign response:', presignData);
             
             // Check if presign was successful - response HAS a success wrapper
             if (!presignData.success || !presignData.data.presigned_url || !presignData.data.object_key) {
-                console.error('Presign data invalid:', presignData);
+                console.error('[Upload] Presign data invalid:', presignData);
                 throw new Error(presignData.message || 'Failed to get presigned URL');
             }
             
             // Step 2: Upload file to R2
-            const uploadResponse = await fetch(presignData.data.presigned_url, {
-                method: 'PUT',
-                body: file,
-                headers: { 'Content-Type': file.type }
-            });
+            console.log('[Upload] Uploading to R2...');
+            // Use AbortController for timeout (30s per MB, min 60s)
+            const controller = new AbortController();
+            const timeoutMs = Math.max(60000, Math.ceil(file.size / 1024 / 1024) * 30000);
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
             
-            if (!uploadResponse.ok) {
-                throw new Error('Failed to upload file to storage');
+            let uploadResponse;
+            try {
+                uploadResponse = await fetch(presignData.data.presigned_url, {
+                    method: 'PUT',
+                    body: file,
+                    headers: { 'Content-Type': file.type },
+                    signal: controller.signal
+                });
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    throw new Error(`Upload timed out after ${timeoutMs/1000}s`);
+                }
+                throw error;
+            } finally {
+                clearTimeout(timeoutId);
             }
             
+            if (!uploadResponse.ok) {
+                throw new Error(`Failed to upload file to storage: ${uploadResponse.status} ${uploadResponse.statusText}`);
+            }
+            console.log('[Upload] R2 upload successful');
+            
             // Step 3: Complete upload and save metadata
+            console.log('[Upload] Completing upload...');
             const completeBody = {
                 token,
                 object_key: presignData.data.object_key,
@@ -383,21 +412,27 @@ const API = {
                 file_size: file.size
             };
             
-            console.log('Complete request body:', completeBody);
+            const completeController = new AbortController();
+            const completeTimeout = setTimeout(() => completeController.abort(), 10000); // 10s timeout for API
             
-            const completeResponse = await fetch(`${this.baseUrl}/admin/upload/complete`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(completeBody)
-            });
+            let completeResponse;
+            try {
+                completeResponse = await fetch(`${this.baseUrl}/admin/upload/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(completeBody),
+                    signal: completeController.signal
+                });
+            } finally {
+                clearTimeout(completeTimeout);
+            }
             
             const completeData = await completeResponse.json();
-            
-            console.log('Complete response:', completeData);
+            console.log('[Upload] Complete response:', completeData);
             
             // Check if complete was successful - response has nested data structure
             if (!completeData.success || !completeData.data || !completeData.data.file_id) {
-                console.error('Complete data invalid:', completeData);
+                console.error('[Upload] Complete data invalid:', completeData);
                 throw new Error(completeData.message || 'Failed to complete upload');
             }
             
@@ -408,7 +443,7 @@ const API = {
                 file_size: file.size
             };
         } catch (error) {
-            console.error('Upload error details:', error);
+            console.error('[Upload] Error details:', error);
             throw error;
         }
     },

@@ -2785,15 +2785,23 @@ const GenerateSection = {
                 
                 // Step 2: Generate audio using local TTS
                 currentStep = 'generating audio';
+                console.log(`Generating audio for topic ${topicId}...`);
                 const audioBlob = await this.generateLocalTtsAudio(podcast.script, settings);
+                console.log(`Audio generated. Size: ${audioBlob.size} bytes`);
+                
+                if (audioBlob.size === 0) {
+                    throw new Error('Generated audio is empty');
+                }
                 
                 // Step 3: Upload audio to storage
                 currentStep = 'uploading audio';
                 currentTopicEl.textContent = `Uploading audio for: ${topicName}`;
                 const fileName = `podcast_${topicId}_${Date.now()}.mp3`;
                 const file = new File([audioBlob], fileName, { type: 'audio/mpeg' });
+                console.log(`Starting upload for ${fileName}...`);
                 
                 const uploadResult = await API.uploadFile(file);
+                console.log('Upload successful');
                 
                 // Step 4: Update podcast with new URL
                 currentStep = 'updating podcast';
