@@ -488,6 +488,17 @@ const API = {
         if (courseInfo.generate_podcasts !== undefined) {
             body.generate_podcasts = courseInfo.generate_podcasts;
         }
+        
+        // Inworld TTS parameters
+        if (courseInfo.generate_podcast_audio !== undefined) {
+            body.generate_podcast_audio = courseInfo.generate_podcast_audio;
+        }
+        if (courseInfo.speaker1_voice_id) body.speaker1_voice_id = courseInfo.speaker1_voice_id;
+        if (courseInfo.speaker2_voice_id) body.speaker2_voice_id = courseInfo.speaker2_voice_id;
+        if (courseInfo.speaker1_speed !== undefined) body.speaker1_speed = courseInfo.speaker1_speed;
+        if (courseInfo.speaker2_speed !== undefined) body.speaker2_speed = courseInfo.speaker2_speed;
+        if (courseInfo.pause_between_turns !== undefined) body.pause_between_turns = courseInfo.pause_between_turns;
+        
         return await this.request('/admin/generate/content', 'POST', body);
     },
 
@@ -523,6 +534,12 @@ const API = {
     async cancelGenerate(taskId) {
         return await this.request('/admin/generate/cancel', 'DELETE', {
             task_id: taskId
+        });
+    },
+    
+    async getGenerateVoices(languageFilter = 'en') {
+        return await this.request('/admin/generate/voices', 'POST', {
+            language_filter: languageFilter
         });
     },
     

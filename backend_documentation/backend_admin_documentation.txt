@@ -7193,6 +7193,7 @@ The following admin endpoints are planned for future implementation:
 - ✅ POST /admin/generate/individual - Generate notes/questions for specific topics - COMPLETE
 - ✅ POST /admin/generate/prompts/fetch - Fetch AI prompts - COMPLETE
 - ✅ PUT /admin/generate/prompts/edit - Edit AI prompts - COMPLETE
+- ✅ POST /admin/generate/voices - List available TTS voices for podcast audio - COMPLETE
 
 ### Analytics
 - Stats Overview (dashboard metrics)
@@ -7428,6 +7429,12 @@ Start full AI-powered course content generation (Step 2).
   "description": "Course description (can be edited)",
   "link_to_specification": "https://optional-override-url.pdf",
   "generate_podcasts": true,  // Optional: default true - set to false to skip podcast script generation
+  "generate_podcast_audio": true,  // Optional: default false - generate audio from podcast scripts using Inworld TTS
+  "speaker1_voice_id": "en-US-Dennis",  // Required if generate_podcast_audio is true
+  "speaker2_voice_id": "en-US-Ashley",  // Required if generate_podcast_audio is true
+  "speaker1_speed": 1.0,  // Optional: speaking rate for speaker 1 (0.5-2.0, default 1.0)
+  "speaker2_speed": 1.0,  // Optional: speaking rate for speaker 2 (0.5-2.0, default 1.0)
+  "pause_between_turns": 0.3,  // Optional: pause in seconds between speaker turns (0.0-5.0, default 0.3)
   "tiers": [
     {
       "title": "AS Level",
@@ -7453,12 +7460,17 @@ Start full AI-powered course content generation (Step 2).
 
 **Optional Fields:**
 - `generate_podcasts`: Boolean (default: true) - set to false to skip podcast script generation
+- `generate_podcast_audio`: Boolean (default: false) - generate TTS audio from podcast scripts using Inworld API
+- `speaker1_speed`: Decimal (0.5-2.0, default: 1.0) - speaking rate for speaker 1
+- `speaker2_speed`: Decimal (0.5-2.0, default: 1.0) - speaking rate for speaker 2
+- `pause_between_turns`: Decimal (0.0-5.0, default: 0.3) - pause duration in seconds between speaker turns
 
 **Conditional Fields:**
 - If `subject_id` is provided: Uses existing subject
 - If `subject_id` is null: `subject_name` is required, creates new subject
 - `subject_code`: Optional, used when creating new subject
 - `link_to_specification`: Optional, defaults to specification URL from task
+- If `generate_podcast_audio` is true: `speaker1_voice_id` and `speaker2_voice_id` are required (use `/admin/generate/voices` to get available voice IDs)
 
 **Process:**
 1. Verifies admin authentication and validates inputs
@@ -7474,11 +7486,40 @@ Start full AI-powered course content generation (Step 2).
 The background worker processes the task through these stages:
 1. **Generating Papers/Topics**: Extracts paper structure and all topics using AI
 2. **Generating Notes**: Creates comprehensive notes for each topic using AI
-3. **Generating Podcast Scripts** (if `generate_podcasts` is true): Creates conversational podcast scripts for TTS conversion
-4. **Generating Questions**: Creates practice questions for each topic using AI
-5. **Completed**: Marks task as complete
+3. **Generating Questions**: Creates practice questions for each topic using AI
+4. **Generating Podcast Scripts** (if `generate_podcasts` is true): Creates conversational podcast scripts
+5. **Generating Podcast Audio** (if `generate_podcast_audio` is true): Converts podcast scripts to audio using Inworld TTS API, uploads to CDN
+6. **Completed**: Marks task as complete
 
 Each stage uses the active prompt for that stage (papers_topics, notes, podcast_script, questions) from the `generation_prompts` table, which references a model in the `models` table. The system automatically routes to the appropriate AI provider (Google Gemini or Cerebras) based on the model's provider field.
+
+**Papers/Topics AI Response Structure:**
+The `papers_topics` prompt should return JSON with this structure:
+```json
+{
+  "papers": [
+    {
+      "name": "Paper 1",
+      "code": "P1",
+      "tier_code": "FULL",
+      "percentage_of_grade": 50,
+      "topics": [
+        {
+          "name": "1.1 Topic Name",
+          "start_page": 10,
+          "end_page": 20,
+          "is_optional": false
+        }
+      ]
+    }
+  ]
+}
+```
+
+Topic fields:
+- `name`: Required - topic name with section number
+- `start_page`/`end_page`: Optional - page ranges in specification PDF for content extraction
+- `is_optional`: Optional (defaults to false) - marks topic as optional content (e.g., extension topics, enrichment material)
 
 **Success Response (201 Created):**
 ```json
@@ -7676,7 +7717,7 @@ See `tests/test_admin_generate_content.py` for comprehensive test suite (8 tests
 
 **Monitoring:**
 - Task status stored in `generation_tasks.status`
-- Progress counters: `completed_papers`, `completed_topics`, `completed_notes`, `completed_questions`
+- Progress counters: `completed_papers`, `completed_topics`, `completed_notes`, `completed_questions`, `completed_podcast_scripts`, `completed_podcast_audio`
 - API metrics: `total_api_calls`, `total_tokens_used`, `estimated_cost`
 - Error tracking: `error_message`, `error_details`
 
@@ -8760,6 +8801,98 @@ Update multiple fields:
 - Use double braces `{{}}` for literal JSON examples in templates
 - Test prompt changes on a small generation task first
 - See Models Management section below for available models
+
+---
+
+### POST /admin/generate/voices
+
+List available TTS voices for podcast audio generation.
+
+**Authentication:** Admin or Owner required
+
+**Purpose:** Fetches available voice options from the Inworld TTS API for use when configuring podcast audio generation. Returns voices with metadata and recommended pairings.
+
+**Request Body:**
+```json
+{
+  "token": "admin_session_token",
+  "language_filter": "en"  // Optional: language code to filter (default: "en")
+}
+```
+
+**Required Fields:**
+- `token`: Admin session token
+
+**Optional Fields:**
+- `language_filter`: Language code to filter voices (default: "en")
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "voices": [
+      {
+        "id": "en-US-Dennis",
+        "name": "Dennis",
+        "gender": "male",
+        "language": "en-US",
+        "description": "Professional male voice"
+      },
+      {
+        "id": "en-US-Ashley",
+        "name": "Ashley",
+        "gender": "female",
+        "language": "en-US",
+        "description": "Friendly female voice"
+      }
+    ],
+    "recommended_pairs": [
+      {
+        "speaker1": "en-US-Dennis",
+        "speaker2": "en-US-Ashley",
+        "description": "Professional male/female duo"
+      }
+    ],
+    "default_settings": {
+      "speed": 1.0,
+      "pause_between_turns": 0.3
+    }
+  }
+}
+```
+
+**Error Responses:**
+
+401 Unauthorized:
+```json
+{
+  "success": false,
+  "message": "Missing token"
+}
+```
+
+403 Forbidden:
+```json
+{
+  "success": false,
+  "message": "Admin access required"
+}
+```
+
+500 Internal Server Error:
+```json
+{
+  "success": false,
+  "message": "Failed to fetch voices: [error details]"
+}
+```
+
+**Usage Notes:**
+- Use voice IDs from this endpoint when setting `speaker1_voice_id` and `speaker2_voice_id` in `/admin/generate/content`
+- Recommended pairs provide good voice contrast for two-speaker podcast format
+- Speed can be adjusted between 0.5 (slow) and 2.0 (fast)
+- Pause between turns defaults to 0.3 seconds
 
 ---
 

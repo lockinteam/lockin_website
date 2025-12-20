@@ -349,6 +349,7 @@ const GenerateSection = {
                     <div class="progress-details">
                         <span>Notes: ${progress.completed_notes}/${progress.total_topics}</span>
                         ${progress.completed_podcast_scripts !== undefined ? `<span>Scripts: ${progress.completed_podcast_scripts}/${progress.total_topics}</span>` : ''}
+                        ${progress.completed_podcast_audio !== undefined ? `<span>Audio: ${progress.completed_podcast_audio}/${progress.total_topics}</span>` : ''}
                         <span>Questions: ${progress.completed_questions}/${progress.total_topics}</span>
                     </div>
                 ` : ''}
@@ -374,6 +375,9 @@ const GenerateSection = {
         }
         if (status && status.startsWith('generating_podcast_scripts')) {
             return { label: 'Generating Podcast Scripts', class: 'active' };
+        }
+        if (status && status.startsWith('generating_podcast_audio')) {
+            return { label: 'Generating Podcast Audio', class: 'active' };
         }
         if (status && status.startsWith('generating_questions')) {
             return { label: 'Generating Questions', class: 'active' };
@@ -509,6 +513,17 @@ const GenerateSection = {
             const yearsData = await API.getYears(false); // only active
             const subjectsData = await API.getSubjects(false);
             
+            // Get available voices for Inworld TTS
+            let voices = [];
+            let recommendedPairs = [];
+            try {
+                const voicesData = await API.getGenerateVoices();
+                voices = voicesData.data?.voices || [];
+                recommendedPairs = voicesData.data?.recommended_pairs || [];
+            } catch (error) {
+                console.error('Failed to fetch voices:', error);
+            }
+            
             const years = yearsData.data?.years || yearsData.years || [];
             const subjects = subjectsData.data?.subjects || subjectsData.subjects || [];
             
@@ -526,6 +541,11 @@ const GenerateSection = {
                     selected: s.id === courseInfo.subject_id
                 }))
             ];
+
+            const voiceOptions = voices.map(v => ({
+                value: v.id,
+                label: `${v.name} (${v.gender}, ${v.language})`
+            }));
             
             const formHTML = `
                 <form id="generateStartForm" onsubmit="GenerateSection.handleStartGeneration(event, '${taskId}'); return false;">
@@ -581,11 +601,57 @@ const GenerateSection = {
                         <label class="filter-label">Generation Options</label>
                         <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
                             <label class="option-checkbox">
-                                <input type="checkbox" name="generatePodcasts" id="genPodcastsOption" checked>
+                                <input type="checkbox" name="generatePodcasts" id="genPodcastsOption" checked onchange="document.getElementById('audioGenOptions').style.display = this.checked ? 'block' : 'none'">
                                 <span>Generate Podcast Scripts</span>
                             </label>
                         </div>
-                        <p class="form-help">Uncheck to skip podcast script generation (can be generated later per-topic).</p>
+                        
+                        <div id="audioGenOptions" style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+                            <label class="option-checkbox" style="margin-bottom: 1rem;">
+                                <input type="checkbox" name="generatePodcastAudio" id="genAudioOption" onchange="document.getElementById('voiceSettings').style.display = this.checked ? 'block' : 'none'">
+                                <strong>Generate Podcast Audio (Inworld TTS)</strong>
+                            </label>
+                            
+                            <div id="voiceSettings" style="display: none; margin-top: 1rem;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                    <div>
+                                        <label class="filter-label">Speaker 1 Voice</label>
+                                        ${UI.createSelect('speaker1VoiceId', voiceOptions, voices.find(v => v.gender === 'male')?.id || '')}
+                                    </div>
+                                    <div>
+                                        <label class="filter-label">Speaker 1 Speed: <span id="speaker1SpeedVal">1.0</span>x</label>
+                                        <input type="range" name="speaker1Speed" min="0.5" max="2.0" step="0.1" value="1.0" class="form-range" oninput="document.getElementById('speaker1SpeedVal').textContent = this.value">
+                                    </div>
+                                    <div>
+                                        <label class="filter-label">Speaker 2 Voice</label>
+                                        ${UI.createSelect('speaker2VoiceId', voiceOptions, voices.find(v => v.gender === 'female')?.id || '')}
+                                    </div>
+                                    <div>
+                                        <label class="filter-label">Speaker 2 Speed: <span id="speaker2SpeedVal">1.0</span>x</label>
+                                        <input type="range" name="speaker2Speed" min="0.5" max="2.0" step="0.1" value="1.0" class="form-range" oninput="document.getElementById('speaker2SpeedVal').textContent = this.value">
+                                    </div>
+                                </div>
+                                <div style="margin-top: 1rem;">
+                                    <label class="filter-label">Pause Between Turns: <span id="pauseVal">0.3</span>s</label>
+                                    <input type="range" name="pauseBetweenTurns" min="0.0" max="5.0" step="0.1" value="0.3" class="form-range" style="max-width: 300px;" oninput="document.getElementById('pauseVal').textContent = this.value">
+                                </div>
+                                
+                                ${recommendedPairs.length > 0 ? `
+                                    <div style="margin-top: 1rem; font-size: 0.85rem;">
+                                        <span style="color: var(--color-grey-text);">Recommended Pairs:</span>
+                                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem;">
+                                            ${recommendedPairs.map(pair => `
+                                                <button type="button" class="action-btn action-btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;" 
+                                                    onclick="document.getElementById('speaker1VoiceId').value='${pair.speaker1}'; document.getElementById('speaker2VoiceId').value='${pair.speaker2}';">
+                                                    ${pair.description}
+                                                </button>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        <p class="form-help">Podcast scripts are required for audio generation.</p>
                     </div>
                     
                     <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px; margin-top: 1rem;">
@@ -593,6 +659,7 @@ const GenerateSection = {
                         <ul style="margin: 0.5rem 0 0 1.5rem; line-height: 1.8;">
                             <li>Course will be created in the database</li>
                             <li>AI will generate papers, topics, notes, podcast scripts, and questions</li>
+                            <li>If enabled, scripts will be converted to audio using Inworld TTS</li>
                             <li>Generation runs in the background (~5-15 minutes)</li>
                             <li>You can monitor progress in real-time</li>
                         </ul>
@@ -674,13 +741,11 @@ const GenerateSection = {
         }
         
         try {
-            UI.closeModal();
-            UI.showLoading('Starting content generation...');
-            
-            // Get generate_podcasts option
+            // Get generation options
             const generatePodcasts = document.getElementById('genPodcastsOption')?.checked ?? true;
+            const generatePodcastAudio = document.getElementById('genAudioOption')?.checked ?? false;
             
-            const data = await API.generateContent(taskId, {
+            const generationOptions = {
                 course_title: courseTitle,
                 year_id: yearId,
                 subject_id: subjectId || null,
@@ -689,8 +754,28 @@ const GenerateSection = {
                 description: description,
                 link_to_specification: linkToSpec || null,
                 tiers: tiers,
-                generate_podcasts: generatePodcasts
-            });
+                generate_podcasts: generatePodcasts,
+                generate_podcast_audio: generatePodcastAudio
+            };
+            
+            // Add voice settings if audio generation is enabled
+            if (generatePodcastAudio) {
+                generationOptions.speaker1_voice_id = form.speaker1VoiceId.value;
+                generationOptions.speaker2_voice_id = form.speaker2VoiceId.value;
+                generationOptions.speaker1_speed = parseFloat(form.speaker1Speed.value);
+                generationOptions.speaker2_speed = parseFloat(form.speaker2Speed.value);
+                generationOptions.pause_between_turns = parseFloat(form.pauseBetweenTurns.value);
+                
+                if (!generationOptions.speaker1_voice_id || !generationOptions.speaker2_voice_id) {
+                    UI.showToast('Please select voices for both speakers', 'error');
+                    return;
+                }
+            }
+
+            UI.closeModal();
+            UI.showLoading('Starting content generation...');
+            
+            const data = await API.generateContent(taskId, generationOptions);
             
             UI.showToast('Content generation started successfully', 'success');
             
@@ -737,6 +822,12 @@ const GenerateSection = {
                         <div class="meta-row">
                             <span class="meta-label">Generation Started:</span>
                             <span class="meta-value">${new Date(ts.content_started_at).toLocaleString()}</span>
+                        </div>
+                    ` : ''}
+                    ${ts.podcast_audio_started_at ? `
+                        <div class="meta-row">
+                            <span class="meta-label">Audio Gen Started:</span>
+                            <span class="meta-value">${new Date(ts.podcast_audio_started_at).toLocaleString()}</span>
                         </div>
                     ` : ''}
                     ${ts.completed_at ? `
@@ -795,6 +886,12 @@ const GenerateSection = {
                                     <div class="meta-row">
                                         <span class="meta-label">Tokens Used:</span>
                                         <span class="meta-value">${taskData.metrics.total_tokens_used.toLocaleString()}</span>
+                                    </div>
+                                ` : ''}
+                                ${taskData.metrics.total_audio_seconds ? `
+                                    <div class="meta-row">
+                                        <span class="meta-label">Audio Generated:</span>
+                                        <span class="meta-value">${Math.round(taskData.metrics.total_audio_seconds / 60)} minutes</span>
                                     </div>
                                 ` : ''}
                                 <div class="meta-row">
