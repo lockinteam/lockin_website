@@ -488,28 +488,47 @@ const API = {
         if (courseInfo.generate_podcasts !== undefined) {
             body.generate_podcasts = courseInfo.generate_podcasts;
         }
-        
-        // Inworld TTS parameters
+        // Include Inworld TTS audio generation parameters if provided
         if (courseInfo.generate_podcast_audio !== undefined) {
             body.generate_podcast_audio = courseInfo.generate_podcast_audio;
         }
-        if (courseInfo.speaker1_voice_id) body.speaker1_voice_id = courseInfo.speaker1_voice_id;
-        if (courseInfo.speaker2_voice_id) body.speaker2_voice_id = courseInfo.speaker2_voice_id;
-        if (courseInfo.speaker1_speed !== undefined) body.speaker1_speed = courseInfo.speaker1_speed;
-        if (courseInfo.speaker2_speed !== undefined) body.speaker2_speed = courseInfo.speaker2_speed;
-        if (courseInfo.pause_between_turns !== undefined) body.pause_between_turns = courseInfo.pause_between_turns;
-        
+        if (courseInfo.speaker1_voice_id) {
+            body.speaker1_voice_id = courseInfo.speaker1_voice_id;
+        }
+        if (courseInfo.speaker2_voice_id) {
+            body.speaker2_voice_id = courseInfo.speaker2_voice_id;
+        }
+        if (courseInfo.speaker1_speed !== undefined) {
+            body.speaker1_speed = courseInfo.speaker1_speed;
+        }
+        if (courseInfo.speaker2_speed !== undefined) {
+            body.speaker2_speed = courseInfo.speaker2_speed;
+        }
+        if (courseInfo.pause_between_turns !== undefined) {
+            body.pause_between_turns = courseInfo.pause_between_turns;
+        }
         return await this.request('/admin/generate/content', 'POST', body);
     },
 
     async generateIndividual(topicIds, options = {}) {
-        return await this.request('/admin/generate/individual', 'POST', {
+        const body = {
             topic_ids: topicIds,
             generate_notes: options.generateNotes || false,
             generate_podcast_scripts: options.generatePodcastScripts || false,
             generate_questions: options.generateQuestions || false,
             replace_existing: options.replaceExisting || false
-        });
+        };
+
+        if (options.generatePodcastAudio) {
+            body.generate_podcast_audio = true;
+            if (options.speaker1VoiceId) body.speaker1_voice_id = options.speaker1VoiceId;
+            if (options.speaker2VoiceId) body.speaker2_voice_id = options.speaker2VoiceId;
+            if (options.speaker1Speed) body.speaker1_speed = options.speaker1Speed;
+            if (options.speaker2Speed) body.speaker2_speed = options.speaker2Speed;
+            if (options.pauseBetweenTurns) body.pause_between_turns = options.pauseBetweenTurns;
+        }
+
+        return await this.request('/admin/generate/individual', 'POST', body);
     },
 
     async getGenerateStatus(taskId) {
@@ -537,12 +556,6 @@ const API = {
         });
     },
     
-    async getGenerateVoices(languageFilter = 'en') {
-        return await this.request('/admin/generate/voices', 'POST', {
-            language_filter: languageFilter
-        });
-    },
-    
     // Generate Prompts
     async getGeneratePrompts(filters = {}) {
         const body = {};
@@ -558,6 +571,13 @@ const API = {
             prompt_id: promptId,
             ...updates
         });
+    },
+    
+    async getGenerateVoices(languageFilter = 'en') {
+        const response = await this.request('/admin/generate/voices', 'POST', {
+            language_filter: languageFilter
+        });
+        return response.data;
     },
     
     // Models Management

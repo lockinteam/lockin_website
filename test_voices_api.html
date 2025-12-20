@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Voices API</title>
+</head>
+<body>
+    <h1>Testing /admin/generate/voices endpoint</h1>
+    <button onclick="testVoices()">Test API</button>
+    <pre id="output"></pre>
+    
+    <script>
+        async function testVoices() {
+            const output = document.getElementById('output');
+            output.textContent = 'Loading...\n';
+            
+            try {
+                // You'll need to replace 'YOUR_TOKEN_HERE' with an actual admin token
+                const response = await fetch('https://backend.lockin.tech/admin/generate/voices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token: 'YOUR_TOKEN_HERE',
+                        language_filter: 'en'
+                    })
+                });
+                
+                const data = await response.json();
+                output.textContent = JSON.stringify(data, null, 2);
+                
+                // Check data structure
+                console.log('Full response:', data);
+                console.log('Has success?', data.success);
+                console.log('Has data?', data.data);
+                console.log('Has voices?', data.data?.voices);
+                console.log('Voices length:', data.data?.voices?.length);
+            } catch (error) {
+                output.textContent = 'Error: ' + error.message;
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>

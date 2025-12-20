@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Voices Endpoint</title>
+</head>
+<body>
+    <h1>Testing Voices Endpoint</h1>
+    <div id="output"></div>
+    <script>
+        async function testVoices() {
+            const output = document.getElementById('output');
+            try {
+                output.innerHTML = '<p>Fetching voices...</p>';
+                
+                const response = await fetch('https://backend.lockin.tech/admin/generate/voices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token: localStorage.getItem('admin_token') || prompt('Enter admin token:'),
+                        language_filter: 'en'
+                    })
+                });
+                
+                const data = await response.json();
+                output.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                output.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+        
+        testVoices();
+    </script>
+</body>
+</html>

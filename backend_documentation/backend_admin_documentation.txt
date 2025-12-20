@@ -7190,7 +7190,7 @@ The following admin endpoints are planned for future implementation:
 - ✅ POST /admin/generate/list - List all generation tasks - COMPLETE
 - ✅ DELETE /admin/generate/cancel - Cancel running task - COMPLETE
 - ✅ DELETE /admin/generate/delete - Delete task (with optional content deletion) - COMPLETE
-- ✅ POST /admin/generate/individual - Generate notes/questions for specific topics - COMPLETE
+- ✅ POST /admin/generate/individual - Generate notes/questions/podcast audio for specific topics - COMPLETE
 - ✅ POST /admin/generate/prompts/fetch - Fetch AI prompts - COMPLETE
 - ✅ PUT /admin/generate/prompts/edit - Edit AI prompts - COMPLETE
 - ✅ POST /admin/generate/voices - List available TTS voices for podcast audio - COMPLETE
@@ -7768,8 +7768,10 @@ Check generation task status and real-time progress.
       "completed_topics": 24,
       "completed_notes": 12,
       "completed_questions": 10,
+      "completed_podcast_scripts": 8,
+      "completed_podcast_audio": 5,
       "percentage": 45.8,
-      "current_task": "Generating notes for: Data Structures"
+      "current_task": "Generating podcast audio for: Data Structures"
     },
     
     "timestamps": {
@@ -8245,7 +8247,7 @@ See `tests/test_admin_generate_delete.py` for comprehensive test suite (3 tests,
 
 ### POST /admin/generate/individual
 
-Generate notes, podcast scripts, and/or questions for specific topics individually.
+Generate notes, podcast scripts, podcast audio, and/or questions for specific topics individually.
 
 **Authentication:** Admin or Owner required
 
@@ -8254,6 +8256,7 @@ Generate notes, podcast scripts, and/or questions for specific topics individual
 - Updating content for specific topics
 - Testing generation with individual topics
 - Adding content to manually-created topics
+- **Generating podcast audio for topics that have scripts but no audio**
 
 **Rate Limit:** 10 requests per minute
 
@@ -8264,8 +8267,15 @@ Generate notes, podcast scripts, and/or questions for specific topics individual
   "topic_ids": ["uuid1", "uuid2"],       // Required: array of topic UUIDs
   "generate_notes": true,                // Optional: generate notes (default: false)
   "generate_podcast_scripts": true,      // Optional: generate podcast scripts (default: false)
+  "generate_podcast_audio": true,        // Optional: generate audio for existing scripts (default: false)
   "generate_questions": true,            // Optional: generate questions (default: false)
-  "replace_existing": false              // Optional: delete existing content first (default: false)
+  "replace_existing": false,             // Optional: delete existing content first (default: false)
+  // Voice settings (for podcast audio):
+  "speaker1_voice_id": "Dennis",         // Optional: voice for Speaker 1 (default: "Dennis")
+  "speaker2_voice_id": "Ashley",         // Optional: voice for Speaker 2 (default: "Ashley")
+  "speaker1_speed": 1.0,                 // Optional: playback speed 0.5-2.0 (default: 1.0)
+  "speaker2_speed": 1.0,                 // Optional: playback speed 0.5-2.0 (default: 1.0)
+  "pause_between_turns": 0.3             // Optional: pause in seconds 0-5 (default: 0.3)
 }
 ```
 
@@ -8276,16 +8286,24 @@ Generate notes, podcast scripts, and/or questions for specific topics individual
 **Optional Fields:**
 - `generate_notes`: Boolean - generate notes for topics
 - `generate_podcast_scripts`: Boolean - generate podcast scripts for topics
+- `generate_podcast_audio`: Boolean - generate TTS audio for existing podcast scripts
 - `generate_questions`: Boolean - generate questions for topics
 - `replace_existing`: Boolean - if true, deletes existing notes/podcasts/questions before generating new ones
+- Voice settings (only used when `generate_podcast_audio` is true):
+  - `speaker1_voice_id`: Inworld voice ID for first speaker
+  - `speaker2_voice_id`: Inworld voice ID for second speaker
+  - `speaker1_speed`: Speed multiplier for first speaker (0.5-2.0)
+  - `speaker2_speed`: Speed multiplier for second speaker (0.5-2.0)
+  - `pause_between_turns`: Silence between speaker turns in seconds (0-5)
 
 **Validation Rules:**
 1. At least one topic_id required
-2. At least one of `generate_notes`, `generate_podcast_scripts`, or `generate_questions` must be true
+2. At least one of `generate_notes`, `generate_podcast_scripts`, `generate_podcast_audio`, or `generate_questions` must be true
 3. All topics must belong to the same course
-4. Course must have a `link_to_specification` URL (PDF)
+4. Course must have a `link_to_specification` URL (PDF) - **except when only generating podcast audio**
 5. Topics must exist and be active
-6. **All topics must have `start_page` and `end_page` data** (populated during full generation)
+6. **For notes/scripts/questions:** Topics must have `start_page` and `end_page` data (populated during full generation)
+7. **For podcast audio:** Topics must have existing podcast scripts with no audio URL
 
 **Success Response (200 OK):**
 ```json
@@ -8298,6 +8316,7 @@ Generate notes, podcast scripts, and/or questions for specific topics individual
     "topics_processed": 2,
     "notes_generated": 2,
     "podcast_scripts_generated": 2,
+    "podcast_audio_generated": 2,
     "questions_generated": 2,
     "total_questions": 10,
     "errors": 0,
@@ -8308,6 +8327,8 @@ Generate notes, podcast scripts, and/or questions for specific topics individual
         "tier_title": "Foundation",
         "notes_generated": true,
         "podcast_script_generated": true,
+        "podcast_audio_generated": true,
+        "podcast_audio_url": "https://cdn.lockin.tech/uuid-podcast-Data%20Types.wav",
         "questions_generated": true,
         "questions_count": 5,
         "error": null
@@ -8318,6 +8339,8 @@ Generate notes, podcast scripts, and/or questions for specific topics individual
         "tier_title": "Foundation",
         "notes_generated": true,
         "podcast_script_generated": true,
+        "podcast_audio_generated": true,
+        "podcast_audio_url": "https://cdn.lockin.tech/uuid-podcast-Variables.wav",
         "questions_generated": true,
         "questions_count": 5,
         "error": null
@@ -8350,7 +8373,7 @@ Generate notes, podcast scripts, and/or questions for specific topics individual
 ```json
 {
   "success": false,
-  "message": "At least one of generate_notes, generate_podcast_scripts, or generate_questions must be true"
+  "message": "At least one of generate_notes, generate_podcast_scripts, generate_podcast_audio, or generate_questions must be true"
 }
 ```
 
@@ -8831,31 +8854,39 @@ List available TTS voices for podcast audio generation.
 {
   "success": true,
   "data": {
+    "count": 25,
     "voices": [
       {
-        "id": "en-US-Dennis",
-        "name": "Dennis",
-        "gender": "male",
-        "language": "en-US",
-        "description": "Professional male voice"
+        "voice_id": "Alex",
+        "display_name": "Alex",
+        "gender": "Unknown",
+        "age": "Unknown",
+        "language": "en",
+        "description": "Energetic and expressive mid-range male voice, with a mildly nasal quality"
       },
       {
-        "id": "en-US-Ashley",
-        "name": "Ashley",
-        "gender": "female",
-        "language": "en-US",
-        "description": "Friendly female voice"
-      }
-    ],
-    "recommended_pairs": [
+        "voice_id": "Ashley",
+        "display_name": "Ashley",
+        "gender": "Unknown",
+        "age": "Unknown",
+        "language": "en",
+        "description": "A warm, natural female voice"
+      },
       {
-        "speaker1": "en-US-Dennis",
-        "speaker2": "en-US-Ashley",
-        "description": "Professional male/female duo"
+        "voice_id": "Dennis",
+        "display_name": "Dennis",
+        "gender": "Unknown",
+        "age": "Unknown",
+        "language": "en",
+        "description": "Middle-aged man with a smooth, calm and friendly voice"
       }
     ],
+    "recommended_pairs": [],
     "default_settings": {
-      "speed": 1.0,
+      "speaker1_speed": 1.0,
+      "speaker2_speed": 1.0,
+      "min_speed": 0.5,
+      "max_speed": 2.0,
       "pause_between_turns": 0.3
     }
   }
@@ -8889,10 +8920,12 @@ List available TTS voices for podcast audio generation.
 ```
 
 **Usage Notes:**
-- Use voice IDs from this endpoint when setting `speaker1_voice_id` and `speaker2_voice_id` in `/admin/generate/content`
-- Recommended pairs provide good voice contrast for two-speaker podcast format
-- Speed can be adjusted between 0.5 (slow) and 2.0 (fast)
+- Use `voice_id` values (e.g., "Alex", "Ashley", "Dennis") when setting `speaker1_voice_id` and `speaker2_voice_id` in `/admin/generate/content`
+- The endpoint returns 25+ voices with detailed descriptions
+- Voice fields include: `voice_id`, `display_name`, `gender`, `age`, `language`, and `description`
+- Speed can be adjusted between 0.5 (slow) and 2.0 (fast) as shown in `default_settings`
 - Pause between turns defaults to 0.3 seconds
+- `recommended_pairs` is currently empty but reserved for future voice pairing suggestions
 
 ---
 

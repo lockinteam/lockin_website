@@ -310,6 +310,17 @@ const GenerateSection = {
                         <span class="meta-label">Duration:</span>
                         <span class="meta-value">${duration}</span>
                     </div>
+                    ${task.progress && task.progress.total_topics ? `
+                        <div class="meta-row">
+                            <span class="meta-label">Progress:</span>
+                            <span class="meta-value">
+                                ${task.progress.completed_notes || 0} notes, 
+                                ${task.progress.completed_questions || 0} questions
+                                ${task.progress.completed_podcast_scripts !== undefined && task.progress.completed_podcast_scripts !== null ? `, ${task.progress.completed_podcast_scripts} scripts` : ''}
+                                ${task.progress.completed_podcast_audio !== undefined && task.progress.completed_podcast_audio !== null ? `, ${task.progress.completed_podcast_audio} audio` : ''}
+                            </span>
+                        </div>
+                    ` : ''}
                     ${task.metrics && task.metrics.estimated_cost ? `
                         <div class="meta-row">
                             <span class="meta-label">Estimated Cost:</span>
@@ -336,6 +347,15 @@ const GenerateSection = {
         const progress = task.progress;
         const percentage = progress.percentage || 0;
         
+        // Debug logging
+        console.log('Rendering progress for task:', task.task_id, {
+            completed_notes: progress.completed_notes,
+            completed_questions: progress.completed_questions,
+            completed_podcast_scripts: progress.completed_podcast_scripts,
+            completed_podcast_audio: progress.completed_podcast_audio,
+            total_topics: progress.total_topics
+        });
+        
         return `
             <div class="task-progress">
                 <div class="progress-bar-container">
@@ -348,9 +368,9 @@ const GenerateSection = {
                 ${progress.completed_notes !== undefined ? `
                     <div class="progress-details">
                         <span>Notes: ${progress.completed_notes}/${progress.total_topics}</span>
-                        ${progress.completed_podcast_scripts !== undefined ? `<span>Scripts: ${progress.completed_podcast_scripts}/${progress.total_topics}</span>` : ''}
-                        ${progress.completed_podcast_audio !== undefined ? `<span>Audio: ${progress.completed_podcast_audio}/${progress.total_topics}</span>` : ''}
                         <span>Questions: ${progress.completed_questions}/${progress.total_topics}</span>
+                        ${progress.completed_podcast_scripts !== undefined && progress.completed_podcast_scripts !== null ? `<span>Scripts: ${progress.completed_podcast_scripts}/${progress.total_topics}</span>` : ''}
+                        ${progress.completed_podcast_audio !== undefined && progress.completed_podcast_audio !== null ? `<span>Audio: ${progress.completed_podcast_audio}/${progress.total_topics}</span>` : ''}
                     </div>
                 ` : ''}
             </div>
@@ -498,6 +518,14 @@ const GenerateSection = {
         `;
         container.appendChild(div);
     },
+    
+    toggleTtsSettings() {
+        const checkbox = document.getElementById('genPodcastAudioOption');
+        const container = document.getElementById('ttsSettingsContainer');
+        if (checkbox && container) {
+            container.style.display = checkbox.checked ? 'block' : 'none';
+        }
+    },
 
     async openStartGenerationModal(taskId, taskData = null) {
         try {
@@ -509,20 +537,26 @@ const GenerateSection = {
             const courseInfo = taskData.course_info || {};
             console.log('Course info for form:', courseInfo);
             
+            // Load available TTS voices
+            let voicesData = null;
+            try {
+                voicesData = await API.getGenerateVoices();
+                console.log('Loaded TTS voices:', voicesData);
+                // Validate voice data structure
+                if (voicesData && voicesData.voices && voicesData.voices.length > 0) {
+                    console.log(`Found ${voicesData.voices.length} voices:`, voicesData.voices.map(v => `${v.voice_id || v.id} (${v.display_name || v.name})`));
+                } else {
+                    console.warn('No voices returned from API');
+                    voicesData = null;
+                }
+            } catch (error) {
+                console.error('Could not load TTS voices:', error);
+                voicesData = null;
+            }
+            
             // Get years and subjects for dropdowns
             const yearsData = await API.getYears(false); // only active
             const subjectsData = await API.getSubjects(false);
-            
-            // Get available voices for Inworld TTS
-            let voices = [];
-            let recommendedPairs = [];
-            try {
-                const voicesData = await API.getGenerateVoices();
-                voices = voicesData.data?.voices || [];
-                recommendedPairs = voicesData.data?.recommended_pairs || [];
-            } catch (error) {
-                console.error('Failed to fetch voices:', error);
-            }
             
             const years = yearsData.data?.years || yearsData.years || [];
             const subjects = subjectsData.data?.subjects || subjectsData.subjects || [];
@@ -541,11 +575,6 @@ const GenerateSection = {
                     selected: s.id === courseInfo.subject_id
                 }))
             ];
-
-            const voiceOptions = voices.map(v => ({
-                value: v.id,
-                label: `${v.name} (${v.gender}, ${v.language})`
-            }));
             
             const formHTML = `
                 <form id="generateStartForm" onsubmit="GenerateSection.handleStartGeneration(event, '${taskId}'); return false;">
@@ -601,66 +630,88 @@ const GenerateSection = {
                         <label class="filter-label">Generation Options</label>
                         <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
                             <label class="option-checkbox">
-                                <input type="checkbox" name="generatePodcasts" id="genPodcastsOption" checked onchange="document.getElementById('audioGenOptions').style.display = this.checked ? 'block' : 'none'">
+                                <input type="checkbox" name="generatePodcasts" id="genPodcastsOption" checked>
                                 <span>Generate Podcast Scripts</span>
                             </label>
+                            ${voicesData ? `
+                                <label class="option-checkbox">
+                                    <input type="checkbox" name="generatePodcastAudio" id="genPodcastAudioOption" onchange="GenerateSection.toggleTtsSettings()">
+                                    <span>Generate Podcast Audio (Inworld TTS)</span>
+                                </label>
+                            ` : ''}
                         </div>
-                        
-                        <div id="audioGenOptions" style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
-                            <label class="option-checkbox" style="margin-bottom: 1rem;">
-                                <input type="checkbox" name="generatePodcastAudio" id="genAudioOption" onchange="document.getElementById('voiceSettings').style.display = this.checked ? 'block' : 'none'">
-                                <strong>Generate Podcast Audio (Inworld TTS)</strong>
-                            </label>
-                            
-                            <div id="voiceSettings" style="display: none; margin-top: 1rem;">
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                    <div>
-                                        <label class="filter-label">Speaker 1 Voice</label>
-                                        ${UI.createSelect('speaker1VoiceId', voiceOptions, voices.find(v => v.gender === 'male')?.id || '')}
-                                    </div>
-                                    <div>
-                                        <label class="filter-label">Speaker 1 Speed: <span id="speaker1SpeedVal">1.0</span>x</label>
-                                        <input type="range" name="speaker1Speed" min="0.5" max="2.0" step="0.1" value="1.0" class="form-range" oninput="document.getElementById('speaker1SpeedVal').textContent = this.value">
-                                    </div>
-                                    <div>
-                                        <label class="filter-label">Speaker 2 Voice</label>
-                                        ${UI.createSelect('speaker2VoiceId', voiceOptions, voices.find(v => v.gender === 'female')?.id || '')}
-                                    </div>
-                                    <div>
-                                        <label class="filter-label">Speaker 2 Speed: <span id="speaker2SpeedVal">1.0</span>x</label>
-                                        <input type="range" name="speaker2Speed" min="0.5" max="2.0" step="0.1" value="1.0" class="form-range" oninput="document.getElementById('speaker2SpeedVal').textContent = this.value">
-                                    </div>
-                                </div>
-                                <div style="margin-top: 1rem;">
-                                    <label class="filter-label">Pause Between Turns: <span id="pauseVal">0.3</span>s</label>
-                                    <input type="range" name="pauseBetweenTurns" min="0.0" max="5.0" step="0.1" value="0.3" class="form-range" style="max-width: 300px;" oninput="document.getElementById('pauseVal').textContent = this.value">
-                                </div>
-                                
-                                ${recommendedPairs.length > 0 ? `
-                                    <div style="margin-top: 1rem; font-size: 0.85rem;">
-                                        <span style="color: var(--color-grey-text);">Recommended Pairs:</span>
-                                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.25rem;">
-                                            ${recommendedPairs.map(pair => `
-                                                <button type="button" class="action-btn action-btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;" 
-                                                    onclick="document.getElementById('speaker1VoiceId').value='${pair.speaker1}'; document.getElementById('speaker2VoiceId').value='${pair.speaker2}';">
-                                                    ${pair.description}
-                                                </button>
-                                            `).join('')}
-                                        </div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                        <p class="form-help">Podcast scripts are required for audio generation.</p>
+                        <p class="form-help">Podcast scripts can be generated first, then converted to audio using TTS.</p>
                     </div>
+                    
+                    ${voicesData ? `
+                        <div id="ttsSettingsContainer" style="display: none; padding: 1rem; background: var(--bg-secondary); border-radius: 8px; margin-top: 1rem;">
+                            <h4 style="margin-bottom: 1rem; font-size: 0.95rem; color: var(--color-text-primary);">TTS Voice Settings</h4>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                                <div>
+                                    <label class="filter-label">Speaker 1 Voice</label>
+                                    <select class="filter-select" id="speaker1Voice">
+                                        ${voicesData.voices.map(v => {
+                                            const voiceId = v.voice_id || v.id;
+                                            const displayName = v.display_name || v.name || 'Unknown';
+                                            const isDefault = voiceId === 'Dennis' || voiceId === 'Alex' || (voicesData.voices.length > 0 && voicesData.voices[0].voice_id === voiceId);
+                                            return `<option value="${voiceId}" ${isDefault ? 'selected' : ''} title="${v.description || ''}">${displayName}</option>`;
+                                        }).join('')}
+                                    </select>
+                                    <p class="form-help" style="font-size: 0.8rem; margin-top: 0.25rem; color: var(--color-grey-text);">Hover over options to see voice descriptions</p>
+                                </div>
+                                <div>
+                                    <label class="filter-label">Speaker 2 Voice</label>
+                                    <select class="filter-select" id="speaker2Voice">
+                                        ${voicesData.voices.map(v => {
+                                            const voiceId = v.voice_id || v.id;
+                                            const displayName = v.display_name || v.name || 'Unknown';
+                                            const isDefault = voiceId === 'Ashley' || voiceId === 'Elizabeth' || (voicesData.voices.length > 1 && voicesData.voices[1].voice_id === voiceId);
+                                            return `<option value="${voiceId}" ${isDefault ? 'selected' : ''} title="${v.description || ''}">${displayName}</option>`;
+                                        }).join('')}
+                                    </select>
+                                    <p class="form-help" style="font-size: 0.8rem; margin-top: 0.25rem; color: var(--color-grey-text);">Hover over options to see voice descriptions</p>
+                                </div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label class="filter-label">Speaker 1 Speed: <span id="speaker1SpeedValue">1.0</span>x</label>
+                                    <input type="range" class="form-range" id="speaker1Speed" value="1.0" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('speaker1SpeedValue').textContent = this.value">
+                                </div>
+                                <div>
+                                    <label class="filter-label">Speaker 2 Speed: <span id="speaker2SpeedValue">1.0</span>x</label>
+                                    <input type="range" class="form-range" id="speaker2Speed" value="1.0" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('speaker2SpeedValue').textContent = this.value">
+                                </div>
+                                <div>
+                                    <label class="filter-label">Pause Between Turns: <span id="pauseBetweenTurnsValue">0.3</span>s</label>
+                                    <input type="range" class="form-range" id="pauseBetweenTurns" value="0.3" min="0.0" max="5.0" step="0.1" oninput="document.getElementById('pauseBetweenTurnsValue').textContent = this.value">
+                                </div>
+                            </div>
+                            
+                            ${voicesData.recommended_pairs && voicesData.recommended_pairs.length > 0 ? `
+                                <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(59, 130, 246, 0.1); border-radius: 6px; border-left: 3px solid rgb(59, 130, 246);">
+                                    <strong style="font-size: 0.85rem; color: rgb(59, 130, 246);">💡 Recommended Voice Pairs:</strong>
+                                    <div style="font-size: 0.85rem; margin-top: 0.25rem; color: var(--color-grey-text);">
+                                        ${voicesData.recommended_pairs.map(pair => `${pair.speaker1} + ${pair.speaker2}`).join(', ')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
                     
                     <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px; margin-top: 1rem;">
                         <strong>What happens next:</strong>
                         <ul style="margin: 0.5rem 0 0 1.5rem; line-height: 1.8;">
                             <li>Course will be created in the database</li>
-                            <li>AI will generate papers, topics, notes, podcast scripts, and questions</li>
-                            <li>If enabled, scripts will be converted to audio using Inworld TTS</li>
-                            <li>Generation runs in the background (~5-15 minutes)</li>
+                            <li>AI will generate papers & topics structure</li>
+                            <li>AI will generate notes for each topic</li>
+                            <li>AI will generate practice questions</li>
+                            ${voicesData && document.getElementById('genPodcastAudioOption')?.checked ? `
+                                <li>AI will generate podcast scripts</li>
+                                <li>TTS will convert scripts to audio files</li>
+                            ` : `<li>AI will generate podcast scripts (if enabled)</li>`}
+                            <li>Generation runs in the background (~5-20 minutes)</li>
                             <li>You can monitor progress in real-time</li>
                         </ul>
                     </div>
@@ -740,12 +791,27 @@ const GenerateSection = {
             subjectCode = form.subjectCode.value.trim() || null;
         }
         
+        // Get generate_podcasts option BEFORE closing the modal (DOM elements get removed)
+        const generatePodcasts = document.getElementById('genPodcastsOption')?.checked ?? true;
+        
+        // Get TTS audio generation options BEFORE closing modal
+        const generatePodcastAudio = document.getElementById('genPodcastAudioOption')?.checked ?? false;
+        const ttsParams = {};
+        
+        if (generatePodcastAudio) {
+            ttsParams.generate_podcast_audio = true;
+            ttsParams.speaker1_voice_id = document.getElementById('speaker1Voice')?.value;
+            ttsParams.speaker2_voice_id = document.getElementById('speaker2Voice')?.value;
+            ttsParams.speaker1_speed = parseFloat(document.getElementById('speaker1Speed')?.value || '1.0');
+            ttsParams.speaker2_speed = parseFloat(document.getElementById('speaker2Speed')?.value || '1.0');
+            ttsParams.pause_between_turns = parseFloat(document.getElementById('pauseBetweenTurns')?.value || '0.3');
+        }
+        
         try {
-            // Get generation options
-            const generatePodcasts = document.getElementById('genPodcastsOption')?.checked ?? true;
-            const generatePodcastAudio = document.getElementById('genAudioOption')?.checked ?? false;
+            UI.closeModal();
+            UI.showLoading('Starting content generation...');
             
-            const generationOptions = {
+            const data = await API.generateContent(taskId, {
                 course_title: courseTitle,
                 year_id: yearId,
                 subject_id: subjectId || null,
@@ -755,27 +821,8 @@ const GenerateSection = {
                 link_to_specification: linkToSpec || null,
                 tiers: tiers,
                 generate_podcasts: generatePodcasts,
-                generate_podcast_audio: generatePodcastAudio
-            };
-            
-            // Add voice settings if audio generation is enabled
-            if (generatePodcastAudio) {
-                generationOptions.speaker1_voice_id = form.speaker1VoiceId.value;
-                generationOptions.speaker2_voice_id = form.speaker2VoiceId.value;
-                generationOptions.speaker1_speed = parseFloat(form.speaker1Speed.value);
-                generationOptions.speaker2_speed = parseFloat(form.speaker2Speed.value);
-                generationOptions.pause_between_turns = parseFloat(form.pauseBetweenTurns.value);
-                
-                if (!generationOptions.speaker1_voice_id || !generationOptions.speaker2_voice_id) {
-                    UI.showToast('Please select voices for both speakers', 'error');
-                    return;
-                }
-            }
-
-            UI.closeModal();
-            UI.showLoading('Starting content generation...');
-            
-            const data = await API.generateContent(taskId, generationOptions);
+                ...ttsParams
+            });
             
             UI.showToast('Content generation started successfully', 'success');
             
@@ -824,12 +871,6 @@ const GenerateSection = {
                             <span class="meta-value">${new Date(ts.content_started_at).toLocaleString()}</span>
                         </div>
                     ` : ''}
-                    ${ts.podcast_audio_started_at ? `
-                        <div class="meta-row">
-                            <span class="meta-label">Audio Gen Started:</span>
-                            <span class="meta-value">${new Date(ts.podcast_audio_started_at).toLocaleString()}</span>
-                        </div>
-                    ` : ''}
                     ${ts.completed_at ? `
                         <div class="meta-row">
                             <span class="meta-label">Completed:</span>
@@ -844,6 +885,44 @@ const GenerateSection = {
                     ` : ''}
                 `;
             }
+            
+            // Extract configuration details
+            const courseInfo = taskData.course_info || {};
+            const tiersCount = courseInfo.tiers ? courseInfo.tiers.length : (taskData.tiers_count || 0);
+            const genPodcasts = courseInfo.generate_podcasts !== false; // Default true
+            const genAudio = courseInfo.generate_podcast_audio === true;
+            
+            const configHTML = `
+                <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                    <strong>Configuration</strong>
+                    <div class="card-meta" style="margin-top: 0.5rem;">
+                        <div class="meta-row">
+                            <span class="meta-label">Description:</span>
+                            <span class="meta-value" style="white-space: pre-wrap;">${UI.escapeHtml(courseInfo.description || 'N/A')}</span>
+                        </div>
+                        <div class="meta-row">
+                            <span class="meta-label">Tiers:</span>
+                            <span class="meta-value">${tiersCount} tiers defined</span>
+                        </div>
+                        <div class="meta-row">
+                            <span class="meta-label">Podcast Scripts:</span>
+                            <span class="meta-value">${genPodcasts ? 'Enabled' : 'Disabled'}</span>
+                        </div>
+                        <div class="meta-row">
+                            <span class="meta-label">Podcast Audio:</span>
+                            <span class="meta-value">${genAudio ? 'Enabled (Inworld TTS)' : 'Disabled'}</span>
+                        </div>
+                        ${genAudio ? `
+                            <div class="meta-row">
+                                <span class="meta-label">Voices:</span>
+                                <span class="meta-value">
+                                    ${courseInfo.speaker1_voice_id || 'Default'} & ${courseInfo.speaker2_voice_id || 'Default'}
+                                </span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
             
             const detailsHTML = `
                 <div class="task-details-modal">
@@ -874,6 +953,8 @@ const GenerateSection = {
                     
                     ${progressHTML}
                     
+                    ${configHTML}
+                    
                     ${taskData.metrics ? `
                         <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
                             <strong>Metrics</strong>
@@ -886,12 +967,6 @@ const GenerateSection = {
                                     <div class="meta-row">
                                         <span class="meta-label">Tokens Used:</span>
                                         <span class="meta-value">${taskData.metrics.total_tokens_used.toLocaleString()}</span>
-                                    </div>
-                                ` : ''}
-                                ${taskData.metrics.total_audio_seconds ? `
-                                    <div class="meta-row">
-                                        <span class="meta-label">Audio Generated:</span>
-                                        <span class="meta-value">${Math.round(taskData.metrics.total_audio_seconds / 60)} minutes</span>
                                     </div>
                                 ` : ''}
                                 <div class="meta-row">
@@ -945,6 +1020,14 @@ const GenerateSection = {
             const tiersData = await API.getTiers(courseId, false);
             const tiers = tiersData.data?.tiers || [];
             
+            // Load voices
+            let voicesData = null;
+            try {
+                voicesData = await API.getGenerateVoices();
+            } catch (error) {
+                console.error('Could not load TTS voices:', error);
+            }
+            
             if (tiers.length === 0) {
                 UI.openModal('Generate for Topics', `
                     <div class="content-empty" style="padding: 2rem;">
@@ -980,7 +1063,7 @@ const GenerateSection = {
             }
             
             // Build the modal content
-            this.renderIndividualGenerateModal(courseId, courseTitle, tiersWithTopics);
+            this.renderIndividualGenerateModal(courseId, courseTitle, tiersWithTopics, voicesData);
             
         } catch (error) {
             console.error('Error loading topics:', error);
@@ -989,7 +1072,7 @@ const GenerateSection = {
         }
     },
     
-    renderIndividualGenerateModal(courseId, courseTitle, tiersWithTopics) {
+    renderIndividualGenerateModal(courseId, courseTitle, tiersWithTopics, voicesData) {
         // Build tier sections with topics
         let tiersHTML = '';
         for (const tier of tiersWithTopics) {
@@ -1046,6 +1129,56 @@ const GenerateSection = {
             `;
         }
         
+        // TTS Settings HTML
+        let ttsSettingsHTML = '';
+        if (voicesData) {
+            ttsSettingsHTML = `
+                <div id="indivTtsSettingsContainer" style="display: none; padding: 1rem; background: var(--bg-secondary); border-radius: 8px; margin-top: 1rem; width: 100%;">
+                    <h4 style="margin-bottom: 1rem; font-size: 0.95rem; color: var(--color-text-primary);">TTS Voice Settings</h4>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <label class="filter-label">Speaker 1 Voice</label>
+                            <select class="filter-select" id="indivSpeaker1Voice">
+                                ${voicesData.voices.map(v => {
+                                    const voiceId = v.voice_id || v.id;
+                                    const displayName = v.display_name || v.name || 'Unknown';
+                                    const isDefault = voiceId === 'Dennis' || voiceId === 'Alex' || (voicesData.voices.length > 0 && voicesData.voices[0].voice_id === voiceId);
+                                    return `<option value="${voiceId}" ${isDefault ? 'selected' : ''} title="${v.description || ''}">${displayName}</option>`;
+                                }).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="filter-label">Speaker 2 Voice</label>
+                            <select class="filter-select" id="indivSpeaker2Voice">
+                                ${voicesData.voices.map(v => {
+                                    const voiceId = v.voice_id || v.id;
+                                    const displayName = v.display_name || v.name || 'Unknown';
+                                    const isDefault = voiceId === 'Ashley' || voiceId === 'Elizabeth' || (voicesData.voices.length > 1 && voicesData.voices[1].voice_id === voiceId);
+                                    return `<option value="${voiceId}" ${isDefault ? 'selected' : ''} title="${v.description || ''}">${displayName}</option>`;
+                                }).join('')}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <label class="filter-label">Speaker 1 Speed: <span id="indivSpeaker1SpeedValue">1.0</span>x</label>
+                            <input type="range" class="form-range" id="indivSpeaker1Speed" value="1.0" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('indivSpeaker1SpeedValue').textContent = this.value">
+                        </div>
+                        <div>
+                            <label class="filter-label">Speaker 2 Speed: <span id="indivSpeaker2SpeedValue">1.0</span>x</label>
+                            <input type="range" class="form-range" id="indivSpeaker2Speed" value="1.0" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('indivSpeaker2SpeedValue').textContent = this.value">
+                        </div>
+                        <div>
+                            <label class="filter-label">Pause: <span id="indivPauseValue">0.3</span>s</label>
+                            <input type="range" class="form-range" id="indivPause" value="0.3" min="0.0" max="5.0" step="0.1" oninput="document.getElementById('indivPauseValue').textContent = this.value">
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         const formHTML = `
             <form id="individualGenerateForm" onsubmit="GenerateSection.handleIndividualGenerate(event); return false;">
                 <h2>Generate Content for Topics</h2>
@@ -1061,6 +1194,12 @@ const GenerateSection = {
                             <input type="checkbox" name="generatePodcastScripts" id="genPodcastScripts" checked>
                             <span>Generate Podcast Scripts</span>
                         </label>
+                        ${voicesData ? `
+                        <label class="option-checkbox">
+                            <input type="checkbox" name="generatePodcastAudio" id="genPodcastAudio" onchange="document.getElementById('indivTtsSettingsContainer').style.display = this.checked ? 'block' : 'none'">
+                            <span>Generate Podcast Audio</span>
+                        </label>
+                        ` : ''}
                         <label class="option-checkbox">
                             <input type="checkbox" name="generateQuestions" id="genQuestions" checked>
                             <span>Generate Questions</span>
@@ -1070,6 +1209,7 @@ const GenerateSection = {
                             <span>Replace Existing Content</span>
                         </label>
                     </div>
+                    ${ttsSettingsHTML}
                 </div>
                 
                 <div class="selection-controls" style="margin-bottom: 1rem; display: flex; gap: 0.5rem;">
@@ -1188,12 +1328,24 @@ const GenerateSection = {
         // Get options
         const generateNotes = document.getElementById('genNotes')?.checked || false;
         const generatePodcastScripts = document.getElementById('genPodcastScripts')?.checked || false;
+        const generatePodcastAudio = document.getElementById('genPodcastAudio')?.checked || false;
         const generateQuestions = document.getElementById('genQuestions')?.checked || false;
         const replaceExisting = document.getElementById('replaceExisting')?.checked || false;
         
-        if (!generateNotes && !generatePodcastScripts && !generateQuestions) {
+        if (!generateNotes && !generatePodcastScripts && !generatePodcastAudio && !generateQuestions) {
             UI.showToast('Please select at least one content type to generate', 'error');
             return;
+        }
+        
+        // Collect TTS settings if audio generation is enabled
+        const ttsSettings = {};
+        if (generatePodcastAudio) {
+            ttsSettings.generatePodcastAudio = true;
+            ttsSettings.speaker1VoiceId = document.getElementById('indivSpeaker1Voice')?.value;
+            ttsSettings.speaker2VoiceId = document.getElementById('indivSpeaker2Voice')?.value;
+            ttsSettings.speaker1Speed = parseFloat(document.getElementById('indivSpeaker1Speed')?.value || '1.0');
+            ttsSettings.speaker2Speed = parseFloat(document.getElementById('indivSpeaker2Speed')?.value || '1.0');
+            ttsSettings.pauseBetweenTurns = parseFloat(document.getElementById('indivPause')?.value || '0.3');
         }
         
         // Confirm if replacing existing content
@@ -1211,7 +1363,8 @@ const GenerateSection = {
                 generateNotes,
                 generatePodcastScripts,
                 generateQuestions,
-                replaceExisting
+                replaceExisting,
+                ...ttsSettings
             });
             
             // Show results
@@ -1220,9 +1373,9 @@ const GenerateSection = {
             const errorCount = data.errors || 0;
             
             if (errorCount === 0) {
-                UI.showToast(`Successfully generated content for ${successCount} topic(s). Notes: ${data.notes_generated}, Scripts: ${data.podcast_scripts_generated || 0}, Questions: ${data.total_questions}`, 'success');
+                UI.showToast(`Successfully generated content for ${successCount} topic(s). Notes: ${data.notes_generated}, Scripts: ${data.podcast_scripts_generated || 0}, Audio: ${data.podcast_audio_generated || 0}, Questions: ${data.total_questions}`, 'success');
             } else {
-                UI.showToast(`Completed with ${errorCount} error(s). Notes: ${data.notes_generated}, Scripts: ${data.podcast_scripts_generated || 0}, Questions: ${data.total_questions}`, 'warning');
+                UI.showToast(`Completed with ${errorCount} error(s). Notes: ${data.notes_generated}, Scripts: ${data.podcast_scripts_generated || 0}, Audio: ${data.podcast_audio_generated || 0}, Questions: ${data.total_questions}`, 'warning');
             }
             
             // Show detailed results modal
@@ -1308,6 +1461,7 @@ const GenerateSection = {
                         ${r.error ? `<span class="error-text">${UI.escapeHtml(r.error)}</span>` : `
                             ${r.notes_generated ? '<span class="gen-badge notes">Notes ✓</span>' : ''}
                             ${r.podcast_script_generated ? '<span class="gen-badge scripts">Script ✓</span>' : ''}
+                            ${r.podcast_audio_generated ? '<span class="gen-badge audio">Audio ✓</span>' : ''}
                             ${r.questions_generated ? `<span class="gen-badge questions">${r.questions_count} Questions</span>` : ''}
                         `}
                     </div>
@@ -1330,6 +1484,10 @@ const GenerateSection = {
                     <div class="summary-stat">
                         <span class="stat-value">${data.podcast_scripts_generated || 0}</span>
                         <span class="stat-label">Scripts Generated</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="stat-value">${data.podcast_audio_generated || 0}</span>
+                        <span class="stat-label">Audio Generated</span>
                     </div>
                     <div class="summary-stat">
                         <span class="stat-value">${data.total_questions || 0}</span>
