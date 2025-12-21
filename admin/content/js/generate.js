@@ -654,7 +654,7 @@ const GenerateSection = {
                                         ${voicesData.voices.map(v => {
                                             const voiceId = v.voice_id || v.id;
                                             const displayName = v.display_name || v.name || 'Unknown';
-                                            const isDefault = voiceId === 'Dennis' || voiceId === 'Alex' || (voicesData.voices.length > 0 && voicesData.voices[0].voice_id === voiceId);
+                                            const isDefault = voiceId === 'Dennis';
                                             return `<option value="${voiceId}" ${isDefault ? 'selected' : ''} title="${v.description || ''}">${displayName}</option>`;
                                         }).join('')}
                                     </select>
@@ -666,7 +666,7 @@ const GenerateSection = {
                                         ${voicesData.voices.map(v => {
                                             const voiceId = v.voice_id || v.id;
                                             const displayName = v.display_name || v.name || 'Unknown';
-                                            const isDefault = voiceId === 'Ashley' || voiceId === 'Elizabeth' || (voicesData.voices.length > 1 && voicesData.voices[1].voice_id === voiceId);
+                                            const isDefault = voiceId === 'Ashley';
                                             return `<option value="${voiceId}" ${isDefault ? 'selected' : ''} title="${v.description || ''}">${displayName}</option>`;
                                         }).join('')}
                                     </select>
@@ -676,12 +676,12 @@ const GenerateSection = {
                             
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
                                 <div>
-                                    <label class="filter-label">Speaker 1 Speed: <span id="speaker1SpeedValue">1.0</span>x</label>
-                                    <input type="range" class="form-range" id="speaker1Speed" value="1.0" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('speaker1SpeedValue').textContent = this.value">
+                                    <label class="filter-label">Speaker 1 Speed: <span id="speaker1SpeedValue">1.1</span>x</label>
+                                    <input type="range" class="form-range" id="speaker1Speed" value="1.1" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('speaker1SpeedValue').textContent = this.value">
                                 </div>
                                 <div>
-                                    <label class="filter-label">Speaker 2 Speed: <span id="speaker2SpeedValue">1.0</span>x</label>
-                                    <input type="range" class="form-range" id="speaker2Speed" value="1.0" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('speaker2SpeedValue').textContent = this.value">
+                                    <label class="filter-label">Speaker 2 Speed: <span id="speaker2SpeedValue">1.1</span>x</label>
+                                    <input type="range" class="form-range" id="speaker2Speed" value="1.1" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('speaker2SpeedValue').textContent = this.value">
                                 </div>
                                 <div>
                                     <label class="filter-label">Pause Between Turns: <span id="pauseBetweenTurnsValue">0.3</span>s</label>
@@ -1143,7 +1143,7 @@ const GenerateSection = {
                                 ${voicesData.voices.map(v => {
                                     const voiceId = v.voice_id || v.id;
                                     const displayName = v.display_name || v.name || 'Unknown';
-                                    const isDefault = voiceId === 'Dennis' || voiceId === 'Alex' || (voicesData.voices.length > 0 && voicesData.voices[0].voice_id === voiceId);
+                                    const isDefault = voiceId === 'Dennis';
                                     return `<option value="${voiceId}" ${isDefault ? 'selected' : ''} title="${v.description || ''}">${displayName}</option>`;
                                 }).join('')}
                             </select>
@@ -1154,7 +1154,7 @@ const GenerateSection = {
                                 ${voicesData.voices.map(v => {
                                     const voiceId = v.voice_id || v.id;
                                     const displayName = v.display_name || v.name || 'Unknown';
-                                    const isDefault = voiceId === 'Ashley' || voiceId === 'Elizabeth' || (voicesData.voices.length > 1 && voicesData.voices[1].voice_id === voiceId);
+                                    const isDefault = voiceId === 'Ashley';
                                     return `<option value="${voiceId}" ${isDefault ? 'selected' : ''} title="${v.description || ''}">${displayName}</option>`;
                                 }).join('')}
                             </select>
@@ -1163,12 +1163,12 @@ const GenerateSection = {
                     
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
                         <div>
-                            <label class="filter-label">Speaker 1 Speed: <span id="indivSpeaker1SpeedValue">1.0</span>x</label>
-                            <input type="range" class="form-range" id="indivSpeaker1Speed" value="1.0" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('indivSpeaker1SpeedValue').textContent = this.value">
+                            <label class="filter-label">Speaker 1 Speed: <span id="indivSpeaker1SpeedValue">1.1</span>x</label>
+                            <input type="range" class="form-range" id="indivSpeaker1Speed" value="1.1" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('indivSpeaker1SpeedValue').textContent = this.value">
                         </div>
                         <div>
-                            <label class="filter-label">Speaker 2 Speed: <span id="indivSpeaker2SpeedValue">1.0</span>x</label>
-                            <input type="range" class="form-range" id="indivSpeaker2Speed" value="1.0" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('indivSpeaker2SpeedValue').textContent = this.value">
+                            <label class="filter-label">Speaker 2 Speed: <span id="indivSpeaker2SpeedValue">1.1</span>x</label>
+                            <input type="range" class="form-range" id="indivSpeaker2Speed" value="1.1" min="0.5" max="2.0" step="0.1" oninput="document.getElementById('indivSpeaker2SpeedValue').textContent = this.value">
                         </div>
                         <div>
                             <label class="filter-label">Pause: <span id="indivPauseValue">0.3</span>s</label>
