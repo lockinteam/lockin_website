@@ -6,7 +6,7 @@ const PastPapersSection = {
     
     // Unified Scraper State
     scrapeState: {
-        scraperType: null, // 'aqa' or 'ocr'
+        scraperType: null, // 'aqa', 'ocr', or 'pearson'
         step: 0, // 0=select scraper, 1=URL/selection input, 2=mapping, 3=review
         url: '',
         urlMode: 'builder', // 'builder' or 'manual' (AQA only)
@@ -20,6 +20,33 @@ const PastPapersSection = {
         ocrSelectedTypeId: null,
         ocrQualifications: [], // List of qualifications for selected type
         ocrSelectedQualificationId: null,
+        // Pearson/Edexcel-specific state
+        pearsonFamilies: [], // List of qualification families (GCSE, A-Level, etc.)
+        pearsonSelectedFamily: null,
+        pearsonSubjects: [], // List of subjects for selected family
+        pearsonSelectedSubject: null, // Object with specification_code
+        pearsonExamSeries: [], // List of exam series for selected subject
+        pearsonSelectedSeries: null, // Optional filter
+    },
+
+    // Utility function to parse size strings like "1.2 MB", "810.4 KB" to bytes
+    parseSizeToBytes(sizeStr) {
+        if (!sizeStr || typeof sizeStr === 'number') return sizeStr;
+        
+        const match = sizeStr.match(/^([0-9.]+)\s*(KB|MB|GB|B)?$/i);
+        if (!match) return null;
+        
+        const value = parseFloat(match[1]);
+        const unit = (match[2] || 'B').toUpperCase();
+        
+        const multipliers = {
+            'B': 1,
+            'KB': 1024,
+            'MB': 1024 * 1024,
+            'GB': 1024 * 1024 * 1024
+        };
+        
+        return Math.round(value * (multipliers[unit] || 1));
     },
 
     resetScrapeState() {
@@ -33,6 +60,12 @@ const PastPapersSection = {
             ocrSelectedTypeId: null,
             ocrQualifications: [],
             ocrSelectedQualificationId: null,
+            pearsonFamilies: [],
+            pearsonSelectedFamily: null,
+            pearsonSubjects: [],
+            pearsonSelectedSubject: null,
+            pearsonExamSeries: [],
+            pearsonSelectedSeries: null,
         };
     },
     
@@ -971,7 +1004,7 @@ const PastPapersSection = {
                     Select which exam board you want to scrape past papers from:
                 </p>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
                     <!-- AQA Card -->
                     <div class="scraper-board-card" onclick="PastPapersSection.selectScraperType('aqa')" style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.2s; text-align: center;">
                         <div style="font-size: 2rem; font-weight: 700; color: #3678AE; margin-bottom: 0.5rem;">AQA</div>
@@ -984,6 +1017,13 @@ const PastPapersSection = {
                         <div style="font-size: 2rem; font-weight: 700; color: #3678AE; margin-bottom: 0.5rem;">OCR</div>
                         <div style="font-size: 0.85rem; color: #64748B;">Oxford, Cambridge and RSA</div>
                         <div style="margin-top: 1rem; font-size: 0.8rem; color: #94a3b8;">Select qualification type & subject</div>
+                    </div>
+                    
+                    <!-- Pearson/Edexcel Card -->
+                    <div class="scraper-board-card" onclick="PastPapersSection.selectScraperType('pearson')" style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.2s; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: 700; color: #3678AE; margin-bottom: 0.5rem;">Pearson</div>
+                        <div style="font-size: 0.85rem; color: #64748B;">Edexcel / BTEC / International</div>
+                        <div style="margin-top: 1rem; font-size: 0.8rem; color: #94a3b8;">Select qualification & subject</div>
                     </div>
                 </div>
                 
@@ -1016,6 +1056,8 @@ const PastPapersSection = {
             this.renderAqaStep1();
         } else if (type === 'ocr') {
             this.renderOcrStep1();
+        } else if (type === 'pearson') {
+            this.renderPearsonStep1();
         }
     },
     
@@ -1514,6 +1556,250 @@ const PastPapersSection = {
             btnLoading.style.display = 'none';
         }
     },
+
+    // ========== Pearson Edexcel Scraper Functions ==========
+    
+    async renderPearsonStep1() {
+        this.scrapeState.step = 1;
+        
+        // Show loading while fetching families
+        document.querySelector('.modal-body').innerHTML = `
+            <div style="text-align: center; padding: 3rem;">
+                <div class="loading-spinner" style="margin: 0 auto 1rem;"></div>
+                <p style="color: #64748B;">Loading Pearson qualification families...</p>
+            </div>
+        `;
+        
+        // Load qualification families first
+        try {
+            const response = await API.scrapePearsonFamilies();
+            if (!response.qualification_families || response.qualification_families.length === 0) {
+                throw new Error('No qualification families found');
+            }
+            this.scrapeState.pearsonFamilies = response.qualification_families;
+        } catch (error) {
+            document.querySelector('.modal-body').innerHTML = `
+                <div style="text-align: center; padding: 3rem;">
+                    <div style="color: #dc2626; margin-bottom: 1rem;">⚠️ ${error.message}</div>
+                    <button class="ghost-btn" onclick="PastPapersSection.renderScrapeStep0()">← Back</button>
+                </div>
+            `;
+            return;
+        }
+        
+        // Build the family options (each family is an object with value and description)
+        const familyOptions = this.scrapeState.pearsonFamilies.map(family => {
+            const selected = family.value === this.scrapeState.pearsonSelectedFamily ? 'selected' : '';
+            return `<option value="${family.value}" ${selected}>${family.description}</option>`;
+        }).join('');
+        
+        const formHTML = `
+            <div class="scrape-step">
+                <div class="step-header" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                    <button class="ghost-btn" onclick="PastPapersSection.renderScrapeStep0()" style="padding: 0.5rem;">←</button>
+                    <h3 style="margin: 0;">Pearson Edexcel - Select Subject</h3>
+                </div>
+                
+                <div class="scrape-form">
+                    <div class="form-row" style="margin-bottom: 1rem;">
+                        <label class="form-label">Qualification Family</label>
+                        <select class="scrape-mapping-select" id="pearson-family-select" onchange="PastPapersSection.handlePearsonFamilyChange()">
+                            <option value="">-- Select a qualification family --</option>
+                            ${familyOptions}
+                        </select>
+                    </div>
+                    
+                    <div class="form-row" id="pearson-subject-group" style="margin-bottom: 1rem; display: none;">
+                        <label class="form-label">Subject</label>
+                        <select class="scrape-mapping-select" id="pearson-subject-select" onchange="PastPapersSection.handlePearsonSubjectChange()">
+                            <option value="">-- Select a subject --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-row" id="pearson-series-group" style="margin-bottom: 1rem; display: none;">
+                        <label class="form-label">Exam Series (Optional)</label>
+                        <select class="scrape-mapping-select" id="pearson-series-select">
+                            <option value="">All exam series</option>
+                        </select>
+                        <span class="form-hint">Leave empty to scrape all available exam series</span>
+                    </div>
+                    
+                    <div id="pearson-scrape-error" class="error-message" style="display: none; color: #dc2626; margin-bottom: 1rem;"></div>
+                    
+                    <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                        <button type="button" class="ghost-btn" onclick="UI.closeModal()">Cancel</button>
+                        <button type="button" id="pearson-scrape-btn" class="primary-btn" style="display: none;" onclick="PastPapersSection.handleScrapePearson()">
+                            <span class="btn-text">Scrape Past Papers</span>
+                            <span class="btn-loading" style="display: none;">
+                                <span class="material-icons spinning">refresh</span>
+                                Scraping...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.querySelector('.modal-body').innerHTML = formHTML;
+        
+        // If family was previously selected, restore the selection and trigger change
+        if (this.scrapeState.pearsonSelectedFamily) {
+            document.getElementById('pearson-family-select').value = this.scrapeState.pearsonSelectedFamily;
+            await this.handlePearsonFamilyChange();
+        }
+    },
+    
+    async loadPearsonFamilies() {
+        // This function is now integrated into renderPearsonStep1
+        // Kept for backward compatibility but not used
+    },
+    
+    async handlePearsonFamilyChange() {
+        const familySelect = document.getElementById('pearson-family-select');
+        const subjectGroup = document.getElementById('pearson-subject-group');
+        const subjectSelect = document.getElementById('pearson-subject-select');
+        const seriesGroup = document.getElementById('pearson-series-group');
+        const scrapeBtn = document.getElementById('pearson-scrape-btn');
+        const errorDiv = document.getElementById('pearson-scrape-error');
+        
+        const selectedFamily = familySelect.value;
+        this.scrapeState.pearsonSelectedFamily = selectedFamily;
+        
+        // Hide downstream elements
+        seriesGroup.style.display = 'none';
+        scrapeBtn.style.display = 'none';
+        errorDiv.style.display = 'none';
+        this.scrapeState.pearsonSelectedSubject = null;
+        this.scrapeState.pearsonSelectedSeries = null;
+        
+        if (!selectedFamily) {
+            subjectGroup.style.display = 'none';
+            return;
+        }
+        
+        // Show and load subjects
+        subjectGroup.style.display = 'block';
+        subjectSelect.innerHTML = '<option value="">Loading subjects...</option>';
+        subjectSelect.disabled = true;
+        
+        try {
+            const response = await API.scrapePearsonSubjects(selectedFamily);
+            
+            if (response.subjects && response.subjects.length > 0) {
+                this.scrapeState.pearsonSubjects = response.subjects;
+                
+                subjectSelect.innerHTML = '<option value="">-- Select a subject --</option>';
+                subjectSelect.disabled = false;
+                response.subjects.forEach(subject => {
+                    const option = document.createElement('option');
+                    option.value = subject.specification_code;
+                    option.textContent = `${subject.description} (${subject.specification_code})`;
+                    subjectSelect.appendChild(option);
+                });
+                
+                // Restore selection if going back
+                if (this.scrapeState.pearsonSelectedSubject) {
+                    subjectSelect.value = this.scrapeState.pearsonSelectedSubject;
+                    await this.handlePearsonSubjectChange();
+                }
+            } else {
+                subjectSelect.innerHTML = '<option value="">No subjects found</option>';
+            }
+        } catch (error) {
+            errorDiv.textContent = 'Failed to load subjects: ' + error.message;
+            errorDiv.style.display = 'block';
+            subjectSelect.innerHTML = '<option value="">Error loading subjects</option>';
+        }
+    },
+    
+    async handlePearsonSubjectChange() {
+        const subjectSelect = document.getElementById('pearson-subject-select');
+        const seriesGroup = document.getElementById('pearson-series-group');
+        const seriesSelect = document.getElementById('pearson-series-select');
+        const scrapeBtn = document.getElementById('pearson-scrape-btn');
+        const errorDiv = document.getElementById('pearson-scrape-error');
+        
+        const selectedSubject = subjectSelect.value;
+        this.scrapeState.pearsonSelectedSubject = selectedSubject;
+        
+        // Hide downstream elements
+        errorDiv.style.display = 'none';
+        this.scrapeState.pearsonSelectedSeries = null;
+        
+        if (!selectedSubject) {
+            seriesGroup.style.display = 'none';
+            scrapeBtn.style.display = 'none';
+            return;
+        }
+        
+        // Show scrape button immediately (series is optional)
+        scrapeBtn.style.display = 'inline-flex';
+        
+        // Show and load exam series
+        seriesGroup.style.display = 'block';
+        seriesSelect.innerHTML = '<option value="">Loading exam series...</option>';
+        
+        try {
+            const response = await API.scrapePearsonSeries(selectedSubject);
+            
+            if (response.exam_series && response.exam_series.length > 0) {
+                this.scrapeState.pearsonExamSeries = response.exam_series;
+                
+                seriesSelect.innerHTML = '<option value="">All exam series</option>';
+                response.exam_series.forEach(series => {
+                    const option = document.createElement('option');
+                    option.value = series.value;
+                    option.textContent = series.description;
+                    seriesSelect.appendChild(option);
+                });
+                
+                // Restore selection if going back
+                if (this.scrapeState.pearsonSelectedSeries) {
+                    seriesSelect.value = this.scrapeState.pearsonSelectedSeries;
+                }
+            } else {
+                seriesSelect.innerHTML = '<option value="">No exam series available</option>';
+            }
+        } catch (error) {
+            // Series is optional, so just show empty dropdown
+            seriesSelect.innerHTML = '<option value="">All exam series</option>';
+        }
+    },
+    
+    async handleScrapePearson() {
+        const btn = document.getElementById('pearson-scrape-btn');
+        const btnText = btn.querySelector('.btn-text');
+        const btnLoading = btn.querySelector('.btn-loading');
+        const errorDiv = document.getElementById('pearson-scrape-error');
+        const seriesSelect = document.getElementById('pearson-series-select');
+        
+        const specificationCode = this.scrapeState.pearsonSelectedSubject;
+        const examSeries = seriesSelect.value || null;
+        
+        this.scrapeState.pearsonSelectedSeries = examSeries;
+        
+        btn.disabled = true;
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline-flex';
+        errorDiv.style.display = 'none';
+        
+        try {
+            const response = await API.scrapePearson(specificationCode, examSeries);
+            
+            if (response.grouped_papers) {
+                this.scrapeState.scrapeData = response;
+                this.renderScrapeStep2();
+            } else {
+                throw new Error('No papers found for this specification');
+            }
+        } catch (error) {
+            errorDiv.textContent = error.message;
+            errorDiv.style.display = 'block';
+            btn.disabled = false;
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+        }
+    },
     
     goBackToStep1() {
         this.scrapeState.step = 1;
@@ -1523,16 +1809,19 @@ const PastPapersSection = {
             this.renderAqaStep1();
         } else if (this.scrapeState.scraperType === 'ocr') {
             this.renderOcrStep1();
+        } else if (this.scrapeState.scraperType === 'pearson') {
+            this.renderPearsonStep1();
         }
     },
     
     // Normalize grouped_papers format to be consistent between AQA and OCR
     // AQA returns: { tier: { paper: [items] } }
     // OCR returns: { paper: [items] } (with tier info in each item)
+    // Pearson returns: { tier: { paper: [items] } } (same as AQA)
     // This normalizes both to: { tier: { paper: [items] } }
     normalizeGroupedPapers(groupedPapers, scraperType) {
-        if (scraperType === 'aqa') {
-            // AQA is already in the correct format
+        if (scraperType === 'aqa' || scraperType === 'pearson') {
+            // AQA and Pearson are already in the correct format
             return groupedPapers;
         } else if (scraperType === 'ocr') {
             // OCR format: { paper: [items with optional tier field] }
@@ -1796,26 +2085,77 @@ const PastPapersSection = {
                 const dbPaper = this.scrapeState.allPapers.find(p => p.id === dbPaperId);
                 const dbTier = dbTierId ? AppState.tiers.find(t => t.id === dbTierId) : null;
                 
-                for (const paper of papersList) {
-                    if (!paper.question_paper_url) continue;
+                // Handle Pearson's format differently (individual documents vs paired papers)
+                if (this.scrapeState.scraperType === 'pearson') {
+                    // Pearson: Group individual documents by year/session
+                    const byYearSession = {};
                     
-                    this.scrapeState.pastPapersToImport.push({
-                        id: `temp-${idCounter++}`,
-                        selected: true,
-                        year: paper.year,
-                        session: paper.session || '',
-                        scrapedTier: scrapedTier,
-                        scrapedPaper: scrapedPaper,
-                        dbPaperId: dbPaperId,
-                        dbTierId: dbTierId || null,
-                        dbPaperName: dbPaper?.name || scrapedPaper,
-                        dbTierName: dbTier?.title || '',
-                        questionPaperUrl: paper.question_paper_url,
-                        markSchemeUrl: paper.mark_scheme_url || '',
-                        // File sizes: AQA uses file_size, OCR uses question_paper_file_size
-                        fileSize: paper.file_size || paper.question_paper_file_size || null,
-                        markSchemeFileSize: paper.mark_scheme_file_size || null
-                    });
+                    for (const doc of papersList) {
+                        const key = `${doc.year}-${doc.session}`;
+                        if (!byYearSession[key]) {
+                            byYearSession[key] = {
+                                year: doc.year,
+                                session: doc.session,
+                                question_paper_url: null,
+                                mark_scheme_url: null,
+                                question_paper_size: null,
+                                mark_scheme_size: null
+                            };
+                        }
+                        
+                        if (doc.document_type === 'question_paper' && doc.url) {
+                            byYearSession[key].question_paper_url = doc.url;
+                            byYearSession[key].question_paper_size = doc.size || null;
+                        } else if (doc.document_type === 'mark_scheme' && doc.url) {
+                            byYearSession[key].mark_scheme_url = doc.url;
+                            byYearSession[key].mark_scheme_size = doc.size || null;
+                        }
+                    }
+                    
+                    // Now create past paper entries from the grouped data
+                    for (const grouped of Object.values(byYearSession)) {
+                        if (!grouped.question_paper_url) continue; // Must have at least a question paper
+                        
+                        this.scrapeState.pastPapersToImport.push({
+                            id: `temp-${idCounter++}`,
+                            selected: true,
+                            year: grouped.year,
+                            session: grouped.session || '',
+                            scrapedTier: scrapedTier,
+                            scrapedPaper: scrapedPaper,
+                            dbPaperId: dbPaperId,
+                            dbTierId: dbTierId || null,
+                            dbPaperName: dbPaper?.name || scrapedPaper,
+                            dbTierName: dbTier?.title || '',
+                            questionPaperUrl: grouped.question_paper_url,
+                            markSchemeUrl: grouped.mark_scheme_url || '',
+                            fileSize: grouped.question_paper_size,
+                            markSchemeFileSize: grouped.mark_scheme_size
+                        });
+                    }
+                } else {
+                    // AQA/OCR: Papers are already grouped with question_paper_url and mark_scheme_url
+                    for (const paper of papersList) {
+                        if (!paper.question_paper_url) continue;
+                        
+                        this.scrapeState.pastPapersToImport.push({
+                            id: `temp-${idCounter++}`,
+                            selected: true,
+                            year: paper.year,
+                            session: paper.session || '',
+                            scrapedTier: scrapedTier,
+                            scrapedPaper: scrapedPaper,
+                            dbPaperId: dbPaperId,
+                            dbTierId: dbTierId || null,
+                            dbPaperName: dbPaper?.name || scrapedPaper,
+                            dbTierName: dbTier?.title || '',
+                            questionPaperUrl: paper.question_paper_url,
+                            markSchemeUrl: paper.mark_scheme_url || '',
+                            // File sizes: AQA uses file_size, OCR uses question_paper_file_size
+                            fileSize: paper.file_size || paper.question_paper_file_size || null,
+                            markSchemeFileSize: paper.mark_scheme_file_size || null
+                        });
+                    }
                 }
             }
         }
@@ -2024,8 +2364,8 @@ const PastPapersSection = {
                 year: pp.year,
                 url: pp.questionPaperUrl,
                 mark_scheme_url: pp.markSchemeUrl || null,
-                file_size: pp.fileSize || null,
-                mark_scheme_file_size: pp.markSchemeFileSize || null
+                file_size: this.parseSizeToBytes(pp.fileSize),
+                mark_scheme_file_size: this.parseSizeToBytes(pp.markSchemeFileSize)
             };
             paperGroups[pp.dbPaperId].push(paperData);
         });

@@ -336,6 +336,25 @@ const API = {
         return this.request('/admin/past_papers/bulk_delete', 'DELETE', { past_paper_ids: pastPaperIds });
     },
     
+    // Pearson/Edexcel Scraper
+    async scrapePearsonFamilies() {
+        return this.request('/admin/past_papers/scrape_pearson/families', 'POST', {});
+    },
+    
+    async scrapePearsonSubjects(qualificationFamily) {
+        return this.request('/admin/past_papers/scrape_pearson/subjects', 'POST', { qualification_family: qualificationFamily });
+    },
+    
+    async scrapePearsonSeries(specificationCode) {
+        return this.request('/admin/past_papers/scrape_pearson/series', 'POST', { specification_code: specificationCode });
+    },
+    
+    async scrapePearson(specificationCode, examSeries = null) {
+        const body = { specification_code: specificationCode };
+        if (examSeries) body.exam_series = examSeries;
+        return this.request('/admin/past_papers/scrape_pearson', 'POST', body);
+    },
+    
     // File Upload (Admin)
     async uploadFile(file, onProgress = null) {
         const token = AppState.getToken();

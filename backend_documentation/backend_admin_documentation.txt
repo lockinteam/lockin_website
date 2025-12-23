@@ -7050,6 +7050,563 @@ curl -X POST ${backend_url}/admin/past_papers/scrape_ocr \
 
 ---
 
+### 12. Get Pearson Qualification Families
+
+**Endpoint**: `POST /admin/past_papers/scrape_pearson/families`
+
+**Auth**: Admin or Owner
+
+**Description**: Fetch all available qualification families from Pearson (GCSE, A-Level, International GCSE, etc.). This is the first step in the Pearson/Edexcel scraping workflow.
+
+**Key Features**:
+- Uses Pearson's two-step API architecture
+- Returns qualification families like GCSE, A-Level, BTEC, etc.
+- Simple HTTP request to Pearson's servlet API
+
+**Request Body**:
+```json
+{
+  "token": "session_token"
+}
+```
+
+**Success Response** (200):
+```json
+{
+  "success": true,
+  "qualification_families": [
+    {"value": "GCSE", "description": "GCSE"},
+    {"value": "A-Level", "description": "A Level"},
+    {"value": "International-GCSE", "description": "International GCSE"},
+    {"value": "International-Advanced-Level", "description": "International Advanced Level"},
+    {"value": "BTEC-Nationals", "description": "BTEC Nationals"},
+    {"value": "T-Levels", "description": "T Levels"}
+  ],
+  "count": 13
+}
+```
+
+**Error Responses**:
+
+*Pearson API Error* (500):
+```json
+{
+  "error": "Pearson servlet returned status 500"
+}
+```
+
+**Database Queries**: 0
+
+**Rate Limiting**: 30 requests per minute
+
+**JavaScript Example**:
+```javascript
+const response = await fetch(`${backend_url}/admin/past_papers/scrape_pearson/families`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({token: sessionToken})
+});
+
+const data = await response.json();
+if (data.success) {
+  // Display qualification families in dropdown
+  data.qualification_families.forEach(family => {
+    console.log(`${family.description} (${family.value})`);
+  });
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST ${backend_url}/admin/past_papers/scrape_pearson/families \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token"}'
+```
+
+---
+
+### 13. Get Pearson Subjects
+
+**Endpoint**: `POST /admin/past_papers/scrape_pearson/subjects`
+
+**Auth**: Admin or Owner
+
+**Description**: Fetch available subjects for a specific qualification family (e.g., all GCSE subjects). Returns subjects with their **specification codes** which are required for the scrape endpoint.
+
+**Key Features**:
+- Returns subjects with specification codes (e.g., "gcse15-maths")
+- Specification codes are essential for querying actual documents
+- Returns qualification titles and URLs
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "qualification_family": "GCSE"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| token | string | Yes | Admin session token |
+| qualification_family | string | Yes | Family from `/scrape_pearson/families` |
+
+**Success Response** (200):
+```json
+{
+  "success": true,
+  "qualification_family": "GCSE",
+  "subjects": [
+    {
+      "value": "Mathematics",
+      "description": "Mathematics",
+      "specification_code": "gcse15-maths",
+      "title": "Mathematics (9-1) from 2015",
+      "url": "/en/qualifications/edexcel-gcses/mathematics-2015.html"
+    },
+    {
+      "value": "English-Language",
+      "description": "English Language",
+      "specification_code": "english-language-lift",
+      "title": "English Language 2.0 (9-1) from 2021",
+      "url": "/en/qualifications/edexcel-gcses/english-language-2021.html"
+    },
+    {
+      "value": "Science",
+      "description": "Science",
+      "specification_code": "gcse16-science",
+      "title": "Sciences (2016)",
+      "url": "/en/qualifications/edexcel-gcses/sciences-2016.html"
+    }
+  ],
+  "count": 38
+}
+```
+
+**Error Responses**:
+
+*Missing qualification_family* (400):
+```json
+{
+  "error": "qualification_family is required"
+}
+```
+
+**Database Queries**: 0
+
+**Rate Limiting**: 30 requests per minute
+
+**JavaScript Example**:
+```javascript
+// After user selects "GCSE"
+const response = await fetch(`${backend_url}/admin/past_papers/scrape_pearson/subjects`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    token: sessionToken,
+    qualification_family: 'GCSE'
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  // Display subjects in dropdown, store specification_code
+  data.subjects.forEach(subject => {
+    console.log(`${subject.description} - Code: ${subject.specification_code}`);
+  });
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST ${backend_url}/admin/past_papers/scrape_pearson/subjects \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token", "qualification_family": "GCSE"}'
+```
+
+---
+
+### 14. Get Pearson Exam Series
+
+**Endpoint**: `POST /admin/past_papers/scrape_pearson/series`
+
+**Auth**: Admin or Owner
+
+**Description**: Fetch available exam series (June 2024, November 2023, etc.) for a specific specification. Uses the specification code to query Algolia directly.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "specification_code": "gcse15-maths"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| token | string | Yes | Admin session token |
+| specification_code | string | Yes | From `/scrape_pearson/subjects` |
+
+**Success Response** (200):
+```json
+{
+  "success": true,
+  "specification_code": "gcse15-maths",
+  "exam_series": [
+    {"value": "June-2025", "description": "June 2025", "year": 2025, "session": "June"},
+    {"value": "November-2024", "description": "November 2024", "year": 2024, "session": "November"},
+    {"value": "June-2024", "description": "June 2024", "year": 2024, "session": "June"},
+    {"value": "November-2023", "description": "November 2023", "year": 2023, "session": "November"},
+    {"value": "June-2023", "description": "June 2023", "year": 2023, "session": "June"},
+    {"value": "June-2022", "description": "June 2022", "year": 2022, "session": "June"}
+  ],
+  "count": 16,
+  "total_documents": 235
+}
+```
+
+**Error Responses**:
+
+*Missing specification_code* (400):
+```json
+{
+  "error": "specification_code is required"
+}
+```
+
+**Database Queries**: 0
+
+**Rate Limiting**: 30 requests per minute
+
+**JavaScript Example**:
+```javascript
+// After user selects a subject (e.g., Mathematics with code gcse15-maths)
+const response = await fetch(`${backend_url}/admin/past_papers/scrape_pearson/series`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    token: sessionToken,
+    specification_code: 'gcse15-maths'
+  })
+});
+
+const data = await response.json();
+if (data.success) {
+  console.log(`Found ${data.total_documents} documents across ${data.count} exam series`);
+  data.exam_series.forEach(series => {
+    console.log(`${series.description} (${series.year})`);
+  });
+}
+```
+
+**cURL Example**:
+```bash
+curl -X POST ${backend_url}/admin/past_papers/scrape_pearson/series \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token", "specification_code": "gcse15-maths"}'
+```
+
+---
+
+### 15. Scrape Pearson Past Papers
+
+**Endpoint**: `POST /admin/past_papers/scrape_pearson`
+
+**Auth**: Admin or Owner
+
+**Description**: Scrape past papers from Pearson's website for a specific specification. Uses the Algolia Direct API to fetch all documents. Like other scrapers, **this endpoint does NOT modify the database** - it returns discovered papers and grouped data for the frontend to display and match before bulk importing.
+
+**Key Features**:
+- Uses Algolia Direct API for fast, reliable data retrieval
+- Automatically detects tier (Foundation/Higher) from titles
+- Extracts paper numbers from unit codes
+- Groups papers by tier → paper number → year/session
+- Returns full PDF URLs ready for importing
+- Supports optional filtering by exam series
+- Detects gated (login-required) vs public documents
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "specification_code": "gcse15-maths",
+  "exam_series": "June-2022",  // Optional: filter by exam series
+  "document_types": ["Question-paper", "Mark-scheme"]  // Optional: defaults to these
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| token | string | Yes | Admin session token |
+| specification_code | string | Yes | From `/scrape_pearson/subjects` |
+| exam_series | string | No | Filter by specific exam series |
+| document_types | array | No | Document types to include |
+
+**Success Response** (200):
+```json
+{
+  "success": true,
+  "specification_code": "gcse15-maths",
+  "exam_series_filter": null,
+  "total_documents": 154,
+  "discovered_tiers": ["Foundation", "Higher"],
+  "discovered_papers": ["1", "2", "3"],
+  "exam_series_list": ["June-2024", "November-2023", "June-2023", "June-2022"],
+  "stats": {
+    "question_papers": 78,
+    "mark_schemes": 76,
+    "examiner_reports": 0,
+    "gated_documents": 154,
+    "public_documents": 0
+  },
+  "grouped_papers": {
+    "Foundation": {
+      "1": [
+        {
+          "title": "Question paper - Paper 1F - June 2022",
+          "description": "Paper 1F - Non-Calculator (Foundation)",
+          "url": "https://qualifications.pearson.com/content/dam/pdf/GCSE/mathematics/2015/exam-materials/1ma1-1f-que-20220609.pdf",
+          "document_type": "question_paper",
+          "exam_series": "June-2022",
+          "year": 2022,
+          "session": "June",
+          "unit": "Paper-1F",
+          "paper_number": "1",
+          "tier": "Foundation",
+          "is_gated": true,
+          "size": "1.2 MB"
+        }
+      ]
+    },
+    "Higher": {
+      "1": [
+        {
+          "title": "Mark scheme - Paper 1H - June 2022",
+          "url": "https://qualifications.pearson.com/content/dam/pdf/GCSE/mathematics/2015/exam-materials/1ma1-1h-rms-20220825.pdf",
+          "document_type": "mark_scheme",
+          "exam_series": "June-2022",
+          "year": 2022,
+          "session": "June",
+          "tier": "Higher",
+          "paper_number": "1"
+        }
+      ]
+    }
+  },
+  "papers": [
+    {
+      "title": "Mark scheme - Paper 1H - June 2022",
+      "description": "Paper 1H - Non-Calculator (Higher)",
+      "url": "https://qualifications.pearson.com/content/dam/pdf/GCSE/mathematics/2015/exam-materials/1ma1-1h-rms-20220825.pdf",
+      "size": "512.8 KB",
+      "extension": "PDF",
+      "document_type": "mark_scheme",
+      "document_type_raw": "Mark-scheme",
+      "exam_series": "June-2022",
+      "year": 2022,
+      "session": "June",
+      "unit": "Paper-1H",
+      "paper_number": "1",
+      "tier": "Higher",
+      "is_gated": true,
+      "object_id": "6f545abda6d9d559e738113975227ef5"
+    }
+  ]
+}
+```
+
+**Filtered Response** (with exam_series filter):
+```json
+{
+  "success": true,
+  "specification_code": "gcse15-maths",
+  "exam_series_filter": "June-2022",
+  "total_documents": 12,
+  "discovered_tiers": ["Foundation", "Higher"],
+  "discovered_papers": ["1", "2", "3"]
+}
+```
+
+**Error Responses**:
+
+*Missing specification_code* (400):
+```json
+{
+  "error": "specification_code is required"
+}
+```
+
+*Algolia API Error* (500):
+```json
+{
+  "error": "Algolia API returned status 403: ..."
+}
+```
+
+**Database Queries**: 0 (no DB modification)
+
+**Rate Limiting**: 10 requests per minute
+
+**Important Notes**:
+- Uses Algolia Direct API for reliable, fast data retrieval
+- Most Pearson documents are "gated" (require login) but URLs still work
+- Tier detection based on title/description patterns (Foundation, Higher, F, H)
+- Paper numbers extracted from unit codes (Paper-1H → "1")
+- **Does NOT modify database** - use bulk_create endpoint after matching
+- Groups papers hierarchically: tier → paper_number → papers list
+
+**Complete Pearson Scraping Workflow**:
+```javascript
+// Step 1: Get qualification families
+const familiesRes = await fetch(`${backend_url}/admin/past_papers/scrape_pearson/families`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({token: sessionToken})
+});
+const familiesData = await familiesRes.json();
+// User selects "GCSE"
+
+// Step 2: Get subjects for GCSE
+const subjectsRes = await fetch(`${backend_url}/admin/past_papers/scrape_pearson/subjects`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({token: sessionToken, qualification_family: 'GCSE'})
+});
+const subjectsData = await subjectsRes.json();
+// User selects "Mathematics" (specification_code: "gcse15-maths")
+
+// Step 3: Optionally get exam series
+const seriesRes = await fetch(`${backend_url}/admin/past_papers/scrape_pearson/series`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({token: sessionToken, specification_code: 'gcse15-maths'})
+});
+const seriesData = await seriesRes.json();
+// Shows available exam series for filtering
+
+// Step 4: Scrape past papers
+const scrapeRes = await fetch(`${backend_url}/admin/past_papers/scrape_pearson`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    token: sessionToken, 
+    specification_code: 'gcse15-maths',
+    exam_series: 'June-2022'  // Optional filter
+  })
+});
+const scrapeData = await scrapeRes.json();
+
+if (scrapeData.success) {
+  console.log('Discovered tiers:', scrapeData.discovered_tiers);  // ["Foundation", "Higher"]
+  console.log('Discovered papers:', scrapeData.discovered_papers);  // ["1", "2", "3"]
+  console.log('Stats:', scrapeData.stats);
+  
+  // Step 5: User maps scraped papers to DB tiers and paper IDs in UI
+  // For tiered subjects like GCSE Maths:
+  // Foundation Paper 1 -> db-tier-foundation-uuid, db-paper-1-uuid
+  // Higher Paper 1 -> db-tier-higher-uuid, db-paper-1-uuid
+  
+  // Step 6: For each tier/paper combination, prepare bulk_create data
+  for (const [tier, paperGroups] of Object.entries(scrapeData.grouped_papers)) {
+    for (const [paperNum, papers] of Object.entries(paperGroups)) {
+      // Get DB paper ID from UI mapping
+      const dbPaperId = getPaperIdFromMapping(tier, paperNum);
+      if (!dbPaperId) continue;
+      
+      // Group by year/session to combine QP + MS
+      const byYearSession = {};
+      papers.forEach(p => {
+        const key = `${p.year}-${p.session}`;
+        if (!byYearSession[key]) byYearSession[key] = {year: p.year};
+        if (p.document_type === 'question_paper') {
+          byYearSession[key].url = p.url;
+          byYearSession[key].file_size = parseFileSize(p.size);
+        } else if (p.document_type === 'mark_scheme') {
+          byYearSession[key].mark_scheme_url = p.url;
+        }
+      });
+      
+      const pastPapersToCreate = Object.values(byYearSession)
+        .filter(p => p.url);  // Only entries with question paper
+      
+      if (pastPapersToCreate.length > 0) {
+        await fetch(`${backend_url}/admin/past_papers/bulk_create`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            token: sessionToken,
+            paper_id: dbPaperId,
+            past_papers: pastPapersToCreate
+          })
+        });
+      }
+    }
+  }
+}
+```
+
+**cURL Examples**:
+```bash
+# Get qualification families
+curl -X POST ${backend_url}/admin/past_papers/scrape_pearson/families \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token"}'
+
+# Get GCSE subjects
+curl -X POST ${backend_url}/admin/past_papers/scrape_pearson/subjects \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token", "qualification_family": "GCSE"}'
+
+# Get exam series for GCSE Maths
+curl -X POST ${backend_url}/admin/past_papers/scrape_pearson/series \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token", "specification_code": "gcse15-maths"}'
+
+# Scrape GCSE Maths past papers
+curl -X POST ${backend_url}/admin/past_papers/scrape_pearson \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token", "specification_code": "gcse15-maths"}'
+
+# Scrape with exam series filter
+curl -X POST ${backend_url}/admin/past_papers/scrape_pearson \
+  -H "Content-Type: application/json" \
+  -d '{"token": "session_token", "specification_code": "gcse15-maths", "exam_series": "June-2022"}'
+```
+
+**Pearson Specification Codes Reference (GCSE)**:
+| Subject | Specification Code |
+|---------|-------------------|
+| Mathematics (9-1) | gcse15-maths |
+| English Language | english-language-lift |
+| English Literature (9-1) | gcse15-englit |
+| Biology/Chemistry/Physics | gcse16-science |
+| Computer Science | gcse20-computerscience |
+| Geography A | gcse16-geography-a |
+| Geography B | gcse16-geography-b |
+| History | gcse16-history |
+| French | gcse24-french |
+| German | gcse24-german |
+| Spanish | gcse24-spanish |
+| Statistics | gcse17-stat |
+| Psychology | gcse17-psychology |
+| Business | 2bs01 |
+| Physical Education | gcse16-physicaleducation |
+
+**Pearson Specification Codes Reference (A-Level)**:
+| Subject | Specification Code |
+|---------|-------------------|
+| Mathematics | maths-2017-as-al |
+| Biology | al15-biology-a |
+| Chemistry | al15-chemistry |
+| Physics | al15-physics |
+| Business | al15-business |
+| Economics | al15-economics |
+| Psychology | al15-psychology |
+| Art and Design | al15-artdes |
+| Drama and Theatre | al16-dramatheatre |
+
+---
+
 ### Past Papers Management Tests
 
 **Test Coverage** (29/29 passing - Individual CRUD):
