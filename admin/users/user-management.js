@@ -14,6 +14,7 @@ const state = {
     users: [],
     filteredUsers: [],
     years: [],
+    subscriptionTiers: [], // Subscription tiers from API
     secondarySort: 'created_desc',
     isFetching: false,
     searchTerm: ''
@@ -27,6 +28,8 @@ const elements = {
     ownerCount: document.getElementById('ownerCount'),
     adminCount: document.getElementById('adminCount'),
     regularCount: document.getElementById('regularCount'),
+    // Subscription stats container
+    subscriptionStatsContainer: document.getElementById('subscriptionStats'),
     modalOverlay: document.getElementById('modalOverlay'),
     modalContent: document.getElementById('modalContent'),
     modalCloseBtn: document.getElementById('modalCloseBtn'),
@@ -51,7 +54,7 @@ async function init() {
 
     try {
         await verifyCurrentUser();
-        await loadYears();
+        await Promise.all([loadYears(), loadSubscriptionTiers()]);
         await fetchUsers();
     } catch (error) {
         console.error('Initialization error:', error);
@@ -116,6 +119,38 @@ async function loadYears() {
         console.error('Failed to load years:', error);
         showToast('Could not load year options.', 'warning');
     }
+}
+
+async function loadSubscriptionTiers() {
+    try {
+        const response = await fetch(`${BACKEND_URL}/admin/subscriptions/tiers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: state.token })
+        });
+        const data = await response.json();
+        if (data.success) {
+            const tiers = Array.isArray(data.data?.tiers) ? data.data.tiers : [];
+            state.subscriptionTiers = tiers.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+            renderSubscriptionStats();
+        }
+    } catch (error) {
+        console.error('Failed to load subscription tiers:', error);
+        showToast('Could not load subscription tiers.', 'warning');
+    }
+}
+
+function renderSubscriptionStats() {
+    if (!elements.subscriptionStatsContainer || !state.subscriptionTiers.length) return;
+
+    const statsHTML = state.subscriptionTiers.map(tier => `
+        <div class="user-stat-card stat-${tier.code}">
+            <p class="label">${tier.name}</p>
+            <p class="value">${tier.user_count ?? 0}</p>
+        </div>
+    `).join('');
+
+    elements.subscriptionStatsContainer.innerHTML = statsHTML;
 }
 
 async function fetchUsers(searchTerm = '') {
@@ -238,11 +273,18 @@ function createUserCardMarkup(user) {
     const joinedDate = user.created_at ? new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown';
     const coursesCount = user.enrolled_courses_count ?? '—';
 
+    // Subscription display - use tier from user data or find in loaded tiers
+    const userTierCode = user.subscription_tier_code || user.subscription_type || 'free';
+    const userTier = state.subscriptionTiers.find(t => t.code === userTierCode);
+    const subscriptionLabel = userTier?.name || user.subscription_tier_name || capitalizeFirst(userTierCode);
+    const subscriptionBadgeClass = `subscription-badge subscription-${userTierCode}`;
+
     const canEdit = canEditUser(user);
     const canResetPassword = canResetUserPassword(user);
     const canPromote = canPromoteUser(user);
     const canDemote = canDemoteUser(user);
     const canDelete = canDeleteUser(user);
+    const canManageSubscription = canManageUserSubscription(user);
 
     const roleActionButton = (() => {
         if (canPromote) {
@@ -277,6 +319,10 @@ function createUserCardMarkup(user) {
                     <span class="meta-value ${emailStatusClass}">${emailStatusLabel}</span>
                 </div>
                 <div class="meta-item">
+                    <span class="meta-label">Subscription</span>
+                    <span class="meta-value"><span class="${subscriptionBadgeClass}">${subscriptionLabel}</span></span>
+                </div>
+                <div class="meta-item">
                     <span class="meta-label">Enrolled Courses</span>
                     <span class="meta-value">${coursesCount}</span>
                 </div>
@@ -290,9 +336,15 @@ function createUserCardMarkup(user) {
             <button class="user-action" data-action="edit" data-user-id="${user.id}" ${!canEdit ? 'disabled' : ''}>Edit</button>
             <button class="user-action" data-action="resetPassword" data-user-id="${user.id}" ${!canResetPassword ? 'disabled' : ''}>Reset Password</button>
             ${roleActionButton}
+            <button class="user-action subscription-action" data-action="manageSubscription" data-user-id="${user.id}" ${!canManageSubscription ? 'disabled' : ''}>Subscription</button>
             <button class="user-action destructive" data-action="delete" data-user-id="${user.id}" ${!canDelete ? 'disabled' : ''}>Delete</button>
         </div>
     `;
+}
+
+function capitalizeFirst(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
 function attachUserCardEvents(card, user) {
@@ -316,6 +368,9 @@ function attachUserCardEvents(card, user) {
                     break;
                 case 'delete':
                     handleDelete(user);
+                    break;
+                case 'manageSubscription':
+                    openSubscriptionModal(user);
                     break;
                 default:
                     break;
@@ -363,6 +418,17 @@ function canDeleteUser(user) {
     if (user.id === state.currentUser.id) return false;
     if (state.currentUser.role === 'owner') {
         return user.role !== 'owner';
+    }
+    if (state.currentUser.role === 'admin') {
+        return user.role === 'user';
+    }
+    return false;
+}
+
+function canManageUserSubscription(user) {
+    // Admins and owners can manage subscriptions for users they can edit
+    if (state.currentUser.role === 'owner') {
+        return user.role !== 'owner' || user.id === state.currentUser.id;
     }
     if (state.currentUser.role === 'admin') {
         return user.role === 'user';
@@ -589,6 +655,182 @@ async function handleDelete(user) {
         showToast(`${user.username} has been deleted.`, 'success');
     } catch (error) {
         console.error('handleDelete error:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+function openSubscriptionModal(user) {
+    const currentTierCode = user.subscription_tier_code || user.subscription_type || 'free';
+    const currentTier = state.subscriptionTiers.find(t => t.code === currentTierCode);
+    const currentLabel = currentTier?.name || capitalizeFirst(currentTierCode);
+    const isFree = currentTierCode === 'free';
+
+    // Build tier options from loaded subscription tiers
+    const tierOptions = state.subscriptionTiers
+        .filter(tier => tier.is_active)
+        .map(tier => `
+            <option value="${tier.code}" ${tier.code === currentTierCode ? 'selected' : ''}>
+                ${tier.name}${tier.price_gbp > 0 ? ` (£${tier.price_gbp.toFixed(2)})` : ' (Free)'}
+            </option>
+        `).join('');
+
+    // Build tier features display for current tier
+    const featuresDisplay = currentTier ? `
+        <div class="tier-features">
+            <span class="feature-item">${currentTier.questions_per_day ? `${currentTier.questions_per_day} questions/day` : 'Unlimited questions'}</span>
+            <span class="feature-item">${currentTier.podcasts_percentage}% podcasts</span>
+            ${currentTier.full_analytics ? '<span class="feature-item feature-enabled">Full Analytics</span>' : ''}
+            ${currentTier.full_xp_earning ? '<span class="feature-item feature-enabled">Full XP</span>' : ''}
+            ${currentTier.full_leaderboards ? '<span class="feature-item feature-enabled">Leaderboards</span>' : ''}
+        </div>
+    ` : '';
+
+    const modalMarkup = `
+        <h2>Manage Subscription</h2>
+        <p class="modal-subtitle">Managing subscription for <strong>${user.username}</strong></p>
+        
+        <div class="current-subscription-info">
+            <div class="subscription-info-row">
+                <span class="info-label">Current Plan:</span>
+                <span class="subscription-badge subscription-${currentTierCode}">${currentLabel}</span>
+            </div>
+            ${featuresDisplay}
+        </div>
+
+        <form id="subscriptionForm" class="modal-form">
+            <div class="form-row">
+                <label for="subscriptionTier">Assign Subscription Tier</label>
+                <select id="subscriptionTier" name="tier_code">
+                    ${tierOptions}
+                </select>
+            </div>
+            
+            <div class="form-row">
+                <label for="subscriptionNotes">Notes (optional)</label>
+                <input type="text" id="subscriptionNotes" name="notes" placeholder="e.g., Promo grant, Support resolution...">
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="ghost-btn destructive-ghost" id="revokeSubscriptionBtn" ${isFree ? 'disabled' : ''}>
+                    Revoke to Free
+                </button>
+                <div class="modal-actions-right">
+                    <button type="button" class="ghost-btn" id="cancelSubscriptionBtn">Cancel</button>
+                    <button type="submit" class="primary-btn">Assign Subscription</button>
+                </div>
+            </div>
+        </form>
+    `;
+
+    elements.modalContent.innerHTML = modalMarkup;
+    elements.modalOverlay.hidden = false;
+
+    const tierSelect = document.getElementById('subscriptionTier');
+    const notesInput = document.getElementById('subscriptionNotes');
+
+    // Cancel button
+    document.getElementById('cancelSubscriptionBtn').addEventListener('click', closeModal);
+
+    // Revoke subscription button
+    document.getElementById('revokeSubscriptionBtn').addEventListener('click', async () => {
+        if (!confirm(`Revoke ${user.username}'s subscription and downgrade to Free?`)) return;
+        await revokeUserSubscription(user);
+    });
+
+    // Form submission
+    document.getElementById('subscriptionForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const newTierCode = tierSelect.value;
+        const notes = notesInput.value.trim() || 'Admin grant';
+        
+        if (newTierCode === currentTierCode) {
+            showToast('User already has this subscription tier.', 'warning');
+            return;
+        }
+        
+        await assignUserSubscription(user, newTierCode, notes);
+    });
+}
+
+async function assignUserSubscription(user, tierCode, notes = 'Admin grant') {
+    try {
+        const response = await fetch(`${BACKEND_URL}/admin/subscriptions/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: state.token,
+                user_id: user.id,
+                tier_code: tierCode,
+                notes: notes
+            })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.message || 'Failed to assign subscription');
+        }
+
+        // Update local user data
+        const assignedTier = state.subscriptionTiers.find(t => t.code === tierCode);
+        state.users = state.users.map((existing) => (
+            existing.id === user.id ? { 
+                ...existing, 
+                subscription_tier_code: tierCode,
+                subscription_tier_name: assignedTier?.name || tierCode,
+                subscription_type: tierCode // Fallback compatibility
+            } : existing
+        ));
+
+        applySortingAndRender();
+        closeModal();
+        showToast(`Subscription assigned to ${user.username}: ${assignedTier?.name || tierCode}`, 'success');
+        
+        // Refresh subscription tier stats
+        await loadSubscriptionTiers();
+    } catch (error) {
+        console.error('assignUserSubscription error:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+async function revokeUserSubscription(user, reason = 'Revoked by admin') {
+    try {
+        const response = await fetch(`${BACKEND_URL}/admin/subscriptions/revoke`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: state.token,
+                user_id: user.id,
+                reason: reason
+            })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.message || 'Failed to revoke subscription');
+        }
+
+        // Update local user data to free tier
+        const freeTier = state.subscriptionTiers.find(t => t.code === 'free');
+        state.users = state.users.map((existing) => (
+            existing.id === user.id ? { 
+                ...existing, 
+                subscription_tier_code: 'free',
+                subscription_tier_name: freeTier?.name || 'Free',
+                subscription_type: 'free'
+            } : existing
+        ));
+
+        applySortingAndRender();
+        closeModal();
+        showToast(`Subscription revoked for ${user.username}. Now on Free tier.`, 'success');
+        
+        // Refresh subscription tier stats
+        await loadSubscriptionTiers();
+    } catch (error) {
+        console.error('revokeUserSubscription error:', error);
         showToast(error.message, 'error');
     }
 }

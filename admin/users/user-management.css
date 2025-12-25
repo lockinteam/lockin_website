@@ -82,6 +82,11 @@
     gap: 1rem;
 }
 
+/* Subscription stats row */
+.subscription-stats {
+    margin-top: -0.5rem;
+}
+
 .user-stat-card {
     padding: 1.25rem 1.5rem;
     border-radius: 16px;
@@ -107,6 +112,23 @@
     font-size: 1.8rem;
     font-weight: 700;
     color: var(--color-deep-blue);
+}
+
+/* Subscription stat card colors */
+.user-stat-card.stat-free {
+    border-left: 4px solid rgba(150, 165, 180, 0.8);
+}
+
+.user-stat-card.stat-pro {
+    border-left: 4px solid rgba(54, 120, 174, 0.9);
+}
+
+.user-stat-card.stat-premium {
+    border-left: 4px solid rgba(168, 85, 247, 0.9);
+}
+
+.user-stat-card.stat-lifetime {
+    border-left: 4px solid rgba(234, 179, 8, 0.9);
 }
 
 .user-list {
@@ -245,6 +267,54 @@
 .status-pending {
     background: rgba(255, 199, 115, 0.18);
     color: rgba(168, 112, 34, 0.9);
+}
+
+.status-expired {
+    color: rgba(198, 68, 68, 0.9);
+}
+
+/* Subscription badges */
+.subscription-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.subscription-free {
+    background: rgba(150, 165, 180, 0.2);
+    color: rgba(80, 95, 110, 0.95);
+}
+
+.subscription-pro {
+    background: rgba(54, 120, 174, 0.15);
+    color: rgba(34, 90, 140, 0.95);
+}
+
+.subscription-premium {
+    background: rgba(168, 85, 247, 0.15);
+    color: rgba(128, 55, 200, 0.95);
+}
+
+.subscription-lifetime {
+    background: linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(251, 191, 36, 0.25));
+    color: rgba(161, 98, 7, 0.95);
+}
+
+/* Subscription action button styling */
+.user-action.subscription-action {
+    border-color: rgba(168, 85, 247, 0.35);
+    background: rgba(168, 85, 247, 0.08);
+    color: rgba(128, 55, 200, 0.95);
+}
+
+.user-action.subscription-action:hover:not(:disabled) {
+    background: rgba(168, 85, 247, 0.16);
+    box-shadow: 0 10px 24px rgba(168, 85, 247, 0.2);
 }
 
 .user-card-actions {
@@ -582,6 +652,164 @@
     transform: translateY(-1px);
 }
 
+/* Subscription Modal Styles */
+.modal-subtitle {
+    margin: -0.5rem 0 1.5rem;
+    color: var(--color-grey-text);
+    font-size: 0.95rem;
+}
+
+.current-subscription-info {
+    padding: 1.25rem;
+    border-radius: 14px;
+    background: rgba(241, 246, 255, 0.8);
+    border: 1px solid rgba(187, 202, 220, 0.5);
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.subscription-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.info-label {
+    font-size: 0.9rem;
+    color: var(--color-grey-text);
+    font-weight: 500;
+}
+
+.info-value {
+    font-size: 0.95rem;
+    color: var(--color-deep-blue);
+    font-weight: 600;
+}
+
+.tier-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(187, 202, 220, 0.4);
+}
+
+.feature-item {
+    display: inline-flex;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: rgba(150, 165, 180, 0.15);
+    color: var(--color-grey-text);
+}
+
+.feature-item.feature-enabled {
+    background: rgba(83, 192, 184, 0.15);
+    color: rgba(38, 120, 110, 0.95);
+}
+
+.expired-tag {
+    color: rgba(198, 68, 68, 0.9);
+    font-size: 0.85rem;
+}
+
+.form-row input[type="date"] {
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(187, 202, 220, 0.7);
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 1rem;
+    color: var(--color-deep-blue);
+    font-family: inherit;
+}
+
+.form-row input[type="date"]:focus {
+    outline: none;
+    border-color: var(--color-primary-blue);
+}
+
+.form-row input[type="text"] {
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(187, 202, 220, 0.7);
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 1rem;
+    color: var(--color-deep-blue);
+    font-family: inherit;
+}
+
+.form-row input[type="text"]:focus {
+    outline: none;
+    border-color: var(--color-primary-blue);
+}
+
+.form-row input[type="text"]::placeholder {
+    color: rgba(150, 165, 180, 0.8);
+}
+
+.form-hint {
+    font-size: 0.8rem;
+    color: var(--color-grey-text);
+    margin-top: 0.25rem;
+}
+
+.quick-duration-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+}
+
+.duration-btn {
+    padding: 0.45rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid rgba(54, 120, 174, 0.35);
+    background: rgba(54, 120, 174, 0.08);
+    color: var(--color-deep-blue);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.duration-btn:hover {
+    background: rgba(54, 120, 174, 0.18);
+    transform: translateY(-1px);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+}
+
+.modal-actions-right {
+    display: flex;
+    gap: 0.8rem;
+}
+
+.ghost-btn.destructive-ghost {
+    color: rgba(198, 68, 68, 0.9);
+    background: rgba(198, 68, 68, 0.08);
+}
+
+.ghost-btn.destructive-ghost:hover:not(:disabled) {
+    background: rgba(198, 68, 68, 0.15);
+}
+
+.ghost-btn.destructive-ghost:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
     .user-management-page {
         padding: 1.9rem 0.95rem 3rem;
@@ -637,6 +865,10 @@
         grid-template-columns: 1fr;
     }
 
+    .subscription-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
     .user-list {
         grid-template-columns: 1fr;
         gap: 1.1rem;
@@ -654,6 +886,19 @@
         left: 50%;
         right: auto;
         transform: translateX(-50%);
+    }
+
+    .modal-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .modal-actions-right {
+        justify-content: flex-end;
+    }
+
+    .quick-duration-buttons {
+        justify-content: center;
     }
 }
 

@@ -3072,6 +3072,254 @@ python3 tests/test_admin_tiers.py
 
 ---
 
+## Admin Subscription Management Endpoints
+
+These endpoints manage **paid subscription tiers** (monetization/feature access) and **user subscriptions**.
+
+> **Important**: Subscription tiers are different from the content hierarchy “tiers” used for course grouping (Foundation/Higher). Subscription tiers live in `subscription_tiers` and apply to a user account (Free/Pro/etc).
+
+**Endpoints:**
+1. `POST /admin/subscriptions/tiers` - List subscription tiers (with active user counts)
+2. `PUT /admin/subscriptions/tiers/update` - Update subscription tier (owner only)
+3. `POST /admin/subscriptions/assign` - Grant/assign a subscription to a user
+4. `POST /admin/subscriptions/revoke` - Revoke a user subscription (downgrade to Free)
+
+---
+
+### 1. List Subscription Tiers
+
+**Endpoint**: `POST /admin/subscriptions/tiers`
+
+**Auth**: Admin or Owner
+
+**Description**: List subscription tiers, including active user counts per tier.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "include_inactive": false
+}
+```
+
+**Request Notes**:
+- `include_inactive` is optional (default `false`).
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Subscription tiers fetched successfully",
+  "data": {
+    "tiers": [
+      {
+        "id": "uuid",
+        "name": "Lockin Free",
+        "code": "free",
+        "price_gbp": 0.0,
+        "description": "...",
+        "questions_per_day": 50,
+        "podcasts_percentage": 50,
+        "full_analytics": false,
+        "full_xp_earning": false,
+        "full_leaderboards": false,
+        "sort_order": 0,
+        "is_active": true,
+        "created_at": "2025-11-19T10:00:00.000000",
+        "updated_at": "2025-11-19T10:00:00.000000",
+        "user_count": 1234
+      }
+    ],
+    "count": 3
+  }
+}
+```
+
+**Error Cases**:
+- Missing `token` (400)
+- Not admin/owner (403)
+- Server error (500)
+
+**Usage Examples**:
+
+```javascript
+const tiers = await fetch(`${backend_url}/admin/subscriptions/tiers`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: adminToken })
+});
+```
+
+---
+
+### 2. Update Subscription Tier
+
+**Endpoint**: `PUT /admin/subscriptions/tiers/update`
+
+**Auth**: Owner only
+
+**Description**: Update subscription tier pricing/limits/features.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "tier_id": "uuid",
+
+  "name": "Lockin Pro",
+  "price_gbp": 2.99,
+  "description": "...",
+
+  "questions_per_day": null,
+  "podcasts_percentage": 100,
+  "full_analytics": true,
+  "full_xp_earning": true,
+  "full_leaderboards": true,
+
+  "sort_order": 1,
+  "is_active": true
+}
+```
+
+**Notes**:
+- Only `token` and `tier_id` are required; all other fields are optional.
+- `questions_per_day` can be `null` (the backend accepts and stores it). How `null` is interpreted depends on the quota enforcement logic.
+
+**Error Cases**:
+- Missing `token`/`tier_id` (400)
+- Not owner (403)
+- Tier not found (404)
+- No fields to update (400)
+- Server error (500)
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Subscription tier updated successfully",
+  "data": {
+    "tier": {
+      "id": "uuid",
+      "name": "Lockin Pro",
+      "code": "pro",
+      "price_gbp": 2.99,
+      "description": "...",
+      "questions_per_day": null,
+      "podcasts_percentage": 100,
+      "full_analytics": true,
+      "full_xp_earning": true,
+      "full_leaderboards": true,
+      "sort_order": 1,
+      "is_active": true
+    }
+  }
+}
+```
+
+---
+
+### 3. Assign (Grant) User Subscription
+
+**Endpoint**: `POST /admin/subscriptions/assign`
+
+**Auth**: Admin or Owner
+
+**Description**: Assign a subscription tier to a user (admin grant). This is recorded internally as a purchase with `payment_method = "admin_grant"`.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "user_id": "uuid",
+  "tier_code": "pro",
+  "transaction_id": "...",
+  "notes": "Admin grant"
+}
+```
+
+**Request Notes**:
+- Required fields: `token`, `user_id`, `tier_code`.
+- `tier_code` is treated case-insensitively (it’s lowercased server-side).
+- `transaction_id` is optional; if omitted/empty the backend generates one.
+- `notes` is optional; default is `"Admin grant"`.
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Subscription assigned successfully",
+  "data": {
+    "user_id": "uuid",
+    "subscription": {
+      "id": "uuid",
+      "tier_name": "Lockin Pro",
+      "tier_code": "pro",
+      "purchased_at": "2025-11-19T10:00:00.000000",
+      "purchased_price_gbp": 2.99
+    }
+  }
+}
+```
+
+**Error Cases**:
+- Missing required fields (400)
+- Not admin/owner (403)
+- Invalid tier/user (400 via validation in subscription utilities)
+- Server error (500)
+
+---
+
+### 4. Revoke User Subscription
+
+**Endpoint**: `POST /admin/subscriptions/revoke`
+
+**Auth**: Admin or Owner
+
+**Description**: Revoke a user’s current subscription and downgrade them to the Free tier.
+
+**Request Body**:
+```json
+{
+  "token": "session_token",
+  "user_id": "uuid",
+  "reason": "Refund requested"
+}
+```
+
+**Request Notes**:
+- Required fields: `token`, `user_id`.
+- `reason` is optional; default is `"Revoked by admin"`.
+
+**Success Response** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Subscription revoked and downgraded to Free tier",
+  "data": {
+    "user_id": "uuid",
+    "new_tier": "free"
+  }
+}
+```
+
+**Error Cases**:
+- Missing required fields (400)
+- Not admin/owner (403)
+- Server error (500)
+
+---
+
+### Subscription System Tests
+
+The main subscription test suite covers the subscription system end-to-end, including these admin endpoints.
+
+**Test File**: `tests/test_subscriptions.py`
+
+**Run Tests**:
+```bash
+python -m pytest tests/test_subscriptions.py -v
+```
+
 ## Admin Papers Management Endpoints
 
 **Content Hierarchy**: Years → Subjects → Courses → Tiers → Papers → Topics → Content
@@ -7359,6 +7607,10 @@ curl -X POST ${backend_url}/admin/past_papers/scrape_pearson/series \
     "gated_documents": 154,
     "public_documents": 0
   },
+  "spec_metadata": {
+    "is_modern_spec": true,
+    "detected_spec_years_in_urls": [2015]
+  },
   "grouped_papers": {
     "Foundation": {
       "1": [
@@ -7415,6 +7667,21 @@ curl -X POST ${backend_url}/admin/past_papers/scrape_pearson/series \
 }
 ```
 
+**Legacy Spec Warning Response** (when using old/incorrect spec code):
+```json
+{
+  "success": true,
+  "specification_code": "2bs01",
+  "warning": "Warning: Specification code '2bs01' does not follow modern naming conventions (e.g., 'gcse17-business'). This may be a legacy specification. Use /subjects endpoint to get the correct specification code.",
+  "spec_metadata": {
+    "is_modern_spec": false,
+    "detected_spec_years_in_urls": [2009, 2017]
+  },
+  "discovered_papers": ["1", "3", "4", "5", "6"],
+  "total_documents": 104
+}
+```
+
 **Filtered Response** (with exam_series filter):
 ```json
 {
@@ -7448,10 +7715,11 @@ curl -X POST ${backend_url}/admin/past_papers/scrape_pearson/series \
 **Rate Limiting**: 10 requests per minute
 
 **Important Notes**:
+- **ALWAYS use the /subjects endpoint to get the correct specification code** - using legacy codes will return old spec papers
 - Uses Algolia Direct API for reliable, fast data retrieval
 - Most Pearson documents are "gated" (require login) but URLs still work
 - Tier detection based on title/description patterns (Foundation, Higher, F, H)
-- Paper numbers extracted from unit codes (Paper-1H → "1")
+- Paper numbers extracted and normalized from unit codes (Paper-01H → "1")
 - **Does NOT modify database** - use bulk_create endpoint after matching
 - Groups papers hierarchically: tier → paper_number → papers list
 
