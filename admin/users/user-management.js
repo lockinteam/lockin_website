@@ -274,9 +274,10 @@ function createUserCardMarkup(user) {
     const coursesCount = user.enrolled_courses_count ?? '—';
 
     // Subscription display - use tier from user data or find in loaded tiers
-    const userTierCode = user.subscription_tier_code || user.subscription_type || 'free';
+    const subscription = user.subscription;
+    const userTierCode = subscription ? subscription.tier_code : 'free';
     const userTier = state.subscriptionTiers.find(t => t.code === userTierCode);
-    const subscriptionLabel = userTier?.name || user.subscription_tier_name || capitalizeFirst(userTierCode);
+    const subscriptionLabel = subscription ? subscription.tier_name : (userTier?.name || 'Lockin Free');
     const subscriptionBadgeClass = `subscription-badge subscription-${userTierCode}`;
 
     const canEdit = canEditUser(user);
@@ -660,9 +661,10 @@ async function handleDelete(user) {
 }
 
 function openSubscriptionModal(user) {
-    const currentTierCode = user.subscription_tier_code || user.subscription_type || 'free';
+    const subscription = user.subscription;
+    const currentTierCode = subscription ? subscription.tier_code : 'free';
     const currentTier = state.subscriptionTiers.find(t => t.code === currentTierCode);
-    const currentLabel = currentTier?.name || capitalizeFirst(currentTierCode);
+    const currentLabel = subscription ? subscription.tier_name : (currentTier?.name || 'Lockin Free');
     const isFree = currentTierCode === 'free';
 
     // Build tier options from loaded subscription tiers
@@ -675,13 +677,14 @@ function openSubscriptionModal(user) {
         `).join('');
 
     // Build tier features display for current tier
-    const featuresDisplay = currentTier ? `
+    const displayTier = subscription || currentTier;
+    const featuresDisplay = displayTier ? `
         <div class="tier-features">
-            <span class="feature-item">${currentTier.questions_per_day ? `${currentTier.questions_per_day} questions/day` : 'Unlimited questions'}</span>
-            <span class="feature-item">${currentTier.podcasts_percentage}% podcasts</span>
-            ${currentTier.full_analytics ? '<span class="feature-item feature-enabled">Full Analytics</span>' : ''}
-            ${currentTier.full_xp_earning ? '<span class="feature-item feature-enabled">Full XP</span>' : ''}
-            ${currentTier.full_leaderboards ? '<span class="feature-item feature-enabled">Leaderboards</span>' : ''}
+            <span class="feature-item">${displayTier.questions_per_day ? `${displayTier.questions_per_day} questions/day` : 'Unlimited questions'}</span>
+            <span class="feature-item">${displayTier.podcasts_percentage}% podcasts</span>
+            ${displayTier.full_analytics ? '<span class="feature-item feature-enabled">Full Analytics</span>' : ''}
+            ${displayTier.full_xp_earning ? '<span class="feature-item feature-enabled">Full XP</span>' : ''}
+            ${displayTier.full_leaderboards ? '<span class="feature-item feature-enabled">Leaderboards</span>' : ''}
         </div>
     ` : '';
 
@@ -773,12 +776,22 @@ async function assignUserSubscription(user, tierCode, notes = 'Admin grant') {
 
         // Update local user data
         const assignedTier = state.subscriptionTiers.find(t => t.code === tierCode);
+        
+        const newSubscription = {
+            tier_code: tierCode,
+            tier_name: assignedTier?.name || tierCode,
+            questions_per_day: assignedTier?.questions_per_day,
+            podcasts_percentage: assignedTier?.podcasts_percentage,
+            full_analytics: assignedTier?.full_analytics,
+            full_xp_earning: assignedTier?.full_xp_earning,
+            full_leaderboards: assignedTier?.full_leaderboards,
+            purchased_at: new Date().toISOString()
+        };
+
         state.users = state.users.map((existing) => (
             existing.id === user.id ? { 
                 ...existing, 
-                subscription_tier_code: tierCode,
-                subscription_tier_name: assignedTier?.name || tierCode,
-                subscription_type: tierCode // Fallback compatibility
+                subscription: newSubscription
             } : existing
         ));
 
@@ -812,14 +825,11 @@ async function revokeUserSubscription(user, reason = 'Revoked by admin') {
             throw new Error(data.message || 'Failed to revoke subscription');
         }
 
-        // Update local user data to free tier
-        const freeTier = state.subscriptionTiers.find(t => t.code === 'free');
+        // Update local user data to free tier (null subscription)
         state.users = state.users.map((existing) => (
             existing.id === user.id ? { 
                 ...existing, 
-                subscription_tier_code: 'free',
-                subscription_tier_name: freeTier?.name || 'Free',
-                subscription_type: 'free'
+                subscription: null
             } : existing
         ));
 

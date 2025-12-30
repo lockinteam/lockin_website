@@ -92,7 +92,7 @@ All admin endpoints require a valid session token from a user with admin or owne
 
 **Auth**: Admin or Owner
 
-**Description**: List all users with optional filters and pagination. Includes user statistics like enrollment counts.
+**Description**: List all users with optional filters and pagination. Includes user statistics like enrollment counts and subscription tier information.
 
 **Request Body**:
 ```json
@@ -123,7 +123,17 @@ All admin endpoints require a valid session token from a user with admin or owne
         "year_name": "GCSE (10/11)",
         "profile_picture_url": "default",
         "created_at": "2025-10-01T12:00:00.000000",
-        "enrolled_courses_count": 3
+        "enrolled_courses_count": 3,
+        "subscription": {
+          "tier_name": "Lockin Free",
+          "tier_code": "free",
+          "questions_per_day": 50,
+          "podcasts_percentage": 50,
+          "full_analytics": false,
+          "full_xp_earning": false,
+          "full_leaderboards": false,
+          "purchased_at": "2025-10-01T12:00:00.000000"
+        }
       }
     ],
     "count": 50,
@@ -133,6 +143,17 @@ All admin endpoints require a valid session token from a user with admin or owne
   }
 }
 ```
+
+**Response Fields**:
+- `subscription`: Object containing the user's active subscription tier information, or `null` if the user has no active subscription
+  - `tier_name`: Display name of the subscription tier (e.g., "Lockin Free", "Lockin Pro")
+  - `tier_code`: Short code for the tier (e.g., "free", "pro", "premium")
+  - `questions_per_day`: Daily question quota (null for unlimited)
+  - `podcasts_percentage`: Percentage of podcasts accessible (0-100)
+  - `full_analytics`: Whether user has access to full analytics features
+  - `full_xp_earning`: Whether user earns full XP amounts
+  - `full_leaderboards`: Whether user can access full leaderboard features
+  - `purchased_at`: Timestamp when subscription was purchased/assigned
 
 **Error Cases**:
 - Missing token (400)
