@@ -49,6 +49,214 @@ const PastPapersSection = {
         return Math.round(value * (multipliers[unit] || 1));
     },
 
+    async applySmartAutofill() {
+        const courseId = AppState.filters.pastPapers.courseId;
+        if (!courseId) return;
+
+        const course = AppState.courses.find(c => c.id === courseId);
+        if (!course) return;
+        
+        // Extract structured data from course object
+        const yearName = course.year_name || ''; // "GCSE", "A-Level", "AS Level", etc.
+        const subjectName = course.subject_name || ''; // "Biology", "Chemistry", "Religious Studies", etc.
+        const courseTitle = course.title || course.name || ''; // Fallback for matching
+        
+        console.log('Autofilling scraper for:', courseTitle);
+        console.log('Course year:', yearName, '| Course subject:', subjectName);
+        
+        const scraperType = this.scrapeState.scraperType;
+        
+        if (scraperType === 'aqa') {
+            const qualSelect = document.getElementById('aqaQualLevel');
+            const subjectSelect = document.getElementById('aqaSubject');
+            
+            // 1. Qualification Level Autofill
+            // Use course.year_name first, then fallback to text matching
+            if (qualSelect) {
+                let bestMatch = null;
+                let longestMatchLen = 0;
+
+                // Try direct match with year_name first
+                if (yearName) {
+                    for (let opt of qualSelect.options) {
+                        if (!opt.value) continue;
+                        
+                        const optLower = opt.value.toLowerCase();
+                        const yearLower = yearName.toLowerCase();
+                        
+                        // Check if option matches or is contained in yearName
+                        // e.g. "GCSE" matches "GCSE (10/11)" or "A-Level" matches "A-Level"
+                        if (optLower === yearLower ||
+                            yearLower.startsWith(optLower + ' ') ||
+                            yearLower.startsWith(optLower + '(') ||
+                            opt.value.replace(/[-\s]/g, '').toLowerCase() === yearName.replace(/[-\s]/g, '').toLowerCase()) {
+                            // Keep longest match (prefer "International GCSE" over "GCSE")
+                            if (opt.value.length > longestMatchLen) {
+                                longestMatchLen = opt.value.length;
+                                bestMatch = opt.value;
+                            }
+                        }
+                    }
+                }
+                
+                // Fallback: search in course title
+                if (!bestMatch && courseTitle) {
+                    let longestMatchLen = 0;
+                    for (let opt of qualSelect.options) {
+                        if (!opt.value) continue;
+                        
+                        const saneTarget = opt.value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'); 
+                        const flexibleTarget = saneTarget.replace(/\\-/g, '[-\\s]');
+                        const regex = new RegExp(`\\b${flexibleTarget}\\b`, 'i');
+                        
+                        if (regex.test(courseTitle)) {
+                            if (opt.value.length > longestMatchLen) {
+                                longestMatchLen = opt.value.length;
+                                bestMatch = opt.value;
+                            }
+                        }
+                    }
+                }
+                
+                if (bestMatch) {
+                    qualSelect.value = bestMatch;
+                    console.log('✓ Autofilled AQA Qualification:', bestMatch);
+                } else {
+                    console.log('✗ Could not autofill AQA Qualification (no match found)');
+                }
+            }
+            
+            // 2. Subject Autofill
+            // Use course.subject_name first, then fallback to text matching
+            if (subjectSelect) {
+                let bestMatch = null;
+
+                // Try direct match with subject_name first
+                if (subjectName) {
+                    for (let opt of subjectSelect.options) {
+                        if (!opt.value) continue;
+                        
+                        // Direct match or partial match
+                        if (opt.value.toLowerCase() === subjectName.toLowerCase() ||
+                            opt.value.toLowerCase().includes(subjectName.toLowerCase()) ||
+                            subjectName.toLowerCase().includes(opt.value.toLowerCase())) {
+                            bestMatch = opt.value;
+                            break;
+                        }
+                    }
+                }
+                
+                // Fallback: search in course title
+                if (!bestMatch && courseTitle) {
+                    let longestMatchLen = 0;
+                    for (let opt of subjectSelect.options) {
+                        if (!opt.value) continue;
+                        
+                        const saneTarget = opt.value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                        const regex = new RegExp(`\\b${saneTarget}\\b`, 'i');
+                        
+                        if (regex.test(courseTitle)) {
+                            if (opt.value.length > longestMatchLen) {
+                                longestMatchLen = opt.value.length;
+                                bestMatch = opt.value;
+                            }
+                        }
+                    }
+                }
+                
+                if (bestMatch) {
+                    subjectSelect.value = bestMatch;
+                    console.log('✓ Autofilled AQA Subject:', bestMatch);
+                } else {
+                    console.log('✗ Could not autofill AQA Subject (no match found)');
+                }
+            }
+            
+            // DO NOT autofill Spec Code (as requested)
+            
+            this.updateBuiltUrl();
+            
+        } else if (scraperType === 'ocr') {
+            // Re-detect level for OCR specifically since it needs mapping
+            let level = '';
+            if (/\b(A-Level|A Level)\b/i.test(courseTitle)) level = 'A-Level';
+            else if (/\b(AS Level)\b/i.test(courseTitle)) level = 'AS Level';
+            else if (/\b(GCSE)\b/i.test(courseTitle)) level = 'GCSE';
+            
+            const typeSelect = document.getElementById('ocrQualType');
+            if (typeSelect && level) {
+                // Map specific levels for OCR
+                let searchLevel = level;
+                if (level === 'A-Level') searchLevel = 'AS and A Level';
+                
+                for(let opt of typeSelect.options) {
+                    if (opt.text.toLowerCase().includes(searchLevel.toLowerCase())) {
+                        typeSelect.value = opt.value;
+                        await this.onOcrQualTypeChange();
+                        break;
+                    }
+                }
+            }
+            
+            // Subject
+            const qualSelect = document.getElementById('ocrQualification');
+            if (qualSelect && !qualSelect.disabled) {
+                 // Get pure subject from course title: remove level, board, code
+                 let simpleTitle = courseTitle.replace(/\b(GCSE|A-Level|A Level|AS Level|OCR|AQA|Pearson|Edexcel)\b/gi, '').replace(/[0-9()]/g, '').trim();
+                 const words = simpleTitle.split(/\s+/).filter(w => w.length > 2);
+                 
+                 for(let opt of qualSelect.options) {
+                     if (!opt.value) continue;
+                     const optText = opt.text.toLowerCase();
+                     if (words.length > 0 && words.every(w => optText.includes(w.toLowerCase()))) {
+                         qualSelect.value = opt.value;
+                         this.onOcrQualificationChange();
+                         break;
+                     }
+                 }
+            }
+            
+        } else if (scraperType === 'pearson') {
+            // Re-detect level for Pearson
+            let level = '';
+            if (/\b(A-Level|A Level)\b/i.test(courseTitle)) level = 'A-Level';
+            else if (/\b(GCSE)\b/i.test(courseTitle)) level = 'GCSE';
+            else if (/\b(International GCSE|IGCSE)\b/i.test(courseTitle)) level = 'International GCSE';
+            else if (/\b(BTEC)\b/i.test(courseTitle)) level = 'BTEC';
+
+            const familySelect = document.getElementById('pearson-family-select');
+            if (familySelect && level) {
+                 let searchLevel = level;
+                 // Pearson map A-Level -> A levels
+                 if (level === 'A-Level') searchLevel = 'A Level';
+
+                 for(let opt of familySelect.options) {
+                    if (opt.text.toLowerCase().includes(searchLevel.toLowerCase())) {
+                        familySelect.value = opt.value;
+                        await this.handlePearsonFamilyChange();
+                        break;
+                    }
+                 }
+            }
+            
+            const subjectSelect = document.getElementById('pearson-subject-select');
+             if (subjectSelect && !subjectSelect.disabled) {
+                 let simpleTitle = courseTitle.replace(/\b(GCSE|A-Level|A Level|AS Level|OCR|AQA|Pearson|Edexcel|International GCSE)\b/gi, '').replace(/[0-9()]/g, '').trim();
+                 const words = simpleTitle.split(/\s+/).filter(w => w.length > 2);
+
+                 for(let opt of subjectSelect.options) {
+                    if (!opt.value) continue;
+                    const optText = opt.text.toLowerCase();
+                     if (words.length > 0 && words.every(w => optText.includes(w.toLowerCase()))) {
+                         subjectSelect.value = opt.value;
+                         await this.handlePearsonSubjectChange();
+                         break;
+                     }
+                 }
+             }
+        }
+    },
+
     resetScrapeState() {
         this.scrapeState = {
             scraperType: null,
@@ -1188,8 +1396,11 @@ const PastPapersSection = {
         // Update modal content (modal is already open)
         document.querySelector('.modal-body').innerHTML = formHTML;
         
-        // Initialize the built URL
-        setTimeout(() => this.updateBuiltUrl(), 0);
+        // Initialize the built URL and try autofill
+        setTimeout(() => {
+            this.applySmartAutofill();
+            this.updateBuiltUrl();
+        }, 0);
     },
     
     switchUrlTab(tab) {
@@ -1428,9 +1639,11 @@ const PastPapersSection = {
         
         document.querySelector('.modal-body').innerHTML = formHTML;
         
-        // Set selected type if already chosen
+        // Set selected type if already chosen, otherwise try autofill
         if (this.scrapeState.ocrSelectedTypeId) {
             document.getElementById('ocrQualType').value = this.scrapeState.ocrSelectedTypeId;
+        } else {
+            setTimeout(() => this.applySmartAutofill(), 0);
         }
     },
     
@@ -1642,10 +1855,12 @@ const PastPapersSection = {
         
         document.querySelector('.modal-body').innerHTML = formHTML;
         
-        // If family was previously selected, restore the selection and trigger change
+        // If family was previously selected, restore the selection and trigger change, otherwise try autofill
         if (this.scrapeState.pearsonSelectedFamily) {
             document.getElementById('pearson-family-select').value = this.scrapeState.pearsonSelectedFamily;
             await this.handlePearsonFamilyChange();
+        } else {
+            setTimeout(() => this.applySmartAutofill(), 0);
         }
     },
     
