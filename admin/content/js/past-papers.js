@@ -2577,6 +2577,7 @@ const PastPapersSection = {
             }
             const paperData = {
                 year: pp.year,
+                session: pp.session || null,
                 url: pp.questionPaperUrl,
                 mark_scheme_url: pp.markSchemeUrl || null,
                 file_size: this.parseSizeToBytes(pp.fileSize),

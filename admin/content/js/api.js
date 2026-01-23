@@ -309,7 +309,7 @@ const API = {
     
     // AQA Scraper
     async scrapeAqaPreview(url) {
-        return this.request('/admin/past_papers/scrape_aqa', 'POST', { url, fetch_sizes: true });
+        return this.request('/admin/past_papers/scrape_aqa', 'POST', { url });
     },
     
     // OCR Scraper

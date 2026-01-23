@@ -6661,36 +6661,43 @@ if (inactiveIds.length > 0) {
 
 **Auth**: Admin or Owner
 
-**Description**: Scrape past papers from AQA's website and return structured data for the frontend to display. **This endpoint does NOT modify the database** - it returns discovered tiers, papers, and grouped data so the user can match scraped content to existing DB tiers/papers before bulk importing.
+**Description**: Scrape past papers from AQA's REST API and return structured data for the frontend to display. **This endpoint does NOT modify the database** - it returns discovered tiers, papers, and grouped data so the user can match scraped content to existing DB tiers/papers before bulk importing.
+
+**Implementation**: Uses AQA's JSON REST API (`/api/search`) directly via HTTP requests - no browser automation required. This makes the scraper fast, reliable, and lightweight.
 
 **Key Features**:
-- Automatically ensures `&limit=500` in the URL for maximum results
+- Uses AQA's REST API directly (no browser/Playwright required)
+- **Fast**: Typically completes in 1-2 seconds (single HTTP request)
+- Automatically sets `limit=500` for maximum results
 - Filters to only keep **question papers** and **mark schemes**
-- Automatically excludes: modified papers, examiner reports, inserts, specimen papers, sample sets
-- **Parses tier from title** (Higher, Foundation) from brackets like "(Higher):"
+- Automatically excludes: modified papers, examiner reports, inserts, preliminary materials, candidate response materials
+- **Parses tier from component code** (e.g., `84611F` → Foundation, `84611H` → Higher)
+- **Fallback tier parsing from title** (Higher, Foundation) from brackets like "(Higher)"
 - **Parses paper number** (Paper 1, Paper 2) from title
-- **Parses session** (June, November) from title
-- **Parses year** (2018-2024) from title
-- Groups papers by tier → paper number → year/session
+- **Parses session** from `seriesMonth` API field (June, November, January)
+- **Parses year** from `seriesYear` API field
+- **File sizes included**: API returns file sizes directly (no additional HEAD requests needed)
+- Groups papers by tier → paper number → year/session (sorted by year descending)
 - Returns `discovered_tiers` and `discovered_papers` for frontend matching UI
 
 **Request Body**:
 ```json
 {
   "token": "session_token",
-  "url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=GCSE+Biology",
-  "fetch_sizes": true  // Optional: fetch file sizes via HTTP HEAD (default: true)
+  "url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualificationLevel=GCSE"
 }
 ```
+
+**Note**: The `fetch_sizes` parameter is no longer needed - file sizes are included directly from the API response.
 
 **Success Response** (200):
 ```json
 {
   "success": true,
-  "scraped_url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=GCSE+Biology&limit=500",
+  "scraped_url": "https://www.aqa.org.uk/api/search?type=aqaResource&location=%2Ffind-past-papers-and-mark-schemes&prefilter=scope&scope=findPastPapers&facets=subject%2Cqualification%2CqualificationLevel%2CspecCode%2CcomponentCodes%2CsecondaryResourceType%2CexamSeries%2CexamTier%2CprintSize&sort=relevance&page=1&limit=500&subject=Biology&qualificationLevel=GCSE",
   "stats": {
     "total_scraped": 109,
-    "relevant_after_filter": 56
+    "relevant_after_filter": 50
   },
   "discovered_tiers": ["Foundation", "Higher"],
   "discovered_papers": ["Paper 1", "Paper 2"],
@@ -6700,18 +6707,18 @@ if (inactiveIds.length > 0) {
         {
           "year": 2024,
           "session": "June",
-          "question_paper_url": "https://cdn.sanity.io/.../question-paper.pdf",
-          "mark_scheme_url": "https://cdn.sanity.io/.../mark-scheme.pdf",
-          "file_size": 2097152,
-          "mark_scheme_file_size": 1048576
+          "question_paper_url": "https://cdn.sanity.io/files/p28bar15/green/abc123.pdf",
+          "mark_scheme_url": "https://cdn.sanity.io/files/p28bar15/green/def456.pdf",
+          "file_size": 1141614,
+          "mark_scheme_file_size": 438834
         },
         {
           "year": 2023,
           "session": "June",
-          "question_paper_url": "https://cdn.sanity.io/.../question-paper-2023.pdf",
-          "mark_scheme_url": "https://cdn.sanity.io/.../mark-scheme-2023.pdf",
-          "file_size": 1835008,
-          "mark_scheme_file_size": 921600
+          "question_paper_url": "https://cdn.sanity.io/files/p28bar15/green/ghi789.pdf",
+          "mark_scheme_url": "https://cdn.sanity.io/files/p28bar15/green/jkl012.pdf",
+          "file_size": 1100000,
+          "mark_scheme_file_size": 420000
         }
       ],
       "Paper 2": [...]
@@ -6723,19 +6730,31 @@ if (inactiveIds.length > 0) {
   },
   "raw_papers": [
     {
-      "title": "Biology - Question paper (Higher): Paper 1 - June 2024",
-      "url": "https://...",
+      "title": "Question paper (Higher): Paper 1 - June 2024",
+      "url": "https://cdn.sanity.io/files/p28bar15/green/abc123.pdf",
       "tier": "Higher",
       "paper_number": "Paper 1",
       "session": "June",
       "year": 2024,
-      "is_mark_scheme": false,
-      "doc_type": "question_paper"
+      "component_code": "84611H",
+      "doc_type": "question_paper",
+      "file_size": 1141614,
+      "secondary_resource_type": "Question papers"
     }
   ],
   "excluded_papers": [
-    {"title": "Examiner Report...", "type": "examiner report", "url": "..."},
-    {"title": "Modified Paper...", "type": "modified paper", "url": "..."}
+    {
+      "title": "Examiner report (Higher): Paper 1 - June 2023",
+      "url": "https://cdn.sanity.io/...",
+      "tier": "Higher",
+      "paper_number": "Paper 1",
+      "session": "June",
+      "year": 2023,
+      "component_code": "84611H",
+      "doc_type": null,
+      "file_size": 184439,
+      "secondary_resource_type": "Examiner reports"
+    }
   ]
 }
 ```
@@ -6767,12 +6786,16 @@ if (inactiveIds.length > 0) {
 
 **Database Queries**: 0 (no DB modification)
 
-**Rate Limiting**: 5 requests per minute (resource-intensive operation)
+**Rate Limiting**: 5 requests per minute
 
 **Important Notes**:
-- Requires Playwright with Chromium browser installed on server
-- Takes 5-10 seconds per scrape due to JavaScript rendering
+- Uses AQA's REST API directly - no Playwright or browser automation required
+- Typically completes in 1-2 seconds (single HTTP GET request)
 - URL must be from AQA's `find-past-papers-and-mark-schemes` page
+- Files are hosted on Sanity CDN (`cdn.sanity.io`)
+- Tier detection: First tries component code suffix (F/H), then falls back to title parsing
+- Papers without a parseable year are excluded from grouped_papers
+- Papers are sorted by year descending, then by session (June > November > January)
 - **Does NOT modify database** - use bulk_create endpoint after matching
 
 **Workflow**:
@@ -6791,7 +6814,7 @@ const response = await fetch(`${backend_url}/admin/past_papers/scrape_aqa`, {
   headers: {'Content-Type': 'application/json'},
   body: JSON.stringify({
     token: sessionToken,
-    url: 'https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=GCSE+Biology'
+    url: 'https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualificationLevel=GCSE'
   })
 });
 
@@ -6815,8 +6838,11 @@ if (data.success) {
       
       const pastPapersToCreate = papersList.map(p => ({
         year: p.year,
+        session: p.session,
         url: p.question_paper_url,
-        mark_scheme_url: p.mark_scheme_url
+        mark_scheme_url: p.mark_scheme_url,
+        file_size: p.file_size,
+        mark_scheme_file_size: p.mark_scheme_file_size
       })).filter(p => p.url);  // Only papers with question paper URL
       
       if (pastPapersToCreate.length > 0) {
@@ -6841,9 +6867,19 @@ curl -X POST ${backend_url}/admin/past_papers/scrape_aqa \
   -H "Content-Type: application/json" \
   -d '{
     "token": "session_token",
-    "url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualification=GCSE+Biology"
+    "url": "https://www.aqa.org.uk/find-past-papers-and-mark-schemes?subject=Biology&qualificationLevel=GCSE"
   }'
 ```
+
+**API Parameters Supported**:
+The scraper extracts and forwards these parameters from the provided URL to AQA's API:
+- `subject` - Subject name (e.g., "Biology", "Geography", "Chemistry")
+- `qualificationLevel` - Qualification level (e.g., "GCSE", "A-level", "AS")
+- `qualification` - Specific qualification code
+- `specCode` - Specification code
+- `componentCodes` - Component codes filter
+- `examSeries` - Exam series filter
+- `examTier` - Tier filter (optional, usually auto-detected)
 
 ---
 
