@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Delete your Lockin.tech account">
+    
+    <title>Delete Account | Lockin.tech</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="192x192" href="../static/assets/favicon.png">
+    <link rel="apple-touch-icon" href="../static/assets/lockin512.png">
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="../css/main.css">
+    
+    <style>
+        /* Legal page specific styles reuse */
+        .legal-page {
+            padding-top: calc(80px + var(--space-12));
+            padding-bottom: var(--space-16);
+            min-height: 100vh;
+        }
+        
+        .legal-header {
+            text-align: center;
+            margin-bottom: var(--space-12);
+            padding-bottom: var(--space-8);
+            border-bottom: 1px solid var(--color-gray-200);
+        }
+        
+        .legal-header__title {
+            margin-bottom: var(--space-4);
+        }
+        
+        .legal-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .legal-content a {
+            color: var(--color-primary);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        
+        .legal-content a:hover {
+            color: var(--color-primary-dark);
+        }
+        
+        /* Back to home link */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            margin-bottom: var(--space-8);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            color: var(--color-gray-500);
+            transition: color var(--transition-fast);
+        }
+        
+        .back-link:hover {
+            color: var(--color-primary);
+        }
+        
+        .back-link svg {
+            width: 16px;
+            height: 16px;
+        }
+    </style>
+</head>
+<body>
+    <!-- ================================================================
+         HEADER / NAVIGATION
+         ================================================================ -->
+    <header class="header" id="header">
+        <div class="header__inner">
+            <a href="/" class="logo" aria-label="Lockin.tech home">
+                <img src="../static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="logo__image">
+            </a>
+            
+            <nav class="nav" aria-label="Main navigation">
+                <ul class="nav__menu">
+                    <li><a href="/#features" class="nav__link">Features</a></li>
+                    <li><a href="/#how-it-works" class="nav__link">How It Works</a></li>
+                    <li><a href="/#pricing" class="nav__link">Pricing</a></li>
+                </ul>
+                
+                <div class="nav__actions">
+                    <a href="/online" class="btn btn--outline btn--sm nav__cta">Use Online</a>
+                    <a href="/#download" class="btn btn--primary btn--sm nav__cta">Download</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="legal-page">
+        <div class="container">
+            <a href="/" class="back-link">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                Back to Home
+            </a>
+            
+            <header class="legal-header">
+                <h1 class="legal-header__title">Delete Account</h1>
+            </header>
+            
+            <div class="legal-content">
+                <p>If you wish to delete your account, you must email <a href="mailto:support@lockin.tech">support@lockin.tech</a>.</p>
+                <p>Please include your account username or email address in your request so we can locate your account. We may need to verify your identity before proceeding with the deletion.</p>
+                <p>We will respond within 90 days.</p>
+                <p>Once your account is deleted, all your data including progress and preferences will be permanently removed.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- ================================================================
+         FOOTER
+         ================================================================ -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer__inner">
+                <div class="footer__brand">
+                    <img src="../static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="footer__logo">
+                    <p class="footer__tagline">
+                        The all-in-one study companion for UK students. Lock in to your success with notes, podcasts, questions, and past papers.
+                    </p>
+                </div>
+                
+                <nav class="footer__nav">
+                    <h4 class="footer__nav-title">Product</h4>
+                    <ul class="footer__nav-list">
+                        <li><a href="/#features" class="footer__nav-link">Features</a></li>
+                        <li><a href="/#pricing" class="footer__nav-link">Pricing</a></li>
+                        <li><a href="/online" class="footer__nav-link">Web App</a></li>
+                    </ul>
+                </nav>
+                
+                <nav class="footer__nav">
+                    <h4 class="footer__nav-title">Resources</h4>
+                    <ul class="footer__nav-list">
+                        <li><a href="/#how-it-works" class="footer__nav-link">How It Works</a></li>
+                    </ul>
+                </nav>
+                
+                <nav class="footer__nav">
+                    <h4 class="footer__nav-title">Support</h4>
+                    <ul class="footer__nav-list">
+                        <li><a href="mailto:support@lockin.tech" class="footer__nav-link">Contact Us</a></li>
+                    </ul>
+                </nav>
+            </div>
+            
+            <div class="footer__bottom">
+                <p class="footer__copyright">
+                    © <span id="year"></span> Lockin.tech. All rights reserved.
+                </p>
+                <div class="footer__legal">
+                    <a href="/tos/#terms" class="footer__legal-link">Terms of Service</a>
+                    <a href="/tos/#privacy" class="footer__legal-link">Privacy Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Header scroll effect
+        const header = document.getElementById('header');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                header.classList.add('header--scrolled');
+            } else {
+                header.classList.remove('header--scrolled');
+            }
+        });
+        
+        // Update copyright year
+        document.getElementById('year').textContent = new Date().getFullYear();
+    </script>
+</body>
+</html>
