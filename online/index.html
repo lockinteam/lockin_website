@@ -1,27 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="/online/">
-
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Lockin - Your Learning Platform">
+  <meta name="description" content="Lockin - Testing Build Access">
+  <meta name="robots" content="noindex, nofollow">
 
-    <meta name="google-signin-client_id" 
+  <meta name="google-signin-client_id"
         content="233104118674-jrqmv0eihmdnrpdkqlkssl6t93gknurk.apps.googleusercontent.com">
+
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -31,13 +20,383 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>Lockin</title>
+  <title>Lockin - Testing Build</title>
   <link rel="manifest" href="manifest.json">
 
-  <!-- Google Identity Services -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+
+  <style id="gate-styles">
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background:
+        radial-gradient(ellipse at 30% 0%, rgba(54, 120, 174, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 100%, rgba(83, 192, 184, 0.06) 0%, transparent 50%),
+        #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #334155;
+      overflow: hidden;
+      position: relative;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Subtle animated background orbs */
+    .gate-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .gate-bg__orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      animation: float 20s ease-in-out infinite;
+    }
+    .gate-bg__orb--1 {
+      width: 500px; height: 500px;
+      background: rgba(54, 120, 174, 0.07);
+      top: -15%; right: -10%;
+      animation-duration: 22s;
+    }
+    .gate-bg__orb--2 {
+      width: 450px; height: 450px;
+      background: rgba(83, 192, 184, 0.06);
+      bottom: -20%; left: -8%;
+      animation-duration: 26s;
+      animation-delay: -8s;
+    }
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -25px) scale(1.05); }
+      66% { transform: translate(-20px, 20px) scale(0.95); }
+    }
+
+    .gate-wrapper {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      width: 90%;
+      max-width: 520px;
+      padding: 40px 20px;
+      animation: fadeUp 0.6s ease-out;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Badge */
+    .gate__badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(83, 192, 184, 0.1);
+      color: #3fa89f;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 6px 16px;
+      border-radius: 100px;
+      border: 1px solid rgba(83, 192, 184, 0.18);
+      margin-bottom: 24px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .gate__badge svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    /* Title */
+    .gate__title {
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      letter-spacing: -0.03em;
+      color: #0f172a;
+    }
+    .gate__title-accent {
+      background: linear-gradient(135deg, #3678AE, #53C0B8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Description */
+    .gate__desc {
+      font-size: clamp(0.95rem, 2vw, 1.1rem);
+      color: #64748b;
+      line-height: 1.65;
+      max-width: 440px;
+      margin-bottom: 40px;
+    }
+
+    /* Card */
+    .gate__card {
+      width: 100%;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 20px;
+      padding: 36px 32px 32px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .gate__card-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 20px;
+    }
+    .gate__card-label svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Form */
+    .gate__form { display: flex; flex-direction: column; gap: 12px; }
+    .gate__input-wrapper {
+      position: relative;
+      width: 100%;
+    }
+    .gate__input-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      color: #cbd5e1;
+      pointer-events: none;
+      transition: color 0.2s;
+    }
+    .gate__input {
+      width: 100%;
+      padding: 15px 16px 15px 44px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      color: #1e293b;
+      font-size: 1rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+    }
+    .gate__input::placeholder { color: #94a3b8; }
+    .gate__input:focus {
+      border-color: #3678AE;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(54, 120, 174, 0.1);
+    }
+    .gate__input:focus ~ .gate__input-icon { color: #3678AE; }
+
+    .gate__btn {
+      width: 100%;
+      padding: 15px;
+      background: #3678AE;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.25s, background 0.2s;
+      box-shadow: 0 4px 16px rgba(54, 120, 174, 0.25);
+    }
+    .gate__btn:hover {
+      background: #4a8fc4;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(54, 120, 174, 0.3);
+    }
+    .gate__btn:active {
+      background: #2a5f8a;
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(54, 120, 174, 0.25);
+    }
+
+    .gate__error {
+      color: #ef4444;
+      font-size: 0.85rem;
+      font-weight: 500;
+      min-height: 1.2em;
+    }
+
+    /* Confidentiality notice */
+    .gate__notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-top: 16px;
+      padding: 12px 14px;
+      background: #fefce8;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      text-align: left;
+    }
+    .gate__notice svg {
+      width: 16px;
+      height: 16px;
+      color: #d97706;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .gate__notice-text {
+      font-size: 0.8rem;
+      color: #92400e;
+      line-height: 1.45;
+    }
+
+    /* Back link */
+    .gate__back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 32px;
+      color: #94a3b8;
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: color 0.2s, gap 0.2s;
+    }
+    .gate__back:hover { color: #3678AE; gap: 8px; }
+    .gate__back svg { width: 16px; height: 16px; }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .gate__card { padding: 28px 20px 24px; }
+    }
+  </style>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <!-- Animated background -->
+  <div class="gate-bg" id="gate-bg">
+    <div class="gate-bg__orb gate-bg__orb--1"></div>
+    <div class="gate-bg__orb gate-bg__orb--2"></div>
+  </div>
+
+  <!-- Password Gate -->
+  <div class="gate-wrapper" id="password-gate">
+    <span class="gate__badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Testing Build
+    </span>
+
+    <h1 class="gate__title">Welcome to the <span class="gate__title-accent">test build</span></h1>
+
+    <p class="gate__desc">
+      This is a pre-release version of Lockin for testing new features and improvements. Enter the access password to continue.
+    </p>
+
+    <div class="gate__card">
+      <div class="gate__card-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Password Required
+      </div>
+      <form class="gate__form" id="gate-form">
+        <div class="gate__input-wrapper">
+          <input type="password" class="gate__input" id="gate-password" placeholder="Enter access password" autocomplete="off" autofocus>
+          <svg class="gate__input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        </div>
+        <button type="submit" class="gate__btn">Access Build</button>
+        <p class="gate__error" id="gate-error"></p>
+      </form>
+      <div class="gate__notice">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span class="gate__notice-text">Please do not share this access password with anyone. This build is for authorised testers only.</span>
+      </div>
+    </div>
+
+    <a href="/" class="gate__back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Back to lockin.tech
+    </a>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      var HASH = '0f9676ca44d8426d990be5dc0e6b9b57dd69da59e3a1702d6192a87d59a33067';
+      var STORAGE_KEY = 'lockin_test_access';
+
+      function sha256(message) {
+        var encoder = new TextEncoder();
+        var data = encoder.encode(message);
+        return crypto.subtle.digest('SHA-256', data).then(function(buffer) {
+          var hashArray = Array.from(new Uint8Array(buffer));
+          return hashArray.map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+        });
+      }
+
+      function launchApp() {
+        // Remove the gate UI, background, and styles
+        var gate = document.getElementById('password-gate');
+        if (gate) gate.remove();
+        var gateBg = document.getElementById('gate-bg');
+        if (gateBg) gateBg.remove();
+        var gateStyles = document.getElementById('gate-styles');
+        if (gateStyles) gateStyles.remove();
+
+        // Reset body styles for Flutter
+        document.body.style.cssText = '';
+
+        // Load Google Identity Services
+        var gsiScript = document.createElement('script');
+        gsiScript.src = 'https://accounts.google.com/gsi/client';
+        gsiScript.async = true;
+        gsiScript.defer = true;
+        document.head.appendChild(gsiScript);
+
+        // Load Flutter bootstrap
+        var flutterScript = document.createElement('script');
+        flutterScript.src = 'flutter_bootstrap.js';
+        flutterScript.async = true;
+        document.body.appendChild(flutterScript);
+      }
+
+      // Check if already authenticated
+      if (localStorage.getItem(STORAGE_KEY) === HASH) {
+        launchApp();
+      } else {
+        // Handle form submission
+        document.getElementById('gate-form').addEventListener('submit', function(e) {
+          e.preventDefault();
+          var password = document.getElementById('gate-password').value;
+          var errorEl = document.getElementById('gate-error');
+
+          if (!password) {
+            errorEl.textContent = 'Please enter a password.';
+            return;
+          }
+
+          sha256(password).then(function(hashed) {
+            if (hashed === HASH) {
+              localStorage.setItem(STORAGE_KEY, HASH);
+              errorEl.textContent = '';
+              launchApp();
+            } else {
+              errorEl.textContent = 'Incorrect password. Please try again.';
+              document.getElementById('gate-password').value = '';
+              document.getElementById('gate-password').focus();
+            }
+          });
+        });
+      }
+    })();
+  </script>
 </body>
 </html>

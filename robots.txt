@@ -10,6 +10,7 @@ Sitemap: https://lockin.tech/sitemap.xml
 # Disallow admin/private areas
 Disallow: /admin/
 Disallow: /backend_documentation/
+Disallow: /online/
 
 # Allow search engines to crawl
 User-agent: Googlebot
