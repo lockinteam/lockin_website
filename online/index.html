@@ -275,6 +275,108 @@
     .gate__back:hover { color: #3678AE; gap: 8px; }
     .gate__back svg { width: 16px; height: 16px; }
 
+    /* Welcome screen */
+    .welcome { display: none; }
+    .welcome__icon {
+      width: 64px;
+      height: 64px;
+      background: rgba(83, 192, 184, 0.1);
+      border: 1px solid rgba(83, 192, 184, 0.18);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+    .welcome__icon svg {
+      width: 32px;
+      height: 32px;
+      color: #3fa89f;
+    }
+    .welcome__title {
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      font-size: clamp(1.75rem, 4.5vw, 2.5rem);
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 16px;
+      letter-spacing: -0.03em;
+      color: #0f172a;
+    }
+    .welcome__text {
+      font-size: clamp(0.9rem, 2vw, 1rem);
+      color: #64748b;
+      line-height: 1.7;
+      max-width: 440px;
+      margin-bottom: 12px;
+    }
+    .welcome__text a {
+      color: #3678AE;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .welcome__text a:hover { text-decoration: underline; }
+    .welcome__divider {
+      width: 48px;
+      height: 3px;
+      background: linear-gradient(135deg, #3678AE, #53C0B8);
+      border-radius: 3px;
+      margin: 28px 0;
+    }
+    .welcome__btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 15px 32px;
+      background: #3678AE;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.25s, background 0.2s;
+      box-shadow: 0 4px 16px rgba(54, 120, 174, 0.25);
+      margin-top: 8px;
+    }
+    .welcome__btn:hover {
+      background: #4a8fc4;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(54, 120, 174, 0.3);
+    }
+    .welcome__btn:active {
+      background: #2a5f8a;
+      transform: translateY(0);
+    }
+    .welcome__btn svg {
+      width: 18px;
+      height: 18px;
+    }
+    .welcome__notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 28px;
+      padding: 14px 16px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      text-align: left;
+      max-width: 440px;
+    }
+    .welcome__notice svg {
+      width: 18px;
+      height: 18px;
+      color: #3b82f6;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .welcome__notice-text {
+      font-size: 0.8rem;
+      color: #1e40af;
+      line-height: 1.5;
+    }
+
     /* Responsive */
     @media (max-width: 480px) {
       .gate__card { padding: 28px 20px 24px; }
@@ -326,6 +428,35 @@
     </a>
   </div>
 
+  <!-- Welcome Screen (shown after password, before app) -->
+  <div class="gate-wrapper welcome" id="welcome-screen">
+    <div class="welcome__icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    </div>
+
+    <h1 class="welcome__title">Welcome to the testing environment</h1>
+
+    <p class="welcome__text">
+      Thank you for helping us test Lockin! At the end of the testing phase, a Google Form will be sent out to gather your feedback and help us improve the app.
+    </p>
+
+    <div class="welcome__divider"></div>
+
+    <p class="welcome__text">
+      If you have any suggestions or feedback before the form is available, feel free to get in touch at <a href="mailto:support@lockin.tech">support@lockin.tech</a>.
+    </p>
+
+    <button class="welcome__btn" id="welcome-continue">
+      Open Lockin
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+
+    <div class="welcome__notice">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+      <span class="welcome__notice-text">This app is designed for mobile devices. You may notice visual inconsistencies when using it on a wider screen such as a laptop or desktop.</span>
+    </div>
+  </div>
+
   <script>
     (function() {
       'use strict';
@@ -342,10 +473,23 @@
         });
       }
 
+      function showWelcome() {
+        // Hide password gate, show welcome screen
+        var gate = document.getElementById('password-gate');
+        if (gate) gate.style.display = 'none';
+        var welcome = document.getElementById('welcome-screen');
+        if (welcome) {
+          welcome.style.display = 'flex';
+          welcome.style.animation = 'fadeUp 0.6s ease-out';
+        }
+      }
+
       function launchApp() {
-        // Remove the gate UI, background, and styles
+        // Remove all gate UI, background, and styles
         var gate = document.getElementById('password-gate');
         if (gate) gate.remove();
+        var welcome = document.getElementById('welcome-screen');
+        if (welcome) welcome.remove();
         var gateBg = document.getElementById('gate-bg');
         if (gateBg) gateBg.remove();
         var gateStyles = document.getElementById('gate-styles');
@@ -368,9 +512,14 @@
         document.body.appendChild(flutterScript);
       }
 
+      // Welcome continue button
+      document.getElementById('welcome-continue').addEventListener('click', function() {
+        launchApp();
+      });
+
       // Check if already authenticated
       if (localStorage.getItem(STORAGE_KEY) === HASH) {
-        launchApp();
+        showWelcome();
       } else {
         // Handle form submission
         document.getElementById('gate-form').addEventListener('submit', function(e) {
@@ -387,7 +536,7 @@
             if (hashed === HASH) {
               localStorage.setItem(STORAGE_KEY, HASH);
               errorEl.textContent = '';
-              launchApp();
+              showWelcome();
             } else {
               errorEl.textContent = 'Incorrect password. Please try again.';
               document.getElementById('gate-password').value = '';
