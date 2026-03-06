@@ -7,6 +7,13 @@
     'use strict';
 
     // =========================================================================
+    // DEMO MODE CONFIGURATION
+    // Set to false when apps are fully released
+    // =========================================================================
+    
+    const DEMO_MODE = true;
+
+    // =========================================================================
     // DOM ELEMENTS
     // =========================================================================
     
@@ -42,6 +49,39 @@
     requestAnimationFrame(() => {
         headerHeight = header.offsetHeight;
     });
+
+    // =========================================================================
+    // DEMO MODE SETUP
+    // =========================================================================
+    
+    function applyDemoMode() {
+        if (!DEMO_MODE) return;
+        
+        // Show the demo notice
+        const demoNotice = document.getElementById('demo-notice');
+        if (demoNotice) {
+            demoNotice.style.display = 'block';
+        }
+        
+        // Hide demo-hidden download options
+        const demoHiddenOptions = document.querySelectorAll('.download-option--demo-hidden');
+        demoHiddenOptions.forEach(option => {
+            option.style.display = 'none';
+        });
+    }
+    
+    // Apply demo mode on page load
+    applyDemoMode();
+
+    // Show demo warning for pricing if DEMO_MODE is true
+    if (DEMO_MODE) {
+        const demoFree = document.getElementById('pricing-demo-free');
+        if (demoFree) demoFree.style.display = 'block';
+        const demoPro = document.getElementById('pricing-demo-pro');
+        if (demoPro) demoPro.style.display = 'block';
+        const demoSuper = document.getElementById('pricing-demo-super');
+        if (demoSuper) demoSuper.style.display = 'block';
+    }
 
     // =========================================================================
     // MOBILE MENU
