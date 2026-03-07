@@ -2192,17 +2192,19 @@ curl -X POST ${backend_url}/admin/courses/create \
 
 **Auth**: Admin or Owner
 
-**Description**: Update course details (title, description, link_to_specification, or is_active status). At least one field must be provided.
+**Description**: Update course details (title, description, link_to_specification, is_active, year_id, or subject_id). At least one field must be provided. Changing `year_id` or `subject_id` moves the course to a different year or subject; a duplicate title check is run against the effective target year and subject.
 
 **Request Body**:
 ```json
 {
   "token": "session_token",
   "course_id": "uuid",
-  "title": "New Title",  // Optional
+  "title": "New Title",              // Optional
   "description": "New description",  // Optional
   "link_to_specification": "https://...",  // Optional (set to null to unset)
-  "is_active": true  // Optional
+  "is_active": true,                 // Optional
+  "year_id": "uuid",                 // Optional — move course to a different year
+  "subject_id": "uuid"               // Optional — move course to a different subject
 }
 ```
 
@@ -2230,17 +2232,22 @@ curl -X POST ${backend_url}/admin/courses/create \
 **Error Cases**:
 - Missing token or course_id (400)
 - No fields to update provided (400)
-- Invalid course_id format (400)
+- Invalid course_id, year_id, or subject_id format (400)
 - Invalid is_active (must be boolean) (400)
 - Invalid/expired token (401)
 - Not admin or owner (403)
 - Course not found (404)
-- Course title already exists for this year/subject (409)
+- Provided year_id does not exist (404)
+- Provided subject_id does not exist (404)
+- Course title already exists for the target year/subject (409)
 - Server error (500)
 
-**Database Optimization**: Combined validation + UPDATE...RETURNING (2 DB trips)
-- Trip 1: Check course exists and if updating title, check for duplicates
-- Trip 2: UPDATE...RETURNING
+**Database Optimization**: Fetch current row + optional existence checks + UPDATE...RETURNING (2–4 DB trips depending on fields changed)
+- Trip 1: Fetch current course row (when title/year_id/subject_id involved)
+- Trip 2 (conditional): Check new year_id exists in years table
+- Trip 3 (conditional): Check new subject_id exists in subjects table
+- Trip 4 (conditional): Check title duplicate in effective year+subject context
+- Final trip: UPDATE...RETURNING
 
 **Usage Examples**:
 
@@ -2264,6 +2271,28 @@ const updateDesc = await fetch(`${backend_url}/admin/courses/update`, {
     token: adminToken,
     course_id: 'course-uuid',
     description: 'Updated description'
+  })
+});
+
+// Move course to a different year
+const moveYear = await fetch(`${backend_url}/admin/courses/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: 'course-uuid',
+    year_id: 'new-year-uuid'
+  })
+});
+
+// Move course to a different subject
+const moveSubject = await fetch(`${backend_url}/admin/courses/update`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: adminToken,
+    course_id: 'course-uuid',
+    subject_id: 'new-subject-uuid'
   })
 });
 
@@ -2300,6 +2329,16 @@ curl -X PUT ${backend_url}/admin/courses/update \
 curl -X PUT ${backend_url}/admin/courses/update \
   -H "Content-Type: application/json" \
   -d '{"token": "your_admin_token", "course_id": "uuid", "link_to_specification": null}'
+
+# cURL - move to a different year
+curl -X PUT ${backend_url}/admin/courses/update \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "course_id": "uuid", "year_id": "new-year-uuid"}'
+
+# cURL - move to a different subject
+curl -X PUT ${backend_url}/admin/courses/update \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_admin_token", "course_id": "uuid", "subject_id": "new-subject-uuid"}'
 ```
 
 ---

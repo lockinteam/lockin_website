@@ -225,10 +225,18 @@ const CoursesSection = {
     openEditModal(courseId) {
         const course = AppState.findCourseById(courseId);
         if (!course) return;
+
+        const years = AppState.years;
+        const subjects = AppState.subjects;
+
+        const yearOptions = years.map(y => ({ value: y.id, label: y.name }));
+        const subjectOptions = subjects.map(s => ({ value: s.id, label: s.name }));
         
         const formHTML = `
             <form id="editCourseForm" class="modal-form" onsubmit="CoursesSection.handleUpdate(event, '${courseId}')">
                 ${UI.createFormRow('Course Title', UI.createTextInput('courseTitle', course.title, '', true))}
+                ${UI.createFormRow('Year', UI.createSelect('courseYear', yearOptions, course.year_id || ''))}
+                ${UI.createFormRow('Subject', UI.createSelect('courseSubject', subjectOptions, course.subject_id || ''))}
                 ${UI.createFormRow('Description', UI.createTextarea('courseDescription', course.description || '', 'Optional course description'))}
                 ${UI.createFormRow('Specification', UI.createFileOrUrlInput('courseSpec', course.link_to_specification || '', 'application/pdf', 'https://example.com/specification.pdf'), 'Upload PDF or enter URL')}
                 ${UI.createFormRow(
@@ -273,6 +281,8 @@ const CoursesSection = {
         event.preventDefault();
         
         const title = document.getElementById('courseTitle').value.trim();
+        const yearId = document.getElementById('courseYear').value;
+        const subjectId = document.getElementById('courseSubject').value;
         const description = document.getElementById('courseDescription').value.trim() || null;
         const isActive = document.getElementById('courseStatus').value === 'true';
         
@@ -285,6 +295,8 @@ const CoursesSection = {
             const specLink = await UI.getFileOrUrlValue('courseSpec') || null;
             await API.updateCourse(courseId, { 
                 title, 
+                year_id: yearId || null,
+                subject_id: subjectId || null,
                 description, 
                 link_to_specification: specLink, 
                 is_active: isActive 
