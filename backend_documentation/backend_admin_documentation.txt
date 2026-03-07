@@ -4083,6 +4083,9 @@ Topics are subject areas within a tier that can be linked to **multiple papers**
         "has_podcast": true,
         "has_podcast_script": true,
         "has_podcast_file": true,
+        "podcast_script_char_count": 3842,
+        "podcast_length_seconds": 245.5,
+        "notes_char_count": 12400,
         "papers": [
           {"id": "uuid", "name": "Paper 1", "code": "P1"},
           {"id": "uuid", "name": "Paper 3", "code": "P3"}
@@ -4098,6 +4101,9 @@ Topics are subject areas within a tier that can be linked to **multiple papers**
 - `has_podcast`: True if topic has any active podcast
 - `has_podcast_script`: True if topic has an active podcast with an AI-generated script (script field is not null)
 - `has_podcast_file`: True if topic has an active podcast with an audio file uploaded (url field is not empty)
+- `podcast_script_char_count`: Character count of the script from the active podcast row (`null` if no script exists)
+- `podcast_length_seconds`: Duration in seconds from the active podcast row (`null` if no podcast or length not set)
+- `notes_char_count`: Character count of the content from the active notes row (`null` if no notes exist)
 
 **JavaScript Example**:
 ```javascript
