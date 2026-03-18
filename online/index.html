@@ -38,6 +38,6 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <script>window.__logs=[]; const _c=console.log, _e=console.error, _w=console.warn; console.log=function(...a){window.__logs.push("LOG: "+a.join(" ")); _c.apply(console,a);}; console.error=function(...a){window.__logs.push("ERR: "+a.join(" ")); _e.apply(console,a);}; console.warn=function(...a){window.__logs.push("WARN: "+a.join(" ")); _w.apply(console,a);}; window.onerror = function(msg, url, lineNo, columnNo, error) { console.error("GLOBAL ERROR: " + msg); }; window.onunhandledrejection = function(e) { console.error("PROMISE REJECTION: " + e.reason); };</script><script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
