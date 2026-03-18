@@ -7,13 +7,6 @@
     'use strict';
 
     // =========================================================================
-    // DEMO MODE CONFIGURATION
-    // Set to false when apps are fully released
-    // =========================================================================
-    
-    const DEMO_MODE = true;
-
-    // =========================================================================
     // DOM ELEMENTS
     // =========================================================================
     
@@ -21,10 +14,6 @@
     const navToggle = document.querySelector('.nav__toggle');
     const mobileMenu = document.getElementById('mobile-menu');
     const mobileMenuLinks = document.querySelectorAll('.mobile-menu__link');
-    const modalBackdrop = document.getElementById('modal-backdrop');
-    const downloadModal = document.getElementById('download-modal');
-    const modalClose = document.querySelector('.modal__close');
-    const downloadButtons = document.querySelectorAll('[data-modal="download"]');
 
     // =========================================================================
     // HEADER SCROLL EFFECT
@@ -49,39 +38,6 @@
     requestAnimationFrame(() => {
         headerHeight = header.offsetHeight;
     });
-
-    // =========================================================================
-    // DEMO MODE SETUP
-    // =========================================================================
-    
-    function applyDemoMode() {
-        if (!DEMO_MODE) return;
-        
-        // Show the demo notice
-        const demoNotice = document.getElementById('demo-notice');
-        if (demoNotice) {
-            demoNotice.style.display = 'block';
-        }
-        
-        // Hide demo-hidden download options
-        const demoHiddenOptions = document.querySelectorAll('.download-option--demo-hidden');
-        demoHiddenOptions.forEach(option => {
-            option.style.display = 'none';
-        });
-    }
-    
-    // Apply demo mode on page load
-    applyDemoMode();
-
-    // Show demo warning for pricing if DEMO_MODE is true
-    if (DEMO_MODE) {
-        const demoFree = document.getElementById('pricing-demo-free');
-        if (demoFree) demoFree.style.display = 'block';
-        const demoPro = document.getElementById('pricing-demo-pro');
-        if (demoPro) demoPro.style.display = 'block';
-        const demoSuper = document.getElementById('pricing-demo-super');
-        if (demoSuper) demoSuper.style.display = 'block';
-    }
 
     // =========================================================================
     // MOBILE MENU
@@ -129,85 +85,6 @@
     });
 
     // =========================================================================
-    // DOWNLOAD MODAL
-    // =========================================================================
-    
-    function openModal() {
-        modalBackdrop.classList.add('modal-backdrop--open');
-        downloadModal.classList.add('modal--open');
-        modalBackdrop.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('modal-open');
-        
-        // Focus the modal for accessibility
-        downloadModal.focus();
-        
-        // Trap focus within modal
-        trapFocus(downloadModal);
-    }
-
-    function closeModal() {
-        modalBackdrop.classList.remove('modal-backdrop--open');
-        downloadModal.classList.remove('modal--open');
-        modalBackdrop.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('modal-open');
-    }
-
-    // Open modal on button click
-    downloadButtons.forEach(button => {
-        button.addEventListener('click', (e) => {
-            e.preventDefault();
-            openModal();
-        });
-    });
-
-    // Close modal on backdrop click
-    if (modalBackdrop) {
-        modalBackdrop.addEventListener('click', closeModal);
-    }
-
-    // Close modal on close button click
-    if (modalClose) {
-        modalClose.addEventListener('click', closeModal);
-    }
-
-    // Close modal on Escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && downloadModal.classList.contains('modal--open')) {
-            closeModal();
-        }
-    });
-
-    // =========================================================================
-    // FOCUS TRAP (Accessibility)
-    // =========================================================================
-    
-    function trapFocus(element) {
-        const focusableElements = element.querySelectorAll(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        const firstFocusable = focusableElements[0];
-        const lastFocusable = focusableElements[focusableElements.length - 1];
-
-        function handleTabKey(e) {
-            if (e.key !== 'Tab') return;
-
-            if (e.shiftKey) {
-                if (document.activeElement === firstFocusable) {
-                    lastFocusable.focus();
-                    e.preventDefault();
-                }
-            } else {
-                if (document.activeElement === lastFocusable) {
-                    firstFocusable.focus();
-                    e.preventDefault();
-                }
-            }
-        }
-
-        element.addEventListener('keydown', handleTabKey);
-    }
-
-    // =========================================================================
     // SMOOTH SCROLL FOR ANCHOR LINKS
     // =========================================================================
     
@@ -242,7 +119,7 @@
     // =========================================================================
     
     const animateOnScroll = () => {
-        const elements = document.querySelectorAll('.feature-card, .step, .pricing-card, .hierarchy__level');
+        const elements = document.querySelectorAll('.feature-card, .step, .pricing-card, .hierarchy__level, .launch-card, .prize-slot');
         
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -308,57 +185,69 @@
     }
 
     // =========================================================================
-    // DETECT USER PLATFORM FOR DOWNLOAD MODAL
+    // WEB LAUNCH EVENT COUNTDOWN
     // =========================================================================
-    
-    function detectPlatform() {
-        const userAgent = navigator.userAgent.toLowerCase();
-        const platform = navigator.platform.toLowerCase();
 
-        if (/iphone|ipad|ipod/.test(userAgent)) {
-            return 'ios';
-        } else if (/android/.test(userAgent)) {
-            return 'android';
-        } else if (/win/.test(platform)) {
-            return 'windows';
-        } else if (/mac/.test(platform)) {
-            return 'macos';
-        } else if (/linux/.test(platform)) {
-            return 'linux';
+    function initializeLaunchCountdown() {
+        const countdownRoot = document.getElementById('launch-countdown');
+        const deadlineNote = document.getElementById('launch-deadline-note');
+        if (!countdownRoot) return;
+
+        const daysEl = document.getElementById('countdown-days');
+        const hoursEl = document.getElementById('countdown-hours');
+        const minutesEl = document.getElementById('countdown-minutes');
+        const secondsEl = document.getElementById('countdown-seconds');
+
+        if (!daysEl || !hoursEl || !minutesEl || !secondsEl) return;
+
+        const endDateRaw = countdownRoot.getAttribute('data-end-date');
+        const endDate = new Date(endDateRaw || '2026-04-21T23:59:59+02:00');
+        if (Number.isNaN(endDate.getTime())) return;
+
+        function padNumber(value) {
+            return String(value).padStart(2, '0');
         }
-        return null;
-    }
 
-    function highlightRecommendedDownload() {
-        const platform = detectPlatform();
-        if (!platform) return;
+        function renderTime() {
+            const now = new Date();
+            const distance = endDate.getTime() - now.getTime();
 
-        const downloadOption = document.getElementById(`download-${platform}`);
-        if (downloadOption) {
-            // Move recommended option to top
-            const parent = downloadOption.parentNode;
-            parent.insertBefore(downloadOption, parent.firstChild);
-            
-            // Add recommended badge
-            const badge = document.createElement('span');
-            badge.className = 'badge badge--accent';
-            badge.style.marginLeft = 'auto';
-            badge.style.marginRight = 'var(--space-2)';
-            badge.textContent = 'Recommended';
-            downloadOption.querySelector('.download-option__info').appendChild(badge);
-        }
-    }
-
-    // Highlight recommended download when modal opens
-    downloadButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            // Only highlight once
-            if (!downloadModal.dataset.highlighted) {
-                highlightRecommendedDownload();
-                downloadModal.dataset.highlighted = 'true';
+            if (distance <= 0) {
+                daysEl.textContent = '00';
+                hoursEl.textContent = '00';
+                minutesEl.textContent = '00';
+                secondsEl.textContent = '00';
+                if (deadlineNote) {
+                    deadlineNote.textContent = 'This event has ended. Highest-tier web access is no longer available.';
+                }
+                return false;
             }
-        }, { once: true });
-    });
+
+            const secondsTotal = Math.floor(distance / 1000);
+            const days = Math.floor(secondsTotal / 86400);
+            const hours = Math.floor((secondsTotal % 86400) / 3600);
+            const minutes = Math.floor((secondsTotal % 3600) / 60);
+            const seconds = secondsTotal % 60;
+
+            daysEl.textContent = padNumber(days);
+            hoursEl.textContent = padNumber(hours);
+            minutesEl.textContent = padNumber(minutes);
+            secondsEl.textContent = padNumber(seconds);
+            return true;
+        }
+
+        const shouldContinue = renderTime();
+        if (!shouldContinue) return;
+
+        const timer = setInterval(() => {
+            const keepRunning = renderTime();
+            if (!keepRunning) {
+                clearInterval(timer);
+            }
+        }, 1000);
+    }
+
+    initializeLaunchCountdown();
 
     // =========================================================================
     // PREFERS REDUCED MOTION
