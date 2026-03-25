@@ -27,6 +27,8 @@ const PastPapersSection = {
         pearsonSelectedSubject: null, // Object with specification_code
         pearsonExamSeries: [], // List of exam series for selected subject
         pearsonSelectedSeries: null, // Optional filter
+        // JSON Import state
+        jsonInput: null, // Raw pasted JSON string (preserved for back navigation)
     },
 
     // Utility function to parse size strings like "1.2 MB", "810.4 KB" to bytes
@@ -274,6 +276,7 @@ const PastPapersSection = {
             pearsonSelectedSubject: null,
             pearsonExamSeries: [],
             pearsonSelectedSeries: null,
+            jsonInput: null,
         };
     },
     
@@ -1212,7 +1215,7 @@ const PastPapersSection = {
                     Select which exam board you want to scrape past papers from:
                 </p>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <!-- AQA Card -->
                     <div class="scraper-board-card" onclick="PastPapersSection.selectScraperType('aqa')" style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.2s; text-align: center;">
                         <div style="font-size: 2rem; font-weight: 700; color: #3678AE; margin-bottom: 0.5rem;">AQA</div>
@@ -1232,6 +1235,13 @@ const PastPapersSection = {
                         <div style="font-size: 2rem; font-weight: 700; color: #3678AE; margin-bottom: 0.5rem;">Pearson</div>
                         <div style="font-size: 0.85rem; color: #64748B;">Edexcel / BTEC / International</div>
                         <div style="margin-top: 1rem; font-size: 0.8rem; color: #94a3b8;">Select qualification & subject</div>
+                    </div>
+
+                    <!-- JSON Import Card -->
+                    <div class="scraper-board-card" onclick="PastPapersSection.selectScraperType('json')" style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.2s; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: 700; color: #3678AE; margin-bottom: 0.5rem;">{ }</div>
+                        <div style="font-size: 0.85rem; color: #64748B;">JSON Import</div>
+                        <div style="margin-top: 1rem; font-size: 0.8rem; color: #94a3b8;">Paste a JSON array of past papers</div>
                     </div>
                 </div>
                 
@@ -1266,6 +1276,8 @@ const PastPapersSection = {
             this.renderOcrStep1();
         } else if (type === 'pearson') {
             this.renderPearsonStep1();
+        } else if (type === 'json') {
+            this.renderJsonStep1();
         }
     },
     
@@ -2026,6 +2038,8 @@ const PastPapersSection = {
             this.renderOcrStep1();
         } else if (this.scrapeState.scraperType === 'pearson') {
             this.renderPearsonStep1();
+        } else if (this.scrapeState.scraperType === 'json') {
+            this.renderJsonStep1();
         }
     },
     
@@ -2035,8 +2049,8 @@ const PastPapersSection = {
     // Pearson returns: { tier: { paper: [items] } } (same as AQA)
     // This normalizes both to: { tier: { paper: [items] } }
     normalizeGroupedPapers(groupedPapers, scraperType) {
-        if (scraperType === 'aqa' || scraperType === 'pearson') {
-            // AQA and Pearson are already in the correct format
+        if (scraperType === 'aqa' || scraperType === 'pearson' || scraperType === 'json') {
+            // AQA, Pearson, and JSON import are already in the correct { tier: { paper: [items] } } format
             return groupedPapers;
         } else if (scraperType === 'ocr') {
             // OCR format: { paper: [items with optional tier field] }
@@ -2063,7 +2077,231 @@ const PastPapersSection = {
         
         return groupedPapers;
     },
-    
+
+    // ========== JSON Import Scraper Functions ==========
+
+    renderJsonStep1() {
+        const templateObj = [
+            {
+                "tier": "Higher",
+                "paper": "Paper 1",
+                "year": 2024,
+                "session": "June",
+                "question_paper_url": "https://example.com/paper1-higher-qp-2024.pdf",
+                "mark_scheme_url": "https://example.com/paper1-higher-ms-2024.pdf",
+                "file_size": 1048576,
+                "mark_scheme_file_size": 524288
+            },
+            {
+                "tier": "Foundation",
+                "paper": "Paper 2",
+                "year": 2023,
+                "session": "June",
+                "question_paper_url": "https://example.com/paper2-foundation-qp-2023.pdf",
+                "mark_scheme_url": null
+            },
+            {
+                "tier": null,
+                "paper": "Paper 1",
+                "year": 2022,
+                "session": "November",
+                "question_paper_url": "https://example.com/paper1-qp-2022.pdf",
+                "mark_scheme_url": "https://example.com/paper1-ms-2022.pdf"
+            }
+        ];
+        const templateStr = JSON.stringify(templateObj, null, 2);
+
+        const formHTML = `
+            <div id="scrapeWizardContent">
+                <div class="scrape-steps-indicator" style="display: flex; margin-bottom: 1.5rem; gap: 0.5rem;">
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #dcfce7; color: #16a34a; border-radius: 4px;">&#x2713; JSON</div>
+                    <div class="step-indicator active" style="flex: 1; text-align: center; padding: 0.5rem; background: #3678AE; color: white; border-radius: 4px;">Paste JSON</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">Map Papers</div>
+                    <div class="step-indicator" style="flex: 1; text-align: center; padding: 0.5rem; background: #e2e8f0; color: #64748B; border-radius: 4px;">Import</div>
+                </div>
+
+                <!-- Documentation Toggle -->
+                <div style="margin-bottom: 1rem;">
+                    <button type="button" class="ghost-btn" onclick="PastPapersSection.toggleJsonDocs()" id="jsonDocsToggleBtn" style="width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; border-radius: 8px;">
+                        <span>&#x1F4CB; JSON Format Documentation &amp; Template</span>
+                        <span id="jsonDocsArrow">&#x25BC;</span>
+                    </button>
+                    <div id="jsonDocsPanel" style="display: none; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; padding: 1rem; background: #f8fafc;">
+                        <p style="color: #374151; margin: 0 0 0.75rem 0; font-size: 0.875rem;">
+                            The JSON must be an <strong>array of objects</strong>, where each object represents one past paper entry.
+                            After pasting, the next step lets you map each <em>tier / paper</em> combination to the corresponding entry in the database &mdash; exactly like the other scrapers.
+                        </p>
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.8rem;">
+                            <thead>
+                                <tr style="background: #e2e8f0;">
+                                    <th style="padding: 0.4rem 0.6rem; text-align: left; border: 1px solid #cbd5e1;">Field</th>
+                                    <th style="padding: 0.4rem 0.6rem; text-align: left; border: 1px solid #cbd5e1;">Type</th>
+                                    <th style="padding: 0.4rem 0.6rem; text-align: left; border: 1px solid #cbd5e1;">Required</th>
+                                    <th style="padding: 0.4rem 0.6rem; text-align: left; border: 1px solid #cbd5e1;">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;"><code>tier</code></td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">string&nbsp;|&nbsp;null</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">No</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">Tier label used for mapping (e.g. <code>"Higher"</code>, <code>"Foundation"</code>). Use <code>null</code> or omit if no tier.</td></tr>
+                                <tr><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;"><code>paper</code></td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">string</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;"><strong>Yes</strong></td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">Paper label used for mapping (e.g. <code>"Paper 1"</code>, <code>"Paper 2"</code>).</td></tr>
+                                <tr><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;"><code>year</code></td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">integer</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;"><strong>Yes</strong></td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">Exam year (e.g. <code>2024</code>).</td></tr>
+                                <tr><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;"><code>session</code></td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">string&nbsp;|&nbsp;null</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">No</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">Exam session label (e.g. <code>"June"</code>, <code>"November"</code>). Optional.</td></tr>
+                                <tr><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;"><code>question_paper_url</code></td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">string</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;"><strong>Yes</strong></td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">Direct URL to the question paper PDF.</td></tr>
+                                <tr><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;"><code>mark_scheme_url</code></td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">string&nbsp;|&nbsp;null</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">No</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">Direct URL to the mark scheme PDF. Use <code>null</code> or omit if unavailable.</td></tr>
+                                <tr><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;"><code>file_size</code></td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">integer&nbsp;|&nbsp;null</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">No</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">Question paper file size in bytes. Optional.</td></tr>
+                                <tr><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;"><code>mark_scheme_file_size</code></td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">integer&nbsp;|&nbsp;null</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">No</td><td style="padding:0.4rem 0.6rem;border:1px solid #e2e8f0;">Mark scheme file size in bytes. Optional.</td></tr>
+                            </tbody>
+                        </table>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <strong style="font-size: 0.875rem;">Example template:</strong>
+                            <button type="button" class="ghost-btn btn-sm" onclick="PastPapersSection.copyJsonTemplate()">Copy Template</button>
+                        </div>
+                        <pre id="jsonTemplateCode" style="background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 8px; font-size: 0.72rem; overflow-x: auto; max-height: 200px; overflow-y: auto; margin: 0; white-space: pre;">${UI.escapeHtml(templateStr)}</pre>
+                    </div>
+                </div>
+
+                <!-- JSON Input -->
+                <div class="form-row" style="margin-bottom: 1rem;">
+                    <label class="form-label">Paste JSON</label>
+                    <textarea class="form-input" id="jsonImportInput" rows="10"
+                        placeholder="Paste your JSON array here..."
+                        style="font-family: monospace; font-size: 0.8rem; resize: vertical;">${this.scrapeState.jsonInput ? UI.escapeHtml(this.scrapeState.jsonInput) : ''}</textarea>
+                    <span class="form-hint">Paste a JSON array of past paper objects. Click the documentation above for the required format and a template.</span>
+                </div>
+
+                <div id="scrapeError" style="display: none; padding: 1rem; background: #fef2f2; border-radius: 8px; color: #dc2626; margin-bottom: 1rem;"></div>
+
+                <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" class="ghost-btn" onclick="PastPapersSection.renderScrapeStep0()">&#x2190; Back</button>
+                    <button type="button" class="primary-btn" id="scrapeBtn" onclick="PastPapersSection.handleJsonImport()">
+                        Parse &amp; Continue
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.querySelector('.modal-body').innerHTML = formHTML;
+    },
+
+    toggleJsonDocs() {
+        const panel = document.getElementById('jsonDocsPanel');
+        const arrow = document.getElementById('jsonDocsArrow');
+        if (!panel) return;
+        if (panel.style.display === 'none') {
+            panel.style.display = 'block';
+            arrow.innerHTML = '&#x25B2;';
+        } else {
+            panel.style.display = 'none';
+            arrow.innerHTML = '&#x25BC;';
+        }
+    },
+
+    copyJsonTemplate() {
+        const code = document.getElementById('jsonTemplateCode');
+        if (!code) return;
+        const text = code.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            UI.showToast('Template copied to clipboard', 'success');
+        }).catch(() => {
+            UI.showToast('Could not copy automatically — please select and copy manually', 'warning');
+        });
+    },
+
+    handleJsonImport() {
+        const errorDiv = document.getElementById('scrapeError');
+        const rawInput = (document.getElementById('jsonImportInput')?.value || '').trim();
+
+        const showError = (msg) => {
+            errorDiv.textContent = msg;
+            errorDiv.style.display = 'block';
+        };
+        errorDiv.style.display = 'none';
+
+        if (!rawInput) {
+            showError('Please paste a JSON array before continuing.');
+            return;
+        }
+
+        let parsed;
+        try {
+            parsed = JSON.parse(rawInput);
+        } catch (e) {
+            showError('Invalid JSON: ' + e.message);
+            return;
+        }
+
+        if (!Array.isArray(parsed)) {
+            showError('JSON must be an array of objects. Received: ' + typeof parsed);
+            return;
+        }
+
+        if (parsed.length === 0) {
+            showError('JSON array is empty — please provide at least one entry.');
+            return;
+        }
+
+        // Validate each entry
+        const errors = [];
+        for (let i = 0; i < parsed.length; i++) {
+            const entry = parsed[i];
+            if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+                errors.push(`Entry ${i + 1}: must be an object`);
+                continue;
+            }
+            if (!entry.paper || typeof entry.paper !== 'string') {
+                errors.push(`Entry ${i + 1}: "paper" is required and must be a string`);
+            }
+            if (entry.year === undefined || entry.year === null || !Number.isInteger(entry.year)) {
+                errors.push(`Entry ${i + 1}: "year" is required and must be an integer`);
+            }
+            if (!entry.question_paper_url || typeof entry.question_paper_url !== 'string') {
+                errors.push(`Entry ${i + 1}: "question_paper_url" is required and must be a string`);
+            }
+        }
+
+        if (errors.length > 0) {
+            const displayed = errors.slice(0, 3).join('; ');
+            showError(displayed + (errors.length > 3 ? ` ... and ${errors.length - 3} more error(s)` : ''));
+            return;
+        }
+
+        // Convert flat array → grouped_papers: { tier: { paper: [items] } }
+        const groupedPapers = {};
+        for (const entry of parsed) {
+            const tierKey = (entry.tier && typeof entry.tier === 'string') ? entry.tier : 'No Tier';
+            const paperKey = entry.paper;
+
+            if (!groupedPapers[tierKey]) groupedPapers[tierKey] = {};
+            if (!groupedPapers[tierKey][paperKey]) groupedPapers[tierKey][paperKey] = [];
+
+            groupedPapers[tierKey][paperKey].push({
+                year: entry.year,
+                session: (entry.session && typeof entry.session === 'string') ? entry.session : '',
+                question_paper_url: entry.question_paper_url,
+                mark_scheme_url: entry.mark_scheme_url || null,
+                file_size: (typeof entry.file_size === 'number') ? entry.file_size : null,
+                mark_scheme_file_size: (typeof entry.mark_scheme_file_size === 'number') ? entry.mark_scheme_file_size : null
+            });
+        }
+
+        // Count total
+        let total = 0;
+        for (const papers of Object.values(groupedPapers)) {
+            for (const items of Object.values(papers)) total += items.length;
+        }
+
+        // Preserve input for back-navigation
+        this.scrapeState.jsonInput = rawInput;
+        this.scrapeState.scrapeData = {
+            grouped_papers: groupedPapers,
+            stats: { total_scraped: total }
+        };
+
+        this.scrapeState.step = 2;
+        this.renderScrapeStep2();
+    },
+
+    // ========== End JSON Import ==========
+
     renderScrapeStep2() {
         const data = this.scrapeState.scrapeData;
         const stats = data.stats || {};
