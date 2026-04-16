@@ -163,7 +163,7 @@
                 </ul>
                 
                 <div class="nav__actions">
-                    <a href="/online" class="btn btn--outline btn--sm nav__cta">Launch App</a>
+                    <a href="/online" class="btn btn--outline btn--sm nav__cta main-launch-btn">Launch App</a>
                     
                     <!-- Mobile menu toggle -->
                     <button class="nav__toggle" aria-expanded="false" aria-controls="mobile-menu" aria-label="Toggle menu">
@@ -186,7 +186,8 @@
             <a href="#pricing" class="mobile-menu__link">Pricing</a>
         </nav>
         <div class="mobile-menu__actions">
-            <a href="/online" class="btn btn--primary btn--block">Launch Web App</a>
+            <a href="/online" class="btn btn--primary btn--block main-launch-btn">Launch Web App</a>
+            <button class="btn btn--outline btn--block" data-modal="download" style="margin-top: 0.5rem;">Other platforms</button>
         </div>
     </div>
 
@@ -214,9 +215,12 @@
                     </p>
                     
                     <div class="hero__actions">
-                        <a href="/online" class="btn btn--primary btn--lg">
+                        <a href="/online" class="btn btn--primary btn--lg main-launch-btn">
                             Launch Web App
                         </a>
+                        <button class="btn btn--outline btn--lg" data-modal="download">
+                            Other platforms
+                        </button>
                     </div>
 
                     <p class="hero__offer-note">
@@ -343,7 +347,10 @@
                 </div>
 
                 <div class="web-launch__actions">
-                    <a href="/online" class="btn btn--primary btn--lg">Launch Web App</a>
+                    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                        <a href="/online" class="btn btn--primary btn--lg main-launch-btn">Launch Web App</a>
+                        <button class="btn btn--outline btn--lg" data-modal="download">Other platforms</button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -658,7 +665,7 @@
                             </ul>
                         </div>
                         <div class="pricing-card__footer">
-                            <a href="/online" class="btn btn--outline btn--block pricing-card__cta">Launch on Web</a>
+                            <a href="/online" class="btn btn--outline btn--block pricing-card__cta main-launch-btn">Launch on Web</a>
                         </div>
                     </div>
 
@@ -684,7 +691,7 @@
                             </ul>
                         </div>
                         <div class="pricing-card__footer">
-                            <a href="/online" class="btn btn--primary btn--block pricing-card__cta">Launch on Web</a>
+                            <a href="/online" class="btn btn--primary btn--block pricing-card__cta main-launch-btn">Launch on Web</a>
                         </div>
                     </div>
 
@@ -710,7 +717,7 @@
                             </ul>
                         </div>
                         <div class="pricing-card__footer">
-                            <a href="/online" class="btn btn--primary btn--block pricing-card__cta">Launch on Web</a>
+                            <a href="/online" class="btn btn--primary btn--block pricing-card__cta main-launch-btn">Launch on Web</a>
                         </div>
                     </div>
                 </div>
@@ -738,9 +745,12 @@
                 </p>
                 
                 <div class="cta__actions">
-                    <a href="/online" class="btn btn--white btn--lg">
+                    <a href="/online" class="btn btn--white btn--lg main-launch-btn" style="color: var(--color-deep);">
                         Launch Web App
                     </a>
+                    <button class="btn btn--outline btn--white btn--lg" data-modal="download" style="color: white; border-color: rgba(255,255,255,0.5);">
+                        Other platforms
+                    </button>
                 </div>
                 <p class="cta__event-note">Top 3 on the leaderboard at event close receive rewards. Rewards are currently being finalized.</p>
             </div>
@@ -803,6 +813,74 @@
         </div>
     </footer>
 
+    <!-- ================================================================
+         DOWNLOAD MODAL
+         ================================================================ -->
+    <div class="modal-backdrop" id="modal-backdrop" aria-hidden="true"></div>
+    
+    <div class="modal" id="download-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <button class="modal__close" aria-label="Close modal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+        
+        <div class="modal__header">
+            <div class="modal__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            </div>
+            <h2 class="modal__title" id="modal-title">Download Lockin</h2>
+            <p class="modal__description">Choose your platform to get started</p>
+        </div>
+        
+        <div class="modal__body">
+            <div class="download-options">
+                <a href="https://apps.apple.com/us/app/lockin-revise-gcse-a-level/id6761141519" class="download-option" id="download-ios">
+                    <div class="download-option__icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+                    </div>
+                    <div class="download-option__info">
+                        <div class="download-option__name">iOS</div>
+                        <div class="download-option__detail">iPhone & iPad</div>
+                    </div>
+                    <div class="download-option__arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                </a>
+                
+                <a href="https://play.google.com/store/apps/details?id=tech.lockin.app&pcampaignid=web_share" class="download-option" id="download-android">
+                    <div class="download-option__icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 2.047a.5.5 0 0 0-.27.083L3.82 10.457a.5.5 0 0 0 0 .833l13.433 8.327a.5.5 0 0 0 .77-.42V2.547a.5.5 0 0 0-.5-.5zM6.5 10.873l8.5-5.27v10.54z"/></svg>
+                    </div>
+                    <div class="download-option__info">
+                        <div class="download-option__name">Android</div>
+                        <div class="download-option__detail">Get it on Google Play</div>
+                    </div>
+                    <div class="download-option__arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                </a>
+                
+                <a href="/online" class="download-option" id="download-web">
+                    <div class="download-option__icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    </div>
+                    <div class="download-option__info">
+                        <div class="download-option__name">Web App</div>
+                        <div class="download-option__detail">Launch in browser</div>
+                    </div>
+                    <div class="download-option__arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
     <!-- JavaScript (deferred for performance) -->
     <script src="js/main.js" defer></script>
 </body>

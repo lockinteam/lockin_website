@@ -267,3 +267,76 @@
     }
 
 })();
+
+    // =========================================================================
+    // DYNAMIC APP LINKS (OS DETECTION) & DOWNLOAD MODAL
+    // =========================================================================
+
+    const downloadModal = document.getElementById('download-modal');
+    const modalBackdrop = document.getElementById('modal-backdrop');
+    const modalCloseBtn = document.querySelector('.modal__close');
+    const downloadButtons = document.querySelectorAll('[data-modal="download"]');
+
+    function openModal() {
+        if (!downloadModal || !modalBackdrop) return;
+        modalBackdrop.classList.add('modal-backdrop--open');
+        downloadModal.classList.add('modal--open');
+        modalBackdrop.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        
+        const focusableElements = downloadModal.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusableElements.length) focusableElements[0].focus();
+    }
+
+    function closeModal() {
+        if (!downloadModal || !modalBackdrop) return;
+        modalBackdrop.classList.remove('modal-backdrop--open');
+        downloadModal.classList.remove('modal--open');
+        modalBackdrop.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+    }
+
+    downloadButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            openModal();
+        });
+    });
+
+    if (modalBackdrop) modalBackdrop.addEventListener('click', closeModal);
+    if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && downloadModal && downloadModal.classList.contains('modal--open')) {
+            closeModal();
+        }
+    });
+
+    function setDynamicAppLinks() {
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+        const isAndroid = /android/i.test(userAgent);
+        
+        const mainLaunchBtns = document.querySelectorAll('.main-launch-btn');
+        
+        if (isIOS || isAndroid) {
+            const targetUrl = isIOS 
+                ? 'https://apps.apple.com/us/app/lockin-revise-gcse-a-level/id6761141519'
+                : 'https://play.google.com/store/apps/details?id=tech.lockin.app&pcampaignid=web_share';
+            
+            const buttonText = isIOS ? 'Download on App Store' : 'Get it on Google Play';
+            
+            mainLaunchBtns.forEach(btn => {
+                btn.href = targetUrl;
+                // Preserve structure while replacing text
+                if (btn.textContent.includes('Launch') || btn.textContent.includes('App') || btn.textContent.includes('Web')) {
+                    btn.textContent = buttonText;
+                }
+            });
+        }
+    }
+
+    setDynamicAppLinks();
+
