@@ -1,277 +1,887 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lockin.tech | Lockin to your success</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="icon" type="image/png" sizes="192x192" href="static/assets/favicon.png">
+    
+    <!-- Primary Meta Tags -->
+    <title>Lockin.tech | Best GCSE & A-Level Study App for UK Students</title>
+    <meta name="title" content="Lockin.tech | Best GCSE & A-Level Study App for UK Students">
+    <meta name="description" content="Free GCSE and A-Level revision web app with AI-powered notes, audio podcasts, practice questions, and past papers. Covers AQA, Edexcel, OCR exam boards.">
+    <meta name="keywords" content="GCSE revision app, A-Level study app, exam preparation, revision notes, past papers, UK students, AQA revision, Edexcel revision, OCR revision, WJEC revision, free study app, audio podcasts revision">
+    <meta name="author" content="Lockin.tech">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://lockin.tech/">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://lockin.tech/">
+    <meta property="og:title" content="Lockin.tech | Best GCSE & A-Level Study App for UK Students">
+    <meta property="og:description" content="Free GCSE and A-Level revision app with AI-powered notes, audio podcasts, practice questions, and past papers for all UK exam boards.">
+    <meta property="og:image" content="https://lockin.tech/static/assets/lockin_full.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:site_name" content="Lockin.tech">
+    <meta property="og:locale" content="en_GB">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://lockin.tech/">
+    <meta name="twitter:title" content="Lockin.tech | Best GCSE & A-Level Study App for UK Students">
+    <meta name="twitter:description" content="Free GCSE and A-Level revision app with AI-powered notes, audio podcasts, practice questions, and past papers for all UK exam boards.">
+    <meta name="twitter:image" content="https://lockin.tech/static/assets/lockin_full.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="static/assets/favicon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="static/assets/lockin512.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="static/assets/lockin512.png">
+    <meta name="theme-color" content="#3678AE">
+    <meta name="msapplication-TileColor" content="#3678AE">
+    
+    <!-- Preconnect to external domains for faster loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Preload critical assets -->
+    <link rel="preload" as="image" href="static/assets/questions_screen.png" fetchpriority="high">
+    
+    <!-- Google Fonts with display=swap for performance -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Main Stylesheet (consolidated) -->
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- Structured Data - Organization -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Lockin.tech",
+        "url": "https://lockin.tech",
+        "logo": "https://lockin.tech/static/assets/lockin_full.png",
+        "description": "The all-in-one study app for GCSE and A-Level students in the UK",
+        "sameAs": [],
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "email": "support@lockin.tech",
+            "contactType": "customer support"
+        }
+    }
+    </script>
+    
+    <!-- Structured Data - SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Lockin.tech",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "offers": [
+            {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "GBP",
+                "name": "Free"
+            },
+            {
+                "@type": "Offer",
+                "price": "2.99",
+                "priceCurrency": "GBP",
+                "name": "Lockin Pro"
+            }
+        ],
+        "description": "GCSE and A-Level revision app with notes, podcasts, questions, and past papers for UK students",
+        "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "ratingCount": "150"
+        }
+    }
+    </script>
+    
+    <!-- Structured Data - FAQPage -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What exam boards does Lockin.tech support?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Lockin.tech supports all major UK exam boards including AQA, Edexcel, OCR, WJEC, and CCEA for both GCSE and A-Level qualifications."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How much does Lockin.tech cost?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Lockin.tech offers a free tier with access to all courses and limited notes. Lockin Pro is a one-time payment of £2.99 that unlocks unlimited access to all notes, podcasts, questions, and past papers for the entire exam season."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What platforms is Lockin.tech available on?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Lockin.tech is available as a web app that works in any browser."
+                }
+            }
+        ]
+    }
+    </script>
 </head>
 <body>
-    <header class="site-header">
-        <div class="container header-content">
-            <a class="brand" href="#hero" aria-label="Lockin.tech home">
-                <img src="static/assets/lockin_full_transparent.png" alt="Lockin.tech logo" class="brand-logo">
+    <div class="launch-banner" role="status" aria-label="Launch event announcement">
+        <p class="launch-banner__text">
+            Lockin Web is live: full premium access is unlocked until <strong>21 April</strong>. Top 3 leaderboard students win rewards.
+            <a href="#competition" class="launch-banner__link">See event details</a>
+        </p>
+    </div>
+
+    <!-- ================================================================
+         HEADER / NAVIGATION
+         ================================================================ -->
+    <header class="header" id="header">
+        <div class="header__inner">
+            <a href="/" class="logo" aria-label="Lockin.tech home">
+                <img src="static/assets/lockin_full_transparent.png" alt="Lockin.tech - GCSE and A-Level Study App" class="logo__image" width="160" height="40">
             </a>
-            <nav class="nav" aria-label="Primary">
-                <button class="nav-toggle" aria-expanded="false" aria-controls="nav-menu">
-                    <span class="nav-toggle-bar"></span>
-                    <span class="nav-toggle-bar"></span>
-                    <span class="nav-toggle-bar"></span>
-                </button>
-                <ul id="nav-menu" class="nav-links">
-                    <li><a href="#features">Features</a></li>
-                    <li><a href="#curriculum">Curriculum</a></li>
-                    <li><a href="#workflow">How It Works</a></li>
-                    <!-- <li><a href="#pricing">Pricing</a></li> -->
-                    <!-- <li><a href="#testimonials">Testimonials</a></li> -->
-                    <!-- <li><a href="#faq">FAQ</a></li> -->
-                    <li><a class="nav-cta" href="#download">Download</a></li>
+            
+            <nav class="nav" aria-label="Main navigation">
+                <ul class="nav__menu">
+                    <li><a href="#features" class="nav__link">Features</a></li>
+                    <li><a href="#competition" class="nav__link">Competition</a></li>
+                    <li><a href="#how-it-works" class="nav__link">How It Works</a></li>
+                    <li><a href="#resources" class="nav__link">Resources</a></li>
+                    <li><a href="#pricing" class="nav__link">Pricing</a></li>
                 </ul>
+                
+                <div class="nav__actions">
+                    <a href="/online" class="btn btn--outline btn--sm nav__cta main-launch-btn">Launch App</a>
+                    
+                    <!-- Mobile menu toggle -->
+                    <button class="nav__toggle" aria-expanded="false" aria-controls="mobile-menu" aria-label="Toggle menu">
+                        <span class="nav__toggle-bar"></span>
+                        <span class="nav__toggle-bar"></span>
+                        <span class="nav__toggle-bar"></span>
+                    </button>
+                </div>
             </nav>
         </div>
     </header>
+    
+    <!-- Mobile Menu -->
+    <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
+        <nav class="mobile-menu__nav">
+            <a href="#features" class="mobile-menu__link">Features</a>
+            <a href="#competition" class="mobile-menu__link">Competition</a>
+            <a href="#how-it-works" class="mobile-menu__link">How It Works</a>
+            <a href="#resources" class="mobile-menu__link">Resources</a>
+            <a href="#pricing" class="mobile-menu__link">Pricing</a>
+        </nav>
+        <div class="mobile-menu__actions">
+            <a href="/online" class="btn btn--primary btn--block main-launch-btn">Launch Web App</a>
+            <button class="btn btn--outline btn--block" data-modal="download" style="margin-top: 0.5rem;">Other platforms</button>
+        </div>
+    </div>
 
     <main>
-        <section id="hero" class="hero">
-            <div class="container hero-grid">
-                <div class="hero-copy">
-                    <p class="tagline">Pointless scrolling turned productive.</p>
-                    <h1 class="hero-title">
-                        Lockin
-                        <span class="accent">.tech</span>
-                        <span class="sub">to your success.</span>
+        <!-- ================================================================
+             HERO SECTION
+             ================================================================ -->
+        <section class="hero bg-gradient-hero" id="hero">
+            <div class="hero__bg">
+                <div class="hero__bg-gradient"></div>
+                <div class="hero__bg-circle hero__bg-circle--1"></div>
+                <div class="hero__bg-circle hero__bg-circle--2"></div>
+            </div>
+            
+            <div class="container hero__inner">
+                <div class="hero__content">
+                    <span class="badge badge--accent hero__badge">Web Launch Event • Ends 21 April</span>
+                    
+                    <h1 class="hero__title">
+                        Lockin is now <span class="hero__title-accent">live on web</span>
                     </h1>
-                    <p class="hero-description">The all-in-one study companion designed to help you master GCSEs and A-levels with AI-guided notes, podcasts, questions, and past papers tailored to your exam board.</p>
-                    <div class="hero-actions">
-                        <a class="btn btn-primary" href="#download">Download App</a>
-                        <a class="btn btn-outline" href="/online">Try Online</a>
+                    
+                    <p class="hero__subtitle">
+                        For a limited time, web users get full premium access including the highest tier. Compete on the leaderboard before the deadline to finish in the top 3 and win rewards.
+                    </p>
+                    
+                    <div class="hero__actions">
+                        <a href="/online" class="btn btn--primary btn--lg main-launch-btn">
+                            Launch Web App
+                        </a>
+                        <button class="btn btn--outline btn--lg" data-modal="download">
+                            Other platforms
+                        </button>
                     </div>
-                    <div class="platforms" aria-label="Supported platforms">
-                        <span class="platform-badge">Web</span>
-                        <span class="platform-badge">iOS</span>
-                        <span class="platform-badge">Android</span>
-                    </div>
+
+                    <p class="hero__offer-note">
+                        Full premium and highest-tier access on web ends on <strong>21 April</strong>. After this period, highest-tier access is no longer available.
+                    </p>
+                    
                 </div>
-                <div class="hero-visual">
-                    <div class="hero-card">
-                        <img src="static/assets/lockin_screen.png" alt="Lockin app preview" class="hero-image">
-                        <div class="hero-floating">
-                            <div class="floating-card">
-                                <h3>Today&apos;s Focus</h3>
-                                <p>Explain DNA structure and its role in inheritance.</p>
+                
+                <div class="hero__visual">
+                    <div class="hero__phone">
+                        <div class="hero__phone-frame">
+                            <div class="hero__phone-screen">
+                                <img src="static/assets/questions_screen.png" alt="Lockin app showing practice questions feature for GCSE and A-Level revision" class="hero__phone-image" width="336" height="672" fetchpriority="high">
                             </div>
-                            <div class="floating-card">
-                                <h3>Smart Recap</h3>
-                                <p>8 key terms locked in • 92% retention</p>
+                        </div>
+                        
+                        <!-- Floating feature badges -->
+                        <div class="hero__floats-container">
+                            <div class="hero__float hero__float--1">
+                                <div class="hero__float-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                                    AI-Powered Notes
+                                </div>
+                            </div>
+                            <div class="hero__float hero__float--2">
+                                <div class="hero__float-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+                                    Audio Podcasts
+                                </div>
+                            </div>
+                            <div class="hero__float hero__float--3">
+                                <div class="hero__float-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                    Past Papers
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <a class="scroll-down" href="#features" aria-label="Scroll to features"></a>
+            
+            <a href="#features" class="hero__scroll" aria-label="Scroll to features">
+                <span class="hero__scroll-text">Scroll to explore</span>
+                <svg class="hero__scroll-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="7 13 12 18 17 13"/>
+                    <polyline points="7 6 12 11 17 6"/>
+                </svg>
+            </a>
         </section>
 
-        <section id="features" class="section features">
-            <div class="container section-header">
-                <p class="eyebrow">What&apos;s inside</p>
-                <h2>Everything you need to lock in every topic</h2>
-                <p class="section-description">Curated content, intelligent practice, and adaptive revision tools designed by educators and powered by AI.</p>
-            </div>
-            <div class="container feature-grid">
-                <article class="feature-card">
-                    <h3>AI Notes</h3>
-                    <p>Concise, exam-specific notes generated for each topic and tailored to your syllabus.</p>
-                </article>
-                <article class="feature-card">
-                    <h3>AI Podcasts</h3>
-                    <p>Listen on the go with audio lessons that summarise concepts and highlight key exam cues.</p>
-                </article>
-                <article class="feature-card">
-                    <h3>Smart Questions</h3>
-                    <p>Topic quizzes that reinforce keywords, with instant feedback and spaced repetition.</p>
-                </article>
-                <article class="feature-card">
-                    <h3>Past Papers</h3>
-                    <p>Instant access to past papers and mark schemes to mirror the real exam experience.</p>
-                </article>
-            </div>
-        </section>
+        <!-- ================================================================
+             WEB LAUNCH EVENT SECTION
+             ================================================================ -->
+        <section class="section web-launch" id="competition">
+            <div class="container">
+                <header class="web-launch__header">
+                    <span class="eyebrow">Limited-Time Event</span>
+                    <h2 class="web-launch__title">Web launch with premium access and leaderboard rewards</h2>
+                    <p class="web-launch__description">
+                        The web app is fully live. From now until <strong>21 April</strong>, all web users can use premium features, including the highest tier.
+                        After this date, highest-tier access is removed.
+                    </p>
+                </header>
 
-        <section id="curriculum" class="section curriculum">
-            <div class="container curriculum-grid">
-                <div>
-                    <p class="eyebrow">Curriculum coverage</p>
-                    <h2>GCSE and A-level mastery for every exam board</h2>
-                    <p class="section-description">Select your board, subject, and pathway to unlock a personalised study journey that mirrors your classroom and assessment objectives.</p>
-                    <ul class="curriculum-list">
-                        <li>AQA, Edexcel, OCR, WJEC, CCEA and more.</li>
-                        <li>Subject-specific glossaries and key term banks.</li>
-                        <li>Weekly revision plans built around your timetable.</li>
-                    </ul>
-                </div>
-                <div class="chip-panel" role="list" aria-label="Sample subjects">
-                    <span role="listitem" class="chip">Biology</span>
-                    <span role="listitem" class="chip">Chemistry</span>
-                    <span role="listitem" class="chip">Physics</span>
-                    <span role="listitem" class="chip">Maths</span>
-                    <span role="listitem" class="chip">Geography</span>
-                    <span role="listitem" class="chip">History</span>
-                    <span role="listitem" class="chip">CS</span>
-                    <span role="listitem" class="chip">English Lit</span>
-                </div>
-            </div>
-        </section>
-
-        <section id="workflow" class="section workflow">
-            <div class="container section-header">
-                <p class="eyebrow">How it works</p>
-                <h2>Lock in knowledge in four streamlined steps</h2>
-            </div>
-            <div class="container workflow-steps">
-                <div class="workflow-step">
-                    <span class="step-index">1</span>
-                    <h3>Select your board</h3>
-                    <p>Choose your course and we curate content mapped to every specification point.</p>
-                </div>
-                <div class="workflow-step">
-                    <span class="step-index">2</span>
-                    <h3>Listen &amp; learn</h3>
-                    <p>Skim AI notes or plug into podcasts to absorb concepts faster than ever.</p>
-                </div>
-                <div class="workflow-step">
-                    <span class="step-index">3</span>
-                    <h3>Practice &amp; review</h3>
-                    <p>Answer adaptive questions and revisit weak spots until they stick.</p>
-                </div>
-                <div class="workflow-step">
-                    <span class="step-index">4</span>
-                    <h3>Unlock success</h3>
-                    <p>Finish with past papers, exam tips, and confidence to sit the real thing.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- <section id="pricing" class="section pricing">
-            <div class="container pricing-grid">
-                <div class="pricing-copy">
-                    <p class="eyebrow">Simple pricing</p>
-                    <h2>Unlock everything for £0.89 per exam season</h2>
-                    <p class="section-description">Enjoy unlimited access to every feature for less than the cost of a coffee. No hidden fees, no upsells.</p>
-                    <ul class="pricing-points">
-                        <li>Free tier with core notes and weekly podcasts.</li>
-                        <li>Premium unlocks unlimited subjects, past papers, and question banks.</li>
-                        <li>Pause or renew when exam season ends.</li>
-                    </ul>
-                </div>
-                <div class="pricing-card">
-                    <div class="price">
-                        <span class="price-amount">£0.89</span>
-                        <span class="price-duration">per exam season</span>
+                <div class="web-launch__countdown" aria-live="polite">
+                    <p class="web-launch__countdown-label">Event ends in</p>
+                    <div class="countdown" id="launch-countdown" data-end-date="2026-04-21T23:59:59+02:00">
+                        <div class="countdown__item">
+                            <span class="countdown__value" id="countdown-days">00</span>
+                            <span class="countdown__unit">Days</span>
+                        </div>
+                        <div class="countdown__item">
+                            <span class="countdown__value" id="countdown-hours">00</span>
+                            <span class="countdown__unit">Hours</span>
+                        </div>
+                        <div class="countdown__item">
+                            <span class="countdown__value" id="countdown-minutes">00</span>
+                            <span class="countdown__unit">Minutes</span>
+                        </div>
+                        <div class="countdown__item">
+                            <span class="countdown__value" id="countdown-seconds">00</span>
+                            <span class="countdown__unit">Seconds</span>
+                        </div>
                     </div>
-                    <p class="price-note">Complete access to every subject, every feature.</p>
-                    <a class="btn btn-primary btn-block" href="#download">Start today</a>
-                    <p class="price-compare">Competitors charge £5-£30 monthly. We invest in students, not paywalls.</p>
+                    <p class="web-launch__deadline" id="launch-deadline-note">Deadline: 21 April 2026 (Gibraltar time)</p>
+                </div>
+
+                <div class="web-launch__grid">
+                    <article class="launch-card">
+                        <h3 class="launch-card__title">1. Launch and revise on web</h3>
+                        <p class="launch-card__text">
+                            Open Lockin in your browser and revise with notes, podcasts, questions, past papers, and highest-tier tools while the event is active.
+                        </p>
+                    </article>
+
+                    <article class="launch-card">
+                        <h3 class="launch-card__title">2. Climb the leaderboard</h3>
+                        <p class="launch-card__text">
+                            Earn points through revision activity and finish as high as possible before the timer ends.
+                        </p>
+                    </article>
+
+                    <article class="launch-card">
+                        <h3 class="launch-card__title">3. Win top-3 rewards</h3>
+                        <p class="launch-card__text">
+                            Rewards are reserved for the top 3 leaderboard positions at event close.
+                        </p>
+                    </article>
+                </div>
+
+                <div class="web-launch__prizes" aria-label="Leaderboard rewards">
+                    <div class="prize-slot prize-slot--first">
+                        <p class="prize-slot__place">1st Place</p>
+                        <p class="prize-slot__reward">Reward: To Be Announced</p>
+                    </div>
+                    <div class="prize-slot prize-slot--second">
+                        <p class="prize-slot__place">2nd Place</p>
+                        <p class="prize-slot__reward">Reward: To Be Announced</p>
+                    </div>
+                    <div class="prize-slot prize-slot--third">
+                        <p class="prize-slot__place">3rd Place</p>
+                        <p class="prize-slot__reward">Reward: To Be Announced</p>
+                    </div>
+                </div>
+
+                <div class="web-launch__actions">
+                    <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                        <a href="/online" class="btn btn--primary btn--lg main-launch-btn">Launch Web App</a>
+                        <button class="btn btn--outline btn--lg" data-modal="download">Other platforms</button>
+                    </div>
                 </div>
             </div>
-        </section> -->
+        </section>
 
-        <!-- <section id="testimonials" class="section testimonials">
-            <div class="container section-header">
-                <p class="eyebrow">Student stories</p>
-                <h2>Real learners. Real results.</h2>
-            </div>
-            <div class="container testimonials-grid">
-                <article class="testimonial-card">
-                    <div class="stars" aria-hidden="true">★★★★★</div>
-                    <p class="quote">“Lockin turned my commute into revision time. The podcasts and questions helped me jump two grades in Biology.”</p>
-                    <p class="author">Amina • AQA Biology</p>
-                </article>
-                <article class="testimonial-card">
-                    <div class="stars" aria-hidden="true">★★★★★</div>
-                    <p class="quote">“Having AI notes and past papers in one place saved hours every week. I felt more prepared than ever.”</p>
-                    <p class="author">Theo • Edexcel Maths</p>
-                </article>
-                <article class="testimonial-card">
-                    <div class="stars" aria-hidden="true">★★★★★</div>
-                    <p class="quote">“The £0.89 unlock is unreal value. It made the difference in getting the grades I needed for Sixth Form.”</p>
-                    <p class="author">Priya • OCR Chemistry</p>
-                </article>
-            </div>
-        </section> -->
-
-        <!-- <section id="faq" class="section faq">
-            <div class="container section-header">
-                <p class="eyebrow">FAQ</p>
-                <h2>Answers before you lock in</h2>
-            </div>
-            <div class="container faq-list">
-                <details>
-                    <summary>Is Lockin.tech available on all devices?</summary>
-                    <p>Yes. Access the web app instantly or download native apps for iOS and Android. Your progress syncs everywhere.</p>
-                </details>
-                <details>
-                    <summary>How accurate are the AI-generated notes?</summary>
-                    <p>Our notes are reviewed against each exam board specification and updated as curricula change. You can report content for instant review.</p>
-                </details>
-                <details>
-                    <summary>What do I get for free?</summary>
-                    <p>Free users can explore AI notes for select topics, weekly podcast drops, and daily question streaks. Upgrade for full access anytime.</p>
-                </details>
-                <details>
-                    <summary>How does the £0.89 unlock work?</summary>
-                    <p>Pay once per exam season for full access to every subject, question bank, and past paper. No subscription or auto-renew unless you choose.</p>
-                </details>
-                <details>
-                    <summary>Can teachers or schools use Lockin.tech?</summary>
-                    <p>Yes. Educators get dashboards to track class progress and assign podcast lessons. Contact us for partnership options.</p>
-                </details>
-            </div>
-        </section> -->
-
-        <section id="download" class="section cta">
-            <div class="container cta-card">
-                <div>
-                    <h2>Ready to lock in your grades?</h2>
-                    <p>Join thousands of students transforming revision into a focused, enjoyable routine.</p>
+        <!-- ================================================================
+             FEATURES SECTION
+             ================================================================ -->
+        <section class="section features" id="features">
+            <div class="container">
+                <header class="features__header">
+                    <span class="eyebrow">Everything You Need</span>
+                    <h2 class="features__title">One app. Complete revision.</h2>
+                    <p class="features__description">
+                        Every topic, every specification point — covered with notes, audio, questions, and past papers.
+                    </p>
+                </header>
+                
+                <div class="features__grid">
+                    <article class="feature-card">
+                        <div class="feature-card__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                            </svg>
+                        </div>
+                        <h3 class="feature-card__title">Comprehensive Notes</h3>
+                        <p class="feature-card__text">
+                            Clear, concise notes for every topic — generated from your exact specification so nothing is missed.
+                        </p>
+                    </article>
+                    
+                    <article class="feature-card">
+                        <div class="feature-card__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                <line x1="12" y1="19" x2="12" y2="23"/>
+                                <line x1="8" y1="23" x2="16" y2="23"/>
+                            </svg>
+                        </div>
+                        <h3 class="feature-card__title">Audio Podcasts</h3>
+                        <p class="feature-card__text">
+                            Learn on the go with bite-sized audio lessons. Perfect for commutes, walks, or passive revision.
+                        </p>
+                    </article>
+                    
+                    <article class="feature-card">
+                        <div class="feature-card__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                        </div>
+                        <h3 class="feature-card__title">Practice Questions</h3>
+                        <p class="feature-card__text">
+                            Test yourself with topic-specific questions that reinforce key concepts and exam techniques.
+                        </p>
+                    </article>
+                    
+                    <article class="feature-card">
+                        <div class="feature-card__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                                <line x1="12" y1="6" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                        </div>
+                        <h3 class="feature-card__title">Past Papers</h3>
+                        <p class="feature-card__text">
+                            Access real past papers and mark schemes. Practice under exam conditions with instant access.
+                        </p>
+                    </article>
                 </div>
-                <div class="cta-actions">
-                    <a class="btn btn-primary" href="#">Download for iOS</a>
-                    <a class="btn btn-primary" href="https://lockin.tech/lockin.apk">Download for Android</a>
-                    <a class="btn btn-outline" href="/online">Open Web App</a>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             CONTENT STRUCTURE / HOW CONTENT IS ORGANISED
+             ================================================================ -->
+        <section class="section content-structure">
+            <div class="container">
+                <header class="content-structure__header">
+                    <span class="eyebrow">Structured Learning</span>
+                    <h2 class="content-structure__title">Organised by your syllabus</h2>
+                    <p class="content-structure__text">
+                        Select your exam board, choose your subject, and dive into content that matches your exact specification.
+                    </p>
+                </header>
+                
+                <div class="content-flow">
+                    <div class="content-flow__item">
+                        <div class="content-flow__number">1</div>
+                        <div class="content-flow__card">
+                            <div class="content-flow__icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                            </div>
+                            <h3 class="content-flow__title">Pick Your Course</h3>
+                            <p class="content-flow__desc">Choose your exam board and subject</p>
+                            <div class="content-flow__examples">
+                                <span>AQA Biology</span>
+                                <span>Edexcel Maths</span>
+                                <span>OCR Chemistry</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="content-flow__arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                    
+                    <div class="content-flow__item">
+                        <div class="content-flow__number">2</div>
+                        <div class="content-flow__card">
+                            <div class="content-flow__icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </div>
+                            <h3 class="content-flow__title">Select a Paper</h3>
+                            <p class="content-flow__desc">Content split by exam paper</p>
+                            <div class="content-flow__examples">
+                                <span>Paper 1</span>
+                                <span>Paper 2</span>
+                                <span>Paper 3</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="content-flow__arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                    
+                    <div class="content-flow__item">
+                        <div class="content-flow__number">3</div>
+                        <div class="content-flow__card">
+                            <div class="content-flow__icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            </div>
+                            <h3 class="content-flow__title">Study Any Topic</h3>
+                            <p class="content-flow__desc">Every topic has everything you need</p>
+                            <div class="content-flow__resources">
+                                <span class="content-flow__resource">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                    Notes
+                                </span>
+                                <span class="content-flow__resource">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+                                    Podcast
+                                </span>
+                                <span class="content-flow__resource">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                    Questions
+                                </span>
+                                <span class="content-flow__resource">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                                    Past Papers
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+                
+            </div>
+        </section>
+
+        <!-- ================================================================
+             HOW IT WORKS SECTION
+             ================================================================ -->
+        <section class="section how-it-works" id="how-it-works">
+            <div class="container">
+                <header class="how-it-works__header">
+                    <span class="eyebrow">Simple Process</span>
+                    <h2 class="how-it-works__title">Start revising in seconds</h2>
+                    <p class="how-it-works__description">
+                        No complicated setup. Just pick your courses and start learning.
+                    </p>
+                </header>
+                
+                <div class="steps">
+                    <div class="step">
+                        <div class="step__number">1</div>
+                        <div class="step__content">
+                            <h3 class="step__title">Choose your courses</h3>
+                            <p class="step__text">Select your exam board and subjects — we'll show you exactly what you need to study.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step__number">2</div>
+                        <div class="step__content">
+                            <h3 class="step__title">Learn your way</h3>
+                            <p class="step__text">Read notes, listen to podcasts, or dive straight into questions — whatever works for you.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step__number">3</div>
+                        <div class="step__content">
+                            <h3 class="step__title">Test yourself</h3>
+                            <p class="step__text">Practice with topic questions and work through real past papers.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step__number">4</div>
+                        <div class="step__content">
+                            <h3 class="step__title">Ace your exams</h3>
+                            <p class="step__text">Walk into the exam hall confident you've covered everything.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             RESOURCES SECTION
+             ================================================================ -->
+        <section class="section resources-section" id="resources">
+            <div class="container">
+                <header class="resources-section__header">
+                    <span class="eyebrow">Free Resources</span>
+                    <h2 class="resources-section__title">Tools to help you succeed</h2>
+                    <p class="resources-section__description">
+                        Beyond the app — free resources to support your revision journey.
+                    </p>
+                </header>
+                
+                <div class="resources-section__grid">
+                    <a href="/resources/pass-rates/" class="resource-preview-card">
+                        <div class="resource-preview-card__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 20V10"></path>
+                                <path d="M12 20V4"></path>
+                                <path d="M6 20v-6"></path>
+                            </svg>
+                        </div>
+                        <div class="resource-preview-card__content">
+                            <h3 class="resource-preview-card__title">Exam Pass Rates</h3>
+                            <p class="resource-preview-card__text">Explore historical A-Level and GCSE pass rates by subject. View grade distributions and trends from 1993-2025.</p>
+                            <span class="resource-preview-card__link">View pass rates →</span>
+                        </div>
+                    </a>
+                    
+                    <a href="/resources/articles/" class="resource-preview-card">
+                        <div class="resource-preview-card__icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="resource-preview-card__content">
+                            <h3 class="resource-preview-card__title">Study Articles</h3>
+                            <p class="resource-preview-card__text">Revision tips, exam strategies, subject guides, and wellbeing advice for GCSE and A-Level students.</p>
+                            <span class="resource-preview-card__link">Read articles →</span>
+                        </div>
+                    </a>
+                </div>
+                
+                <div class="resources-section__cta">
+                    <a href="/resources/" class="btn btn--outline">View All Resources</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             PRICING SECTION
+             ================================================================ -->
+        <section class="section pricing" id="pricing">
+            <div class="container">
+                <header class="pricing__header">
+                    <span class="eyebrow">Simple Pricing</span>
+                    <h2 class="pricing__title">Start free. Limited-time web premium now live.</h2>
+                    <p class="pricing__description">
+                        During the web launch event, premium access including highest-tier features is temporarily available on web until 21 April.
+                    </p>
+                </header>
+
+                <div class="pricing__launch-notice" role="note">
+                    <p>
+                        <strong>Important:</strong> Highest-tier access on web is a limited-time launch benefit.
+                        It ends on <strong>21 April</strong>, after which highest-tier access is no longer available.
+                    </p>
+                </div>
+
+                <div class="pricing__feature-disclaimer" role="note">
+                    <p>
+                        Feature lists are being finalized for the post-event release. Full and final feature availability across tiers will be confirmed after this competition event ends.
+                    </p>
+                </div>
+                
+                <div class="pricing__grid">
+                    <!-- Free Tier -->
+                    <div class="pricing-card">
+                        <div class="pricing-card__header">
+                            <h3 class="pricing-card__name">Lockin Free</h3>
+                            <p class="pricing-card__tagline">Get started with core features</p>
+                            <div class="pricing-card__price pricing-card__price--free">
+                                <span class="pricing-card__amount">£0</span>
+                                <span class="pricing-card__period">forever</span>
+                            </div>
+                        </div>
+                        <div class="pricing-card__body">
+                            <ul class="pricing-card__features">
+                                <li class="pricing-feature"><span class="pricing-feature__icon pricing-feature__icon--check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="pricing-feature__text">40 questions or flashcards per day</span></li>
+                                <li class="pricing-feature"><span class="pricing-feature__icon pricing-feature__icon--check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="pricing-feature__text">Full notes access</span></li>
+                                <li class="pricing-feature"><span class="pricing-feature__icon pricing-feature__icon--check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="pricing-feature__text">Past papers access</span></li>
+                                <li class="pricing-feature"><span class="pricing-feature__icon pricing-feature__icon--check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="pricing-feature__text">Limited podcast access</span></li>
+                                <li class="pricing-feature"><span class="pricing-feature__icon pricing-feature__icon--check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="pricing-feature__text">Access to all courses</span></li>
+                            </ul>
+                        </div>
+                        <div class="pricing-card__footer">
+                            <a href="/online" class="btn btn--outline btn--block pricing-card__cta main-launch-btn">Launch on Web</a>
+                        </div>
+                    </div>
+
+                    <!-- Pro Tier -->
+                    <div class="pricing-card pricing-card--featured">
+                        <span class="pricing-card__badge">Best Value</span>
+                        <div class="pricing-card__header">
+                            <h3 class="pricing-card__name">Lockin Pro</h3>
+                            <p class="pricing-card__tagline">Unlock more, revise more</p>
+                            <div class="pricing-card__price">
+                                <span class="pricing-card__currency">£</span>
+                                <span class="pricing-card__amount">2.99</span>
+                                <span class="pricing-card__period">one-time</span>
+                            </div>
+                            <p class="pricing-card__note">Valid until end of exam season</p>
+                        </div>
+                        <div class="pricing-card__body">
+                            <ul class="pricing-card__features">
+                                <li class="pricing-feature"><span class="pricing-feature__icon pricing-feature__icon--check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="pricing-feature__text">Unlimited questions or flashcards per day</span></li>
+                                <li class="pricing-feature"><span class="pricing-feature__icon pricing-feature__icon--check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="pricing-feature__text">Unlimited podcast access</span></li>
+                                <li class="pricing-feature"><span class="pricing-feature__icon pricing-feature__icon--check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="pricing-feature__text">Lockin Pro badge</span></li>
+                                <li class="pricing-feature"><span class="pricing-feature__icon pricing-feature__icon--check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="pricing-feature__text">Everything in Free</span></li>
+                            </ul>
+                        </div>
+                        <div class="pricing-card__footer">
+                            <a href="/online" class="btn btn--primary btn--block pricing-card__cta main-launch-btn">Launch on Web</a>
+                        </div>
+                    </div>
+
+                    <!-- Super Tier -->
+                    <div class="pricing-card">
+                        <span class="pricing-card__badge pricing-card__badge--warning">Limited-Time Web Access</span>
+                        <div class="pricing-card__header">
+                            <h3 class="pricing-card__name">Lockin Super</h3>
+                            <p class="pricing-card__tagline">Highest tier unlocked on web for launch period</p>
+                            <div class="pricing-card__price pricing-card__price--launch-strike">
+                                <span class="pricing-card__currency">£</span>
+                                <span class="pricing-card__amount">4.99</span>
+                                <span class="pricing-card__period">one-time</span>
+                            </div>
+                            <p class="pricing-card__promo">£0 on web until 21 April</p>
+                            <p class="pricing-card__note">After 21 April, highest-tier access is no longer available.</p>
+                        </div>
+                        <div class="pricing-card__body">
+                            <ul class="pricing-card__features">
+                                <li class="pricing-feature"><span class="pricing-feature__icon pricing-feature__icon--check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="pricing-feature__text">Printable and downloadable notes</span></li>
+                                <li class="pricing-feature"><span class="pricing-feature__icon pricing-feature__icon--check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="pricing-feature__text">Lockin Super badge</span></li>
+                                <li class="pricing-feature"><span class="pricing-feature__icon pricing-feature__icon--check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span><span class="pricing-feature__text">Everything in Pro</span></li>
+                            </ul>
+                        </div>
+                        <div class="pricing-card__footer">
+                            <a href="/online" class="btn btn--primary btn--block pricing-card__cta main-launch-btn">Launch on Web</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="pricing__value">
+                    <svg class="pricing__value-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 6v6l4 2"/>
+                    </svg>
+                    <p class="pricing__value-text">
+                        <strong>Less than a coffee</strong> — for an entire exam season of comprehensive revision materials.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             FINAL CTA SECTION
+             ================================================================ -->
+        <section class="section cta" id="download">
+            <div class="container cta__inner">
+                <h2 class="cta__title">Ready to lock in your success?</h2>
+                <p class="cta__description">
+                    Launch on web now with full premium access during this limited-time event. Highest-tier access ends on 21 April.
+                </p>
+                
+                <div class="cta__actions">
+                    <a href="/online" class="btn btn--white btn--lg main-launch-btn" style="color: var(--color-deep);">
+                        Launch Web App
+                    </a>
+                    <button class="btn btn--outline btn--white btn--lg" data-modal="download" style="color: white; border-color: rgba(255,255,255,0.5);">
+                        Other platforms
+                    </button>
+                </div>
+                <p class="cta__event-note">Top 3 on the leaderboard at event close receive rewards. Rewards are currently being finalized.</p>
             </div>
         </section>
     </main>
 
-    <footer class="site-footer">
-        <div class="container footer-grid">
-            <div>
-                <img src="static/assets/lockin_full_transparent.png" alt="Lockin.tech logo" class="footer-logo">
-                <p>Lockin to your success with AI-powered study tools for every exam board.</p>
+    <!-- ================================================================
+         FOOTER
+         ================================================================ -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer__inner">
+                <div class="footer__brand">
+                    <img src="static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="footer__logo" width="164" height="40" loading="lazy">
+                    <p class="footer__tagline">
+                        The all-in-one study companion for UK students. Lock in to your success with notes, podcasts, questions, and past papers.
+                    </p>
+                </div>
+                
+                <nav class="footer__nav">
+                    <h4 class="footer__nav-title">Product</h4>
+                    <ul class="footer__nav-list">
+                        <li><a href="#features" class="footer__nav-link">Features</a></li>
+                        <li><a href="#competition" class="footer__nav-link">Competition</a></li>
+                        <li><a href="#pricing" class="footer__nav-link">Pricing</a></li>
+                        <li><a href="/online" class="footer__nav-link">Launch Web App</a></li>
+                    </ul>
+                </nav>
+                
+                <nav class="footer__nav">
+                    <h4 class="footer__nav-title">Resources</h4>
+                    <ul class="footer__nav-list">
+                        <li><a href="#how-it-works" class="footer__nav-link">How It Works</a></li>
+                        <li><a href="/resources/articles/" class="footer__nav-link">Study Articles</a></li>
+                        <li><a href="/resources/pass-rates/" class="footer__nav-link">Pass Rates</a></li>
+                    </ul>
+                </nav>
+                
+                <nav class="footer__nav">
+                    <h4 class="footer__nav-title">Support</h4>
+                    <ul class="footer__nav-list">
+                        <li><a href="/support/" class="footer__nav-link">Support Page</a></li>
+                        <li><a href="mailto:support@lockin.tech" class="footer__nav-link">Contact Us</a></li>
+                        <li><a href="#" class="footer__nav-link">Help Centre</a></li>
+                        <li><a href="#" class="footer__nav-link">FAQs</a></li>
+                    </ul>
+                </nav>
             </div>
-            <div>
-                <h4>Explore</h4>
-                <ul>
-                    <li><a href="#features">Features</a></li>
-                    <!-- <li><a href="#pricing">Pricing</a></li> -->
-                    <!-- <li><a href="#faq">FAQ</a></li> -->
-                </ul>
-            </div>
-            <div>
-                <h4>Support</h4>
-                <ul>
-                    <li><a href="mailto:support@lockin.tech">support@lockin.tech</a></li>
-                    <li><a href="#">Privacy</a></li>
-                    <li><a href="#">Terms</a></li>
-                </ul>
+            
+            <div class="footer__bottom">
+                <p class="footer__copyright">
+                    © <span id="year"></span> Lockin.tech. All rights reserved. <br>
+                    <span style="font-size: 0.85em; margin-top: 8px; display: inline-block;">Lockin.tech is a trading name of Young Enterprise (Gibraltar) Student Company Limited.</span>
+                </p>
+                <div class="footer__legal">
+                    <a href="/tos/#terms" class="footer__legal-link">Terms of Service</a>
+                    <a href="/tos/#privacy" class="footer__legal-link">Privacy Policy</a>
+                </div>
             </div>
         </div>
-        <p class="footer-note">© <span id="year"></span> Lockin.tech. All rights reserved.</p>
     </footer>
 
-    <script src="script.js"></script>
+    <!-- ================================================================
+         DOWNLOAD MODAL
+         ================================================================ -->
+    <div class="modal-backdrop" id="modal-backdrop" aria-hidden="true"></div>
+    
+    <div class="modal" id="download-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <button class="modal__close" aria-label="Close modal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+        
+        <div class="modal__header">
+            <div class="modal__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            </div>
+            <h2 class="modal__title" id="modal-title">Download Lockin</h2>
+            <p class="modal__description">Choose your platform to get started</p>
+        </div>
+        
+        <div class="modal__body">
+            <div class="download-options">
+                <a href="https://apps.apple.com/us/app/lockin-revise-gcse-a-level/id6761141519" class="download-option" id="download-ios">
+                    <div class="download-option__icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+                    </div>
+                    <div class="download-option__info">
+                        <div class="download-option__name">iOS</div>
+                        <div class="download-option__detail">iPhone & iPad</div>
+                    </div>
+                    <div class="download-option__arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                </a>
+                
+                <a href="https://play.google.com/store/apps/details?id=tech.lockin.app&pcampaignid=web_share" class="download-option" id="download-android">
+                    <div class="download-option__icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 2.047a.5.5 0 0 0-.27.083L3.82 10.457a.5.5 0 0 0 0 .833l13.433 8.327a.5.5 0 0 0 .77-.42V2.547a.5.5 0 0 0-.5-.5zM6.5 10.873l8.5-5.27v10.54z"/></svg>
+                    </div>
+                    <div class="download-option__info">
+                        <div class="download-option__name">Android</div>
+                        <div class="download-option__detail">Get it on Google Play</div>
+                    </div>
+                    <div class="download-option__arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                </a>
+                
+                <a href="/online" class="download-option" id="download-web">
+                    <div class="download-option__icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                    </div>
+                    <div class="download-option__info">
+                        <div class="download-option__name">Web App</div>
+                        <div class="download-option__detail">Launch in browser</div>
+                    </div>
+                    <div class="download-option__arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+    <!-- JavaScript (deferred for performance) -->
+    <script src="js/main.js" defer></script>
 </body>
 </html>
-
-<!-- Intellectual Property of Hugisoft (hugisoft.com) -->

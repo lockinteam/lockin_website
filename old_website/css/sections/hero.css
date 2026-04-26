@@ -1,0 +1,391 @@
+/* ==========================================================================
+   HERO SECTION - Lockin.tech
+   Main hero/banner area of the landing page
+   ========================================================================== */
+
+/* -------------------------------------------------------------------------
+   HERO CONTAINER
+   ------------------------------------------------------------------------- */
+
+.hero {
+  position: relative;
+  
+  min-height: 100vh;
+  min-height: 100dvh;
+  
+  padding-top: calc(72px + var(--space-12)); /* Header height + spacing */
+  padding-bottom: var(--space-16);
+  
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .hero {
+    padding-top: calc(80px + var(--space-16));
+    padding-bottom: var(--space-20);
+  }
+}
+
+/* -------------------------------------------------------------------------
+   HERO LAYOUT
+   ------------------------------------------------------------------------- */
+
+.hero__inner {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-12);
+  
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .hero__inner {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-16);
+  }
+}
+
+/* -------------------------------------------------------------------------
+   HERO CONTENT
+   ------------------------------------------------------------------------- */
+
+.hero__content {
+  text-align: center;
+  order: 1;
+}
+
+@media (min-width: 1024px) {
+  .hero__content {
+    text-align: left;
+    order: 1;
+  }
+}
+
+.hero__badge {
+  margin-bottom: var(--space-4);
+}
+
+.hero__title {
+  font-size: var(--text-4xl);
+  line-height: 1.1;
+  margin-bottom: var(--space-6);
+}
+
+@media (min-width: 768px) {
+  .hero__title {
+    font-size: var(--text-5xl);
+  }
+}
+
+.hero__title-accent {
+  color: var(--color-primary);
+}
+
+.hero__subtitle {
+  font-size: var(--text-lg);
+  color: var(--color-gray-600);
+  line-height: var(--leading-relaxed);
+  margin-bottom: var(--space-8);
+  max-width: 540px;
+}
+
+@media (min-width: 1024px) {
+  .hero__subtitle {
+    margin-left: 0;
+    margin-right: auto;
+  }
+}
+
+@media (max-width: 1023px) {
+  .hero__subtitle {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   HERO ACTIONS
+   ------------------------------------------------------------------------- */
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+@media (max-width: 1023px) {
+  .hero__actions {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero__actions {
+    flex-direction: column;
+  }
+  
+  .hero__actions .btn {
+    width: 100%;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   HERO STATS/TRUST INDICATORS
+   ------------------------------------------------------------------------- */
+
+.hero__trust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+@media (max-width: 1023px) {
+  .hero__trust {
+    justify-content: center;
+  }
+}
+
+.hero__stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.hero__stat-value {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--color-deep);
+}
+
+.hero__stat-label {
+  font-size: var(--text-sm);
+  color: var(--color-gray-500);
+}
+
+.hero__divider {
+  width: 1px;
+  height: 40px;
+  background-color: var(--color-gray-200);
+}
+
+/* -------------------------------------------------------------------------
+   HERO VISUAL (Phone Mockup)
+   ------------------------------------------------------------------------- */
+
+.hero__visual {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  order: 2;
+}
+
+@media (min-width: 1024px) {
+  .hero__visual {
+    order: 2;
+  }
+}
+
+.hero__phone {
+  position: relative;
+  width: 280px;
+  max-width: 100%;
+}
+
+@media (min-width: 640px) {
+  .hero__phone {
+    width: 320px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero__phone {
+    width: 360px;
+  }
+}
+
+.hero__phone-frame {
+  position: relative;
+  
+  padding: 12px;
+  
+  background: linear-gradient(145deg, 
+    var(--color-gray-100) 0%, 
+    var(--color-white) 50%,
+    var(--color-gray-100) 100%
+  );
+  border-radius: 40px;
+  box-shadow: 
+    0 50px 100px -20px rgba(var(--color-deep-rgb), 0.25),
+    0 30px 60px -30px rgba(var(--color-deep-rgb), 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+}
+
+.hero__phone-screen {
+  position: relative;
+  
+  overflow: hidden;
+  border-radius: 28px;
+  
+  background-color: var(--color-white);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.hero__phone-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Notch (optional decorative element) */
+.hero__phone-notch {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  
+  width: 80px;
+  height: 24px;
+  
+  background-color: var(--color-gray-900);
+  border-radius: var(--radius-full);
+}
+
+/* -------------------------------------------------------------------------
+   HERO FLOATING ELEMENTS
+   ------------------------------------------------------------------------- */
+
+.hero__float {
+  position: absolute;
+  
+  padding: var(--space-3) var(--space-4);
+  
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  
+  animation: float 4s ease-in-out infinite;
+}
+
+.hero__float--1 {
+  top: 10%;
+  right: -10%;
+  animation-delay: 0s;
+}
+
+.hero__float--2 {
+  bottom: 20%;
+  left: -10%;
+  animation-delay: 1s;
+}
+
+.hero__float--3 {
+  bottom: 5%;
+  right: -5%;
+  animation-delay: 2s;
+}
+
+@media (max-width: 1200px) {
+  .hero__float {
+    display: none;
+  }
+}
+
+.hero__float-icon {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-gray-700);
+}
+
+.hero__float-icon svg {
+  width: 20px;
+  height: 20px;
+  color: var(--color-accent);
+}
+
+/* -------------------------------------------------------------------------
+   HERO BACKGROUND DECORATION
+   ------------------------------------------------------------------------- */
+
+.hero__bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hero__bg-gradient {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  
+  background: 
+    radial-gradient(ellipse 80% 50% at 20% 40%, rgba(var(--color-primary-rgb), 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 60%, rgba(var(--color-accent-rgb), 0.06) 0%, transparent 70%);
+}
+
+.hero__bg-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: linear-gradient(135deg, 
+    rgba(var(--color-primary-rgb), 0.03) 0%, 
+    rgba(var(--color-accent-rgb), 0.03) 100%
+  );
+}
+
+.hero__bg-circle--1 {
+  width: 600px;
+  height: 600px;
+  top: -300px;
+  right: -200px;
+}
+
+.hero__bg-circle--2 {
+  width: 400px;
+  height: 400px;
+  bottom: -200px;
+  left: -100px;
+}
+
+/* -------------------------------------------------------------------------
+   SCROLL INDICATOR
+   ------------------------------------------------------------------------- */
+
+.hero__scroll {
+  position: absolute;
+  bottom: var(--space-8);
+  left: 50%;
+  transform: translateX(-50%);
+  
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  
+  color: var(--color-gray-400);
+  
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.hero__scroll-text {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+}
+
+.hero__scroll-icon {
+  width: 24px;
+  height: 24px;
+}
+
+@media (max-width: 767px) {
+  .hero__scroll {
+    display: none;
+  }
+}
