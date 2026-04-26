@@ -49,6 +49,7 @@
   -webkit-text-fill-color: transparent;
   color: transparent;
   letter-spacing: -0.04em;
+  padding-right: 0.06em;
 }
 .stats-bar__label {
   font-size: var(--t-sm);
