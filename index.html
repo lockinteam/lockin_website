@@ -57,6 +57,7 @@
   <link rel="stylesheet" href="css/showcase.css">
   <link rel="stylesheet" href="css/pricing.css">
   <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/launch-picker.css">
 
   <!-- Structured data -->
   <script type="application/ld+json">
@@ -167,8 +168,7 @@
     </ul>
 
     <div class="nav__cta">
-      <a href="https://lockin.tech/online" class="btn btn--ghost btn--sm">Sign in</a>
-      <a href="https://lockin.tech/online" class="btn btn--primary btn--sm">Launch app →</a>
+      <button type="button" class="btn btn--primary btn--sm js-launch-app" aria-haspopup="dialog">Launch app →</button>
     </div>
 
     <button class="nav__burger" id="navBurger" aria-label="Toggle menu" aria-expanded="false" aria-controls="navDrawer">
@@ -184,8 +184,7 @@
       <li><a href="https://lockin.tech/support/" class="nav__drawer-link">Support</a></li>
     </ul>
     <div class="nav__drawer-cta">
-      <a href="https://lockin.tech/online" class="btn btn--ghost btn--full btn--md">Sign in</a>
-      <a href="https://lockin.tech/online" class="btn btn--primary btn--full btn--md">Launch app →</a>
+      <button type="button" class="btn btn--primary btn--full btn--md js-launch-app" aria-haspopup="dialog">Launch app →</button>
     </div>
   </div>
 </nav>
@@ -226,10 +225,10 @@
         </p>
 
         <div class="hero__cta-row">
-          <a href="https://lockin.tech/online" class="btn btn--primary btn--xl">
+          <button type="button" class="btn btn--primary btn--xl js-launch-app" aria-haspopup="dialog">
             Start revising free
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </a>
+          </button>
           <a href="#pricing" class="btn btn--ghost btn--xl">See pricing</a>
         </div>
 
@@ -874,7 +873,7 @@
         <h2 class="t-h1">Ready to lock in?</h2>
         <p>Join the students who stopped scrolling textbooks and started actually remembering. It takes 30 seconds.</p>
         <div class="cta-banner__row">
-          <a href="https://lockin.tech/online" class="btn btn--primary btn--xl">Start revising free</a>
+          <button type="button" class="btn btn--primary btn--xl js-launch-app" aria-haspopup="dialog">Start revising free</button>
           <a href="#pricing" class="btn btn--ghost btn--xl">See pricing</a>
         </div>
       </div>
