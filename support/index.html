@@ -1,348 +1,275 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en-GB">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Support for Lockin.tech">
-    
-    <title>Support | Lockin.tech</title>
-    
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="192x192" href="../static/assets/favicon.png">
-    <link rel="apple-touch-icon" href="../static/assets/lockin512.png">
-    
-    <!-- Stylesheet -->
-    <link rel="stylesheet" href="../css/main.css">
-    
-    <style>
-        /* Support page styles */
-        .support-page {
-            padding-top: calc(80px + var(--space-12));
-            padding-bottom: var(--space-20);
-            min-height: 100vh;
-        }
-        
-        .support-header {
-            text-align: center;
-            margin-bottom: var(--space-12);
-        }
-        
-        .support-header__title {
-            font-size: var(--text-4xl);
-            margin-bottom: var(--space-4);
-            color: var(--color-gray-900);
-        }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#060E1A">
+  <meta name="color-scheme" content="dark">
 
-        .support-header__subtitle {
-            font-size: var(--text-lg);
-            color: var(--color-gray-600);
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        
-        .support-content {
-            max-width: 800px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-8);
-        }
-        
-        /* Contact Card */
-        .contact-card {
-            background: var(--color-white);
-            border: 1px solid var(--color-gray-200);
-            border-radius: var(--radius-xl);
-            padding: var(--space-10);
-            text-align: center;
-            box-shadow: var(--shadow-md);
-        }
+  <title>Support — Lockin.tech</title>
+  <meta name="description" content="Get in touch with the Lockin team. Help with your account, billing, technical issues and more — usually answered within 24–48 hours.">
+  <link rel="canonical" href="https://lockin.tech/support/">
 
-        .contact-card__icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 64px;
-            height: 64px;
-            background-color: var(--color-primary-light);
-            color: var(--color-primary);
-            border-radius: 50%;
-            margin-bottom: var(--space-6);
-        }
+  <meta property="og:title" content="Support — Lockin.tech">
+  <meta property="og:description" content="Get in touch with the Lockin team. We usually answer within 24–48 hours.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://lockin.tech/support/">
+  <meta property="og:image" content="https://lockin.tech/assets/lockin1024_transparent.png">
 
-        .contact-card__icon svg {
-            color: var(--color-white);
-        }
+  <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+  <link rel="apple-touch-icon" href="../assets/images/favicon.png">
 
-        .contact-card__title {
-            font-size: var(--text-2xl);
-            margin-bottom: var(--space-3);
-            color: var(--color-gray-900);
-        }
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=cabinet-grotesk@400,500,700,800&f[]=jetbrains-mono@400,500&display=swap">
 
-        .contact-card__desc {
-            color: var(--color-gray-600);
-            margin-bottom: var(--space-8);
-            font-size: var(--text-lg);
-        }
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/reset.css">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <link rel="stylesheet" href="../css/nav.css">
+  <link rel="stylesheet" href="../css/footer.css">
 
-        .contact-card__email {
-            display: inline-block;
-            font-size: var(--text-xl);
-            font-weight: var(--font-semibold);
-            color: var(--color-primary);
-            margin-bottom: var(--space-8);
-            text-decoration: none;
-        }
-
-        .contact-card__email:hover {
-            color: var(--color-primary-dark);
-            text-decoration: underline;
-        }
-        
-        /* Topics Grid */
-        .topics-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: var(--space-6);
-        }
-
-        @media (min-width: 640px) {
-            .topics-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        .topic-card {
-            background: var(--color-gray-50);
-            border: 1px solid var(--color-gray-200);
-            border-radius: var(--radius-lg);
-            padding: var(--space-6);
-            display: flex;
-            align-items: flex-start;
-            gap: var(--space-4);
-        }
-
-        .topic-card__icon {
-            color: var(--color-primary);
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-
-        .topic-card__content h3 {
-            font-size: var(--text-lg);
-            margin-bottom: var(--space-2);
-            color: var(--color-gray-900);
-        }
-
-        .topic-card__content p {
-            font-size: var(--text-sm);
-            color: var(--color-gray-600);
-            margin: 0;
-            line-height: 1.5;
-        }
-
-        /* Back to home link */
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--space-2);
-            margin-bottom: var(--space-8);
-            font-size: var(--text-sm);
-            font-weight: var(--font-medium);
-            color: var(--color-gray-500);
-            transition: color var(--transition-fast);
-        }
-        
-        .back-link:hover {
-            color: var(--color-primary);
-        }
-        
-        .back-link svg {
-            width: 16px;
-            height: 16px;
-        }
-    </style>
+  <link rel="stylesheet" href="support.css">
 </head>
 <body>
-    <!-- ================================================================
-         HEADER / NAVIGATION
-         ================================================================ -->
-    <header class="header" id="header">
-        <div class="header__inner">
-            <a href="/" class="logo" aria-label="Lockin.tech home">
-                <img src="../static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="logo__image">
-            </a>
-            
-            <nav class="nav" aria-label="Main navigation">
-                <ul class="nav__menu">
-                    <li><a href="/#features" class="nav__link">Features</a></li>
-                    <li><a href="/#how-it-works" class="nav__link">How It Works</a></li>
-                    <li><a href="/#pricing" class="nav__link">Pricing</a></li>
-                </ul>
-                
-                <div class="nav__actions">
-                    <a href="/online" class="btn btn--outline btn--sm nav__cta">Use Online</a>
-                    <a href="/#download" class="btn btn--primary btn--sm nav__cta">Download</a>
-                </div>
-            </nav>
-        </div>
+
+<!-- ── Navigation ────────────────────────────────────────────────────── -->
+<nav class="nav" id="nav" role="navigation" aria-label="Main">
+  <div class="container nav__inner">
+    <a href="/" class="nav__logo" aria-label="Lockin home">
+      <img src="../assets/images/logo-full.png" alt="Lockin">
+    </a>
+    <ul class="nav__links" role="list">
+      <li><a href="/#showcase"   class="nav__link">How it works</a></li>
+      <li><a href="/#pricing"    class="nav__link">Pricing</a></li>
+      <li><a href="/resources/"  class="nav__link">Resources</a></li>
+      <li><a href="/support/"    class="nav__link">Support</a></li>
+    </ul>
+    <div class="nav__cta">
+      <a href="/online" class="btn btn--ghost btn--sm">Sign in</a>
+      <a href="/online" class="btn btn--primary btn--sm">Launch app →</a>
+    </div>
+    <button class="nav__burger" id="navBurger" aria-label="Toggle menu" aria-expanded="false" aria-controls="navDrawer">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="nav__drawer" id="navDrawer" aria-hidden="true">
+    <ul role="list">
+      <li><a href="/#showcase"  class="nav__drawer-link">How it works</a></li>
+      <li><a href="/#pricing"   class="nav__drawer-link">Pricing</a></li>
+      <li><a href="/resources/" class="nav__drawer-link">Resources</a></li>
+      <li><a href="/support/"   class="nav__drawer-link">Support</a></li>
+    </ul>
+    <div class="nav__drawer-cta">
+      <a href="/online" class="btn btn--ghost btn--full btn--md">Sign in</a>
+      <a href="/online" class="btn btn--primary btn--full btn--md">Launch app →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Page ───────────────────────────────────────────────────────────── -->
+<main class="page">
+  <div class="page__bg" aria-hidden="true">
+    <div class="page__bg-blob page__bg-blob--1"></div>
+    <div class="page__bg-blob page__bg-blob--2"></div>
+  </div>
+
+  <div class="container page__inner">
+    <a href="/" class="back-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Back to home
+    </a>
+
+    <header class="page-header">
+      <span class="page-header__eyebrow">Support</span>
+      <h1 class="page-header__title">How can we <span>help?</span></h1>
+      <p class="page-header__subtitle">
+        We're here to make sure you get the most out of Lockin. Drop our team a message — we usually reply within 24 to 48 hours.
+      </p>
     </header>
 
-    <main class="support-page">
-        <div class="container">
-            <a href="/" class="back-link">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="15 18 9 12 15 6"/>
-                </svg>
-                Back to Home
+    <div class="support-grid">
+
+      <!-- Main contact card -->
+      <section class="contact-card" aria-labelledby="contactTitle">
+        <div class="contact-card__content">
+          <div class="contact-card__icon" aria-hidden="true">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </div>
+          <h2 id="contactTitle" class="contact-card__title">Email Support</h2>
+          <p class="contact-card__desc">
+            The quickest way to reach us. Send us a message with as much detail as you can — screenshots help.
+          </p>
+          <a href="mailto:support@lockin.tech" class="contact-card__email">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            support@lockin.tech
+          </a>
+
+          <div class="contact-card__cta">
+            <a href="mailto:support@lockin.tech" class="btn btn--primary btn--lg">
+              Send us a message
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             </a>
-            
-            <header class="support-header">
-                <h1 class="support-header__title">How can we help?</h1>
-                <p class="support-header__subtitle">We're here to ensure you have the best experience locking in your studies. Get in touch with our team below.</p>
-            </header>
-            
-            <div class="support-content">
-                <!-- Main Contact Box -->
-                <div class="contact-card">
-                    <div class="contact-card__icon">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                            <polyline points="22,6 12,13 2,6"></polyline>
-                        </svg>
-                    </div>
-                    <h2 class="contact-card__title">Email Support</h2>
-                    <p class="contact-card__desc">Our friendly team is always ready to assist you. We aim to respond to all inquiries within 24-48 hours.</p>
-                    
-                    <a href="mailto:support@lockin.tech" class="contact-card__email">support@lockin.tech</a>
-                    
-                    <div>
-                        <a href="mailto:support@lockin.tech" class="btn btn--primary btn--lg">Send us a message</a>
-                    </div>
-                </div>
+          </div>
 
-                <!-- Support Topics -->
-                <div class="topics-grid">
-                    <div class="topic-card">
-                        <div class="topic-card__icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <path d="M12 16v-4"></path>
-                                <path d="M12 8h.01"></path>
-                            </svg>
-                        </div>
-                        <div class="topic-card__content">
-                            <h3>General Help & Inquiries</h3>
-                            <p>Have a question about how Lockin works, premium features, or account setups? Let us know!</p>
-                        </div>
-                    </div>
-                    <div class="topic-card">
-                        <div class="topic-card__icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 9.36l-7.1 7.1a1 1 0 0 1-1.4 0l-2.83-2.83a1 1 0 0 1 0-1.4l7.1-7.1a6 6 0 0 1 9.36-7.94z"></path>
-                            </svg>
-                        </div>
-                        <div class="topic-card__content">
-                            <h3>Technical Issues</h3>
-                            <p>Found a bug or experiencing an error while revising? Please send it our way so we can fix it.</p>
-                        </div>
-                    </div>
-                    <div class="topic-card">
-                        <div class="topic-card__icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
-                                <line x1="2" y1="10" x2="22" y2="10"></line>
-                            </svg>
-                        </div>
-                        <div class="topic-card__content">
-                            <h3>Billing & Subscriptions</h3>
-                            <p>Need help with a premium subscription, refund request, or invoice? We can help sort it out.</p>
-                        </div>
-                    </div>
-                    <div class="topic-card">
-                        <div class="topic-card__icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                <polyline points="22,6 12,13 2,6"></polyline>
-                            </svg>
-                        </div>
-                        <div class="topic-card__content">
-                            <h3>Account Deletion</h3>
-                            <p>To delete your account and data, please email us from the registered email address.</p>
-                        </div>
-                    </div>
-                </div>
+          <div class="support-stats">
+            <div class="support-stat">
+              <div class="support-stat__num"><span>24–48h</span></div>
+              <div class="support-stat__label">Average reply</div>
             </div>
+            <div class="support-stat">
+              <div class="support-stat__num"><span>Real</span></div>
+              <div class="support-stat__label">Humans, not bots</div>
+            </div>
+            <div class="support-stat">
+              <div class="support-stat__num"><span>UK · GI</span></div>
+              <div class="support-stat__label">Based in</div>
+            </div>
+          </div>
         </div>
-    </main>
+      </section>
 
-    <!-- ================================================================
-         FOOTER
-         ================================================================ -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer__inner">
-                <div class="footer__brand">
-                    <img src="../static/assets/lockin_full_transparent.png" alt="Lockin.tech" class="footer__logo">
-                    <p class="footer__tagline">
-                        The all-in-one study companion for UK students. Lock in to your success with notes, podcasts, questions, and past papers.
-                    </p>
-                </div>
-                
-                <nav class="footer__nav">
-                    <h4 class="footer__nav-title">Product</h4>
-                    <ul class="footer__nav-list">
-                        <li><a href="/#features" class="footer__nav-link">Features</a></li>
-                        <li><a href="/#pricing" class="footer__nav-link">Pricing</a></li>
-                        <li><a href="/online" class="footer__nav-link">Web App</a></li>
-                    </ul>
-                </nav>
-                
-                <nav class="footer__nav">
-                    <h4 class="footer__nav-title">Resources</h4>
-                    <ul class="footer__nav-list">
-                        <li><a href="/#how-it-works" class="footer__nav-link">How It Works</a></li>
-                    </ul>
-                </nav>
-                
-                <nav class="footer__nav">
-                    <h4 class="footer__nav-title">Support</h4>
-                    <ul class="footer__nav-list">
-                        <li><a href="mailto:support@lockin.tech" class="footer__nav-link">Contact Us</a></li>
-                        <li><a href="/support/" class="footer__nav-link">Support Page</a></li>
-                    </ul>
-                </nav>
-            </div>
-            
-            <div class="footer__bottom">
-                <p class="footer__copyright">
-                    © <span id="year"></span> Lockin.tech. All rights reserved.
-                </p>
-                <div class="footer__legal" style="flex-basis: 100%; margin-top: 10px;">
-                    <p style="font-size: 0.85em; color: var(--color-gray-500);">Lockin.tech is a trading name of Young Enterprise (Gibraltar) Student Company Limited.</p>
-                </div>
-                <div class="footer__legal">
-                    <a href="/tos/#terms" class="footer__legal-link">Terms of Service</a>
-                    <a href="/tos/#privacy" class="footer__legal-link">Privacy Policy</a>
-                </div>
-            </div>
+      <!-- Topics -->
+      <section aria-labelledby="topicsTitle">
+        <div class="section-title">
+          <div class="section-title__label">— What we can help with</div>
+          <h2 id="topicsTitle" class="section-title__h">Common topics</h2>
         </div>
-    </footer>
 
-    <script>
-        // Header scroll effect
-        const header = document.getElementById('header');
-        window.addEventListener('scroll', () => {
-            if (window.scrollY > 50) {
-                header.classList.add('header--scrolled');
-            } else {
-                header.classList.remove('header--scrolled');
-            }
-        });
-        
-        // Update copyright year
-        document.getElementById('year').textContent = new Date().getFullYear();
-    </script>
+        <div class="topics-grid">
+          <div class="topic-card">
+            <div class="topic-card__icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            </div>
+            <div>
+              <h3 class="topic-card__title">General questions</h3>
+              <p class="topic-card__desc">How Lockin works, premium features, exam boards, account setup — ask away.</p>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div class="topic-card__icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 9.36l-7.1 7.1a1 1 0 0 1-1.4 0l-2.83-2.83a1 1 0 0 1 0-1.4l7.1-7.1a6 6 0 0 1 9.36-7.94z"/></svg>
+            </div>
+            <div>
+              <h3 class="topic-card__title">Technical issues</h3>
+              <p class="topic-card__desc">Bug, crash, login glitch, sync problem — send us details and we'll get on it.</p>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div class="topic-card__icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            </div>
+            <div>
+              <h3 class="topic-card__title">Billing &amp; subscriptions</h3>
+              <p class="topic-card__desc">Pro, Super, refunds, receipts, payment problems — we'll sort it.</p>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div class="topic-card__icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </div>
+            <div>
+              <h3 class="topic-card__title">Account deletion</h3>
+              <p class="topic-card__desc">Email us from your registered address and we'll permanently remove your data.</p>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div class="topic-card__icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div>
+              <h3 class="topic-card__title">Password &amp; security</h3>
+              <p class="topic-card__desc">Forgotten password? Use the link below. Suspicious activity? Email us straight away.</p>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div class="topic-card__icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
+            </div>
+            <div>
+              <h3 class="topic-card__title">Feedback &amp; ideas</h3>
+              <p class="topic-card__desc">We read every email. Tell us what's missing — we build for students fast.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="quick-links">
+          <a href="/reset-password/" class="quick-link">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Reset password
+          </a>
+          <a href="/tos/" class="quick-link">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Terms &amp; Privacy
+          </a>
+          <a href="/online" class="quick-link">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+            Launch web app
+          </a>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<!-- ── Footer ────────────────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer__grid">
+      <div class="footer__brand-col">
+        <a href="/" class="footer__brand-mark" aria-label="Lockin home">
+          <img src="../assets/images/logo-mark.png" alt="" aria-hidden="true">
+          <span class="footer__brand-mark-text">Lockin<span>.</span>tech</span>
+        </a>
+        <p class="footer__tagline">The all-in-one revision platform for UK GCSE and A-Level students.</p>
+      </div>
+      <div class="footer__col">
+        <h4 class="footer__col-title">Product</h4>
+        <ul class="footer__list" role="list">
+          <li><a class="footer__link" href="/#showcase">How it works</a></li>
+          <li><a class="footer__link" href="/#pricing">Pricing</a></li>
+          <li><a class="footer__link" href="/online">Launch web app</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4 class="footer__col-title">Resources</h4>
+        <ul class="footer__list" role="list">
+          <li><a class="footer__link" href="/resources/">Resources hub</a></li>
+          <li><a class="footer__link" href="/support/">Support</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4 class="footer__col-title">Company</h4>
+        <ul class="footer__list" role="list">
+          <li><a class="footer__link" href="mailto:support@lockin.tech">support@lockin.tech</a></li>
+          <li><a class="footer__link" href="/tos/">Terms &amp; Privacy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p class="footer__copyright">
+        © <span id="footerYear"></span> <strong>Lockin.tech</strong>. All rights reserved.<br>
+        Lockin.tech is a trading name of Young Enterprise (Gibraltar) Student Company Limited.
+      </p>
+      <div class="footer__legal">
+        <a href="/tos/">Terms</a>
+        <a href="/tos/#privacy">Privacy</a>
+        <a href="mailto:support@lockin.tech">Contact</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="../js/page.js"></script>
 </body>
 </html>
