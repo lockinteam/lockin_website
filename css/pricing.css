@@ -42,15 +42,16 @@
   border-radius: var(--r-xl);
   padding: var(--sp-8);
   position: relative;
-  transition: transform var(--t-slow), border-color var(--t-slow), background var(--t-slow);
+  transition: transform var(--t-slow), border-color var(--t-slow), background var(--t-slow), box-shadow var(--t-slow);
   display: flex;
   flex-direction: column;
-  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-sm);
 }
 .pricing__card:hover {
   transform: translateY(-6px);
   border-color: var(--c-border-bright);
-  background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.015) 100%);
+  background: linear-gradient(145deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.01) 100%);
+  box-shadow: var(--shadow-md);
 }
 
 .pricing__card--featured {
@@ -86,7 +87,7 @@
   font-family: var(--font-display);
   font-size: var(--t-xl);
   font-weight: 600;
-  color: var(--c-white);
+  color: var(--c-dark);
   display: block;
   margin-bottom: var(--sp-5);
   letter-spacing: -0.01em;
@@ -118,7 +119,7 @@
   font-family: var(--font-display);
   font-size: clamp(3rem, 2.4rem + 1.6vw, 4.25rem);
   font-weight: 700;
-  color: var(--c-white);
+  color: var(--c-dark);
   line-height: 1;
   letter-spacing: -0.04em;
 }
@@ -162,7 +163,7 @@
 }
 .pricing__feature--no { color: var(--c-text-subtle); }
 .pricing__feature--no .pricing__feature-icon {
-  background: rgba(255,255,255,0.04);
+  background: rgba(0,0,0,0.06);
   color: var(--c-text-subtle);
 }
 
@@ -185,7 +186,7 @@
   letter-spacing: -0.01em;
 }
 .pricing__bottom-line strong {
-  color: var(--c-white);
+  color: var(--c-dark);
   font-style: normal;
   font-weight: 600;
 }

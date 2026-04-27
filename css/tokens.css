@@ -5,10 +5,10 @@
 
 :root {
   /* ─── Brand Colours ──────────────────────────── */
-  --c-bg:           #060E1A;
-  --c-bg-1:         #0B1829;
-  --c-bg-2:         #0F2035;
-  --c-bg-3:         #193659;
+  --c-bg:           #FFFFFF;
+  --c-bg-1:         #F8FAFC;
+  --c-bg-2:         #F1F5F9;
+  --c-bg-3:         #E2E8F0;
 
   --c-primary:      #3678AE;
   --c-primary-light:#4a8fc4;
@@ -16,15 +16,16 @@
 
   --c-accent:       #53C0B8;
   --c-accent-light: #6fd4cc;
-  --c-accent-glow:  rgba(83, 192, 184, 0.25);
+  --c-accent-glow:  rgba(83, 192, 184, 0.18);
 
   --c-white:        #FFFFFF;
-  --c-text:         #E8EEF4;
-  --c-text-muted:   #94A3B8;
-  --c-text-subtle:  #5C6B82;
+  --c-dark:         #193659;
+  --c-text:         #334155;
+  --c-text-muted:   #64748B;
+  --c-text-subtle:  #94A3B8;
 
-  --c-border:       rgba(255,255,255,0.08);
-  --c-border-bright:rgba(255,255,255,0.16);
+  --c-border:       rgba(0,0,0,0.08);
+  --c-border-bright:rgba(0,0,0,0.14);
 
   --c-success:      #10B981;
   --c-warning:      #F59E0B;
@@ -33,13 +34,13 @@
   /* RGB versions for rgba() */
   --c-accent-rgb:   83, 192, 184;
   --c-primary-rgb:  54, 120, 174;
-  --c-bg-rgb:       6, 14, 26;
+  --c-bg-rgb:       255, 255, 255;
 
   /* ─── Gradients ──────────────────────────────── */
-  --grad-hero:      radial-gradient(ellipse at top, #0F2035 0%, #060E1A 60%);
+  --grad-hero:      radial-gradient(ellipse at top, #EBF4FF 0%, #FFFFFF 60%);
   --grad-teal:      linear-gradient(135deg, #3678AE 0%, #53C0B8 100%);
-  --grad-text:      linear-gradient(135deg, #FFFFFF 0%, #53C0B8 100%);
-  --grad-card:      linear-gradient(145deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.01) 100%);
+  --grad-text:      linear-gradient(135deg, #193659 0%, #3678AE 50%, #53C0B8 100%);
+  --grad-card:      linear-gradient(145deg, rgba(0,0,0,0.025) 0%, rgba(0,0,0,0.006) 100%);
 
   /* ─── Spacing ────────────────────────────────── */
   --sp-1: 0.25rem;   --sp-2: 0.5rem;    --sp-3: 0.75rem;
@@ -77,11 +78,11 @@
   --t-6xl:  clamp(4rem,     2.8rem  + 6vw,    7.5rem);
 
   /* ─── Shadows ────────────────────────────────── */
-  --shadow-sm:  0 2px 8px rgba(0,0,0,0.3);
-  --shadow-md:  0 8px 24px rgba(0,0,0,0.45);
-  --shadow-lg:  0 20px 60px rgba(0,0,0,0.55);
-  --shadow-accent: 0 0 60px rgba(83,192,184,0.22);
-  --shadow-glow:   0 0 120px rgba(83,192,184,0.12);
+  --shadow-sm:  0 2px 8px rgba(0,0,0,0.07);
+  --shadow-md:  0 8px 24px rgba(0,0,0,0.10);
+  --shadow-lg:  0 20px 60px rgba(0,0,0,0.12);
+  --shadow-accent: 0 0 60px rgba(83,192,184,0.18);
+  --shadow-glow:   0 0 120px rgba(83,192,184,0.09);
 
   /* ─── Transitions ────────────────────────────── */
   --t-fast:   150ms cubic-bezier(0.4, 0, 0.2, 1);

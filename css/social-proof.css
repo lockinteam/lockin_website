@@ -6,7 +6,7 @@
   padding: var(--sp-16) 0 var(--sp-12);
   border-top: 1px solid var(--c-border);
   border-bottom: 1px solid var(--c-border);
-  background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0));
+  background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0));
   position: relative;
 }
 .stats-bar::before {
@@ -104,7 +104,7 @@
   opacity: 0.55;
   transition: opacity var(--t-base-t), color var(--t-base-t);
 }
-.ticker__item:hover { opacity: 1; color: var(--c-white); }
+.ticker__item:hover { opacity: 1; color: var(--c-dark); }
 .ticker__item::after {
   content: '◆';
   color: var(--c-accent);

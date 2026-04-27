@@ -167,11 +167,10 @@
   font-family: var(--font-display);
   font-size: clamp(2rem, 1.5rem + 2vw, 3.5rem);
   font-weight: 600;
-  color: var(--c-white);
   line-height: 1.04;
   letter-spacing: -0.03em;
   margin-bottom: var(--sp-5);
-  background: linear-gradient(180deg, #FFFFFF 50%, #94A3B8 200%);
+  background: var(--grad-text);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -229,7 +228,7 @@
   position: absolute;
   bottom: 0; left: 0; right: 0;
   height: 2px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(0,0,0,0.08);
   z-index: 2;
 }
 .scene__progress-fill {
@@ -251,7 +250,7 @@
 .scene__phase-dot {
   width: 24px; height: 3px;
   border-radius: 2px;
-  background: rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.1);
   transition: background var(--t-base-t);
 }
 .scene__phase-dot.is-active { background: var(--c-accent); box-shadow: 0 0 8px rgba(var(--c-accent-rgb), 0.6); }

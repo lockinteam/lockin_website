@@ -10,7 +10,7 @@
 .cta-banner__inner {
   position: relative;
   background: linear-gradient(135deg, #0B1829 0%, #0F2035 60%, #112a45 100%);
-  border: 1px solid var(--c-border-bright);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: var(--r-xl);
   padding: clamp(2rem, 5vw, 4.5rem);
   overflow: hidden;
@@ -39,9 +39,10 @@
   margin: var(--sp-4) 0 var(--sp-5);
   font-size: clamp(2.25rem, 1.6rem + 3vw, 4rem);
   letter-spacing: -0.035em;
+  color: var(--c-white);
 }
 .cta-banner p {
-  color: var(--c-text-muted);
+  color: #94A3B8;
   font-size: var(--t-lg);
   max-width: 540px;
   margin: 0 auto var(--sp-8);
@@ -55,9 +56,9 @@
 
 /* ── Footer ── */
 .footer {
-  border-top: 1px solid var(--c-border);
+  border-top: 1px solid rgba(255,255,255,0.1);
   padding: var(--sp-20) 0 var(--sp-8);
-  background: linear-gradient(180deg, var(--c-bg) 0%, #04091A 100%);
+  background: linear-gradient(180deg, #0B1829 0%, #04091A 100%);
   position: relative;
 }
 .footer__grid {
@@ -65,7 +66,7 @@
   grid-template-columns: 2fr 1fr 1fr 1fr;
   gap: var(--sp-12);
   padding-bottom: var(--sp-12);
-  border-bottom: 1px solid var(--c-border);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
   margin-bottom: var(--sp-6);
 }
 
@@ -89,7 +90,7 @@
 .footer__brand-mark-text span { color: var(--c-accent); }
 
 .footer__tagline {
-  color: var(--c-text-muted);
+  color: #94A3B8;
   max-width: 380px;
   margin-bottom: var(--sp-6);
   font-size: var(--t-sm);
@@ -112,7 +113,7 @@
 .footer__list { display: flex; flex-direction: column; gap: var(--sp-3); }
 .footer__link {
   font-size: var(--t-sm);
-  color: var(--c-text-muted);
+  color: #94A3B8;
   transition: color var(--t-fast), transform var(--t-fast);
   display: inline-block;
 }
@@ -125,13 +126,13 @@
   flex-wrap: wrap;
   gap: var(--sp-4);
   font-size: var(--t-xs);
-  color: var(--c-text-subtle);
+  color: #64748B;
   line-height: 1.6;
 }
 .footer__copyright { max-width: 600px; }
-.footer__copyright strong { color: var(--c-text-muted); font-weight: 600; }
+.footer__copyright strong { color: #94A3B8; font-weight: 600; }
 .footer__legal { display: flex; gap: var(--sp-6); flex-wrap: wrap; }
-.footer__legal a { color: var(--c-text-subtle); transition: color var(--t-fast); }
+.footer__legal a { color: #64748B; transition: color var(--t-fast); }
 .footer__legal a:hover { color: var(--c-accent); }
 
 @media (max-width: 900px) {
