@@ -69,8 +69,8 @@ section { position: relative; }
 }
 
 ::selection {
-  background: rgba(var(--c-accent-rgb), 0.35);
-  color: var(--c-white);
+  background: rgba(var(--c-accent-rgb), 0.25);
+  color: var(--c-dark);
 }
 
 /* Typography utilities */
