@@ -32,10 +32,9 @@
 .auth-card {
   position: relative; z-index: 2;
   width: 100%; max-width: 460px;
-  background: var(--grad-card);
+  background: var(--c-bg-1);
   border: 1px solid var(--c-border-bright);
   border-radius: var(--r-xl); padding: var(--sp-10);
-  backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
   box-shadow: var(--shadow-lg);
   text-align: center;
 }
@@ -66,7 +65,7 @@
 .auth-title {
   font-family: var(--font-display);
   font-size: var(--t-2xl); font-weight: 600;
-  color: var(--c-white);
+  color: var(--c-dark);
   letter-spacing: -0.02em;
   margin-bottom: var(--sp-3);
 }

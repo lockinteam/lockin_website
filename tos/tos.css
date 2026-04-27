@@ -27,7 +27,7 @@
   padding: 0.5rem 1rem;
   font-size: var(--t-sm); font-weight: 500;
   color: var(--c-text-muted);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(0, 0, 0, 0.03);
   border: 1px solid var(--c-border);
   border-radius: var(--r-full);
   text-decoration: none;
@@ -35,8 +35,8 @@
   transition: all var(--t-fast);
 }
 .back-link:hover {
-  color: var(--c-white);
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--c-dark);
+  background: rgba(0, 0, 0, 0.06);
   border-color: var(--c-border-bright);
   transform: translateX(-2px);
 }
@@ -63,7 +63,7 @@
   font-weight: 600;
   line-height: 1.04;
   letter-spacing: -0.035em;
-  color: var(--c-white);
+  color: var(--c-dark);
   margin-bottom: var(--sp-4);
 }
 .legal-header__title span {
@@ -85,11 +85,10 @@
   display: inline-flex;
   gap: 0.3rem;
   padding: 0.35rem;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.03);
   border: 1px solid var(--c-border);
   border-radius: var(--r-full);
   margin: 0 auto var(--sp-12);
-  backdrop-filter: blur(12px);
 }
 .legal-nav__link {
   padding: 0.65rem 1.5rem;
@@ -101,7 +100,7 @@
   transition: all var(--t-fast);
   cursor: pointer;
 }
-.legal-nav__link:hover { color: var(--c-white); }
+.legal-nav__link:hover { color: var(--c-dark); }
 .legal-nav__link--active {
   background: var(--grad-teal);
   color: #04121F;
@@ -112,12 +111,10 @@
 .legal-content {
   max-width: 820px;
   margin: 0 auto;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+  background: var(--c-bg-1);
   border: 1px solid var(--c-border-bright);
   border-radius: var(--r-xl);
   padding: clamp(1.75rem, 4vw, 3.25rem);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   box-shadow: var(--shadow-md);
 }
 .legal-section { display: none; }
@@ -128,7 +125,7 @@
   font-size: var(--t-2xl);
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: var(--c-white);
+  color: var(--c-dark);
   margin-top: var(--sp-12);
   margin-bottom: var(--sp-4);
   padding-bottom: var(--sp-3);
@@ -140,7 +137,7 @@
   font-family: var(--font-body);
   font-size: var(--t-lg);
   font-weight: 700;
-  color: var(--c-white);
+  color: var(--c-dark);
   margin-top: var(--sp-6);
   margin-bottom: var(--sp-3);
 }
@@ -182,7 +179,7 @@
   color: var(--c-accent-light);
   text-decoration-color: var(--c-accent);
 }
-.legal-section strong { color: var(--c-white); font-weight: 700; }
+.legal-section strong { color: var(--c-dark); font-weight: 700; }
 .legal-section hr {
   border: none;
   border-top: 1px solid var(--c-border);
