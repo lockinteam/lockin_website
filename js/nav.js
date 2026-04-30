@@ -1,4 +1,6 @@
-// Sticky nav scroll behaviour + mobile drawer
+'Entries: 2/999999 (Not Modified Often)'
+
+// Sticky nav scroll behaviour + mobile drawer + auth state
 export function initNav() {
   const nav = document.getElementById('nav');
   const burger = document.getElementById('navBurger');
@@ -31,5 +33,20 @@ export function initNav() {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && drawer.classList.contains('is-open')) setOpen(false);
     });
+  }
+
+  // Check Auth State
+  const token = localStorage.getItem('lockin_auth_token');
+  if (token) {
+    document.querySelectorAll('.nav__auth-item').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.js-auth-only').forEach(el => {
+      el.style.display = '';
+      if (window.getComputedStyle(el).display === 'none') {
+        el.style.display = 'inline-flex';
+      }
+    });
+  } else {
+    document.querySelectorAll('.nav__auth-item').forEach(el => el.style.display = '');
+    document.querySelectorAll('.js-auth-only').forEach(el => el.style.display = 'none');
   }
 }

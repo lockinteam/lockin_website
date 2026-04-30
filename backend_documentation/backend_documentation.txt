@@ -1,3 +1,5 @@
+'Entries: 1/999999 (Not Modified Often)'
+
 # Lockin.tech API Documentation
 
 ## Overview
@@ -48,6 +50,7 @@ All responses include rate limit headers:
 - `POST /auth/signup` - Register a new user account
 - `POST /auth/login` - Authenticate and receive session token
 - `POST /auth/google_signin` - Authenticate with Google Sign-In
+- `POST /auth/apple_signin` - Authenticate with Apple Sign-In
 - `POST /auth/verify_token` - Validate token and retrieve user info
 - `POST /auth/logout` - Invalidate session token
 - `POST /auth/request_password_reset` - Request password reset email
@@ -65,8 +68,10 @@ All responses include rate limit headers:
 - `POST /fetch/questions` - Get questions and answer options for a topic, paper, or course (includes user performance data)
 - `POST /fetch/leaderboard/global` - Get global leaderboard with top users by total XP (GET also supported)
 - `POST /fetch/leaderboard/weekly` - Get weekly leaderboard with top users by XP earned in last 7 days (GET also supported)
-- `POST /fetch/stats` - Get comprehensive user statistics including XP, streaks, ranks, and performance (GET also supported)
+- `POST /fetch/stats` - Get comprehensive user statistics including XP, streaks, ranks, time tracking, and performance (GET also supported)
 - `POST /fetch/optional_topics` - Get available optional topics for a course with enrollment status
+- `POST /fetch/performance_history` - Get daily performance history with optional course/topic filtering
+- `POST /fetch/study_time` - Get study time analytics with optional topic breakdown
 
 **Update User Data**
 - `POST /update/change_year` - Set/change user's year level
@@ -74,6 +79,7 @@ All responses include rate limit headers:
 - `POST /update/profile_picture` - Update user's profile picture
 - `POST /update/complete_tutorial` - Mark in-app tutorial as completed
 - `POST /update/optional_topics` - Update user's optional topic selections for a course
+- `POST /update/reset_progress` - Reset user's learning progress (all or course-specific)
 
 **File Upload**
 - `POST /upload/presign` - Generate presigned URL for file upload to R2 (5MB limit)
@@ -81,6 +87,20 @@ All responses include rate limit headers:
 
 **Analytics**
 - `POST /analytics/record_answer` - Record user's answer to a question, track performance, and award XP
+- `POST /analytics/start_session` - Start a new study session (regular or burst)
+- `POST /analytics/end_session` - End an active study session with final stats
+
+**Sessions**
+- `POST /fetch/sessions` - Fetch study session history with filters and summary stats
+
+**Admin - Subscriptions** (requires admin role)
+- `POST /admin/subscriptions/tiers` - List all subscription tiers with user counts
+- `POST /admin/subscriptions/tiers/update` - Update a subscription tier's settings
+- `POST /admin/subscriptions/assign` - Assign a subscription tier to a user
+- `POST /admin/subscriptions/revoke` - Revoke a user's subscription (revert to Free)
+
+**Webhooks** (server-to-server, shared secret auth)
+- `POST /webhooks/revenuecat` - Handle RevenueCat purchase events (INITIAL_PURCHASE, CANCELLATION, EXPIRATION)
 
 **System**
 - `GET /health` - Health check endpoint
@@ -94,6 +114,7 @@ All responses include rate limit headers:
 - `POST /auth/signup`: **3 requests per minute**
 - `POST /auth/login`: **5 requests per minute**
 - `POST /auth/google_signin`: **5 requests per minute**
+- `POST /auth/apple_signin`: **5 requests per minute**
 - `POST /auth/verify_token`: **20 requests per minute**
 - `POST /auth/logout`: **10 requests per minute**
 - `POST /auth/request_password_reset`: **3 requests per minute**
@@ -454,6 +475,164 @@ class LoginScreen extends StatelessWidget {
 - **iOS**: Requires Info.plist configuration with reversed client ID
 - **Android**: Works automatically with web client ID (minSdk 21+)
 - Same Dart code works on all three platforms!
+
+### 3b. Apple Sign-In
+
+**Endpoint**: `POST backend_url/auth/apple_signin`
+**Rate Limit**: 5 requests per minute
+
+**Description**: Authenticate using Sign in with Apple. The client (iOS or macOS) uses Apple's authentication system to obtain an identity token (JWT), then sends it to this endpoint. The backend verifies the token against Apple's public keys (JWKS) and creates/logs in the user.
+
+**Environment Variable Required**: `APPLE_BUNDLE_ID` — must match the bundle identifier configured in your Apple Developer account (e.g., `com.hugisoft.lockin`).
+
+**Request Body**:
+```json
+{
+  "identity_token": "apple_identity_token_jwt",
+  "email": "user@example.com",
+  "full_name": "John Doe"
+}
+```
+
+> **Note**: `email` and `full_name` are only sent by Apple on the **first sign-in**. On subsequent sign-ins, these fields will be absent — the backend retrieves the email from the verified JWT claims and looks up the user via the `oauth_providers` table.
+
+**Success Response - New User** (201 Created):
+```json
+{
+  "success": true,
+  "message": "Account created successfully",
+  "token": "random_session_token",
+  "expires_at": "2025-10-04T18:30:40.123456",
+  "user": {
+    "id": "user_uuid",
+    "username": "john_doe",
+    "email": "john@privaterelay.appleid.com",
+    "email_verified": true,
+    "role": "user",
+    "profile_picture_url": "default"
+  }
+}
+```
+
+**Success Response - Existing User** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "token": "random_session_token",
+  "expires_at": "2025-10-04T18:30:40.123456",
+  "user": {
+    "id": "user_uuid",
+    "username": "existing_username",
+    "email": "john@privaterelay.appleid.com",
+    "email_verified": true,
+    "role": "user",
+    "profile_picture_url": "default"
+  }
+}
+```
+
+**Success Response - Account Linked** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Apple account linked successfully",
+  "token": "random_session_token",
+  "expires_at": "2025-10-04T18:30:40.123456",
+  "user": {
+    "id": "user_uuid",
+    "username": "existing_username",
+    "email": "john@privaterelay.appleid.com",
+    "email_verified": true,
+    "role": "user",
+    "profile_picture_url": "default"
+  }
+}
+```
+
+**How It Works**:
+1. **New User**: Creates account with Apple email (may be a private relay address), auto-generated username, verified email
+2. **Existing Apple User**: Logs in with existing account via `oauth_providers` lookup
+3. **Email Match**: Links Apple to existing password-based or Google account (preserves original username)
+
+**Important Notes**:
+- Apple may hide the user's real email using their private relay (`@privaterelay.appleid.com`)
+- The `sub` claim from Apple's JWT is stored as `provider_user_id` — this is the permanent unique identifier
+- Apple's identity token expires in ~10 minutes — verify immediately upon receiving
+- Apple does not provide a profile picture; `profile_picture_url` will be `"default"`
+
+**Error Cases**:
+- Missing identity_token field (400)
+- No email available from JWT or client (400)
+- Apple token expired (401)
+- Token audience mismatch (401)
+- Token issuer invalid (401)
+- Invalid Apple token (401)
+- APPLE_BUNDLE_ID not configured on server (500)
+- Server error (500)
+
+**Flutter Implementation**:
+
+1. **Add dependency to `pubspec.yaml`**:
+```yaml
+dependencies:
+  sign_in_with_apple: ^6.1.0
+  http: ^1.1.0
+  flutter_secure_storage: ^9.0.0
+```
+
+2. **Enable Sign in with Apple** in your Apple Developer account and Xcode project capabilities.
+
+3. **Dart code**:
+```dart
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+class AppleAuthService {
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+
+  Future<Map<String, dynamic>?> signInWithApple() async {
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final response = await http.post(
+        Uri.parse('https://backend.lockin.tech/auth/apple_signin'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'identity_token': credential.identityToken,
+          'email': credential.email,
+          'full_name':
+              '${credential.givenName ?? ''} ${credential.familyName ?? ''}'
+                  .trim(),
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        if (data['success']) {
+          await _storage.write(key: 'auth_token', value: data['token']);
+          return {'token': data['token'], 'user': data['user']};
+        }
+      }
+      return null;
+    } catch (error) {
+      print('Error: $error');
+      return null;
+    }
+  }
+}
+```
+
+**Flutter Platform Notes**:
+- **iOS/macOS**: Native Sign in with Apple — requires the capability enabled in Xcode
+- **Android/Web**: Not natively supported by Apple (would need Apple JS SDK or redirect flow)
 
 ### 4. Verify Token
 
@@ -1018,7 +1197,20 @@ curl -X POST ${backend_url}/auth/verify_email \
       "current_streak": 5,
       "longest_streak": 12,
       "last_activity_date": "2025-01-15",
-      "has_completed_tutorial": false
+      "streak_freezes_remaining": 12,
+      "streak_freezes_used_this_year": 2,
+      "freeze_reset_date": "2027-01-01",
+      "has_completed_tutorial": false,
+      "daily_questions_answered": 23,
+      "subscription": {
+        "tier_code": "free",
+        "tier_name": "Lockin Free",
+        "questions_per_day": 50,
+        "podcasts_percentage": 50,
+        "full_analytics": false,
+        "full_xp_earning": false,
+        "full_leaderboards": false
+      }
     },
     "token_expires_at": "2024-01-15T12:00:00.000000",
     "year": {
@@ -1383,13 +1575,31 @@ console.log(`You are rank #${data.current_user.rank} with ${data.current_user.to
             "is_correct": false,
             "created_at": "2024-01-01T00:00:00.000000+00:00"
           }
-        ]
+        ],
+        "user_performance": {
+          "times_seen": 20,
+          "times_correct": 14,
+          "times_incorrect": 6,
+          "ema_accuracy": 0.85,
+          "total_time_spent_ms": 12500,
+          "last_seen_at": "2025-11-12T10:30:00Z",
+          "recent_results": 1023
+        }
       }
     ],
     "count": 1
   }
 }
 ```
+
+**`user_performance` Fields** (null if user has never answered this question):
+- `times_seen` (integer): Total attempts
+- `times_correct` (integer): Correct attempts
+- `times_incorrect` (integer): Incorrect attempts
+- `ema_accuracy` (float): Exponential moving average accuracy (0.0–1.0)
+- `total_time_spent_ms` (integer): Cumulative time on this question in milliseconds
+- `last_seen_at` (string): ISO 8601 timestamp of last attempt
+- `recent_results` (integer | null): Recent-N bitfield storing the last 16 attempts. Bit 0 = most recent (1=correct, 0=incorrect). Valid bit count = `min(times_seen, 16)`. `null` for rows predating the migration that have not received an answer yet.
 
 **Special Cases**:
 - If no questions found, returns empty array with count 0
@@ -1822,8 +2032,8 @@ if (data.success) {
     "course_id": "course_uuid",
     "course_title": "Mathematics GCSE",
     "optional_topics": [
-      {"id": "topic_uuid_1", "name": "Further Calculus"},
-      {"id": "topic_uuid_2", "name": "Advanced Statistics"}
+      {"id": "topic_uuid_1", "name": "Further Calculus", "tier_id": "tier_uuid", "tier_title": "Higher"},
+      {"id": "topic_uuid_2", "name": "Advanced Statistics", "tier_id": "tier_uuid", "tier_title": "Higher"}
     ],
     "added_count": 2,
     "removed_count": 1
@@ -1833,11 +2043,10 @@ if (data.success) {
 
 **Error Cases**:
 - Missing required fields (400)
-- User not enrolled in course (400)
 - Topic not found or not optional (400)
 - Topic does not belong to course/tier (400)
 - Token not found, invalid, or expired (401)
-- Course not found (404)
+- User not enrolled in course (404)
 - Update failed (500)
 
 **Notes**:
@@ -1879,6 +2088,102 @@ const deselectResponse = await fetch(`${backend_url}/update/optional_topics`, {
 
 ---
 
+### Reset Progress
+
+**Endpoint**: `POST backend_url/update/reset_progress`
+**Rate Limit**: 5 requests per minute
+
+**Description**: Reset the user's learning progress. Can reset all progress globally, or reset progress for a specific course. A full reset clears XP, streaks, streak freezes, question performance, daily XP logs, and study sessions. A course-specific reset clears question performance and study sessions for that course only (XP, streaks, and daily logs are global and are not affected).
+
+**Request Body** (full reset):
+```json
+{
+  "token": "your_session_token"
+}
+```
+
+**Request Body** (course-specific reset):
+```json
+{
+  "token": "your_session_token",
+  "course_id": "course_uuid"
+}
+```
+
+**Parameters**:
+- `token` (string, required): Valid session token
+- `course_id` (string, optional): UUID of the course to reset. If omitted, resets ALL progress.
+
+**Success Response - Full Reset** (200 OK):
+```json
+{
+  "success": true,
+  "message": "All progress has been reset",
+  "reset_summary": {
+    "questions_reset": 42,
+    "sessions_deleted": 5
+  }
+}
+```
+
+**Success Response - Course Reset** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Progress for Biology GCSE has been reset",
+  "reset_summary": {
+    "course_id": "course_uuid",
+    "course_title": "Biology GCSE",
+    "questions_reset": 15,
+    "sessions_deleted": 3
+  }
+}
+```
+
+**What gets reset**:
+
+| Data | Full Reset | Course Reset |
+|------|-----------|-------------|
+| Question performance (accuracy, times_seen, etc.) | ✓ All | ✓ Course only |
+| Study sessions | ✓ All | ✓ Course only |
+| Total XP | ✓ Reset to 0 | ✗ Not affected |
+| Current/longest streak | ✓ Reset to 0 | ✗ Not affected |
+| Streak freezes | ✓ Reset to 14 | ✗ Not affected |
+| Daily XP logs | ✓ Deleted | ✗ Not affected |
+| Course enrollments | ✗ Kept | ✗ Kept |
+| Optional topic selections | ✗ Kept | ✗ Kept |
+| Subscription | ✗ Kept | ✗ Kept |
+
+**Error Cases**:
+- Missing token (400)
+- Token not found, invalid, or expired (401)
+- Course not found or inactive (404) - when course_id is provided
+- Server error (500)
+
+**Example Usage**:
+```javascript
+// Full reset - clear all progress
+const fullResetResponse = await fetch(`${backend_url}/update/reset_progress`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken
+  })
+});
+
+// Course-specific reset
+const courseResetResponse = await fetch(`${backend_url}/update/reset_progress`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: userToken,
+    course_id: courseId
+  })
+});
+```
+
+---
+
 ### Fetch Optional Topics
 
 **Endpoint**: `POST backend_url/fetch/optional_topics`
@@ -1908,14 +2213,14 @@ const deselectResponse = await fetch(`${backend_url}/update/optional_topics`, {
   "data": {
     "course_id": "course_uuid",
     "course_title": "Mathematics GCSE",
-    "tier_id": "tier_uuid",
-    "tier_title": "Higher",
+    "user_enrolled_in_course": true,
     "optional_topics": [
       {
         "id": "topic_uuid_1",
         "name": "Further Calculus",
         "tier_id": "tier_uuid",
         "tier_title": "Higher",
+        "tier_code": "H",
         "sort_order": 10,
         "is_enrolled": true,
         "has_notes": true,
@@ -1927,6 +2232,7 @@ const deselectResponse = await fetch(`${backend_url}/update/optional_topics`, {
         "name": "Advanced Statistics",
         "tier_id": "tier_uuid",
         "tier_title": "Higher",
+        "tier_code": "H",
         "sort_order": 11,
         "is_enrolled": false,
         "has_notes": true,
@@ -1940,21 +2246,26 @@ const deselectResponse = await fetch(`${backend_url}/update/optional_topics`, {
 ```
 
 **Response Fields**:
+- `course_id`, `course_title`: The course these optional topics belong to
+- `user_enrolled_in_course`: Whether the user is enrolled in this course (if false, `is_enrolled` will always be false for all topics)
 - `optional_topics`: Array of optional topics available for selection
+- `tier_code`: Short code for the tier (e.g. "H" for Higher)
 - `is_enrolled`: Whether the user has selected this optional topic
 - `has_notes`, `has_questions`, `has_podcast`: Content availability flags
 
 **Error Cases**:
 - Missing required fields (400)
-- User not enrolled in course (400)
+- Invalid UUID format (400)
 - Token not found, invalid, or expired (401)
-- Course not found (404)
+- Course not found or inactive (404)
+- Tier not found or does not belong to course (404)
 - Server error (500)
 
 **Notes**:
-- User must be enrolled in the course to fetch optional topics
+- User does NOT need to be enrolled to fetch optional topics (useful for browsing before enrolling), but `is_enrolled` will be false for all topics if the user is not enrolled
 - Only returns topics marked as `is_optional=true`
-- Results are filtered by tier if user has a tier preference or if `tier_id` is specified
+- If the user is enrolled with a tier preference, results are automatically filtered to that tier (unless an explicit `tier_id` is passed)
+- If `tier_id` is explicitly passed, it overrides the enrolled tier filter
 
 **Example Usage**:
 ```javascript
@@ -2494,19 +2805,24 @@ Record a user's answer to a question, update performance tracking metrics, and a
 - **Correct Answer (Repeated)**: 10 XP
 - **Incorrect Answer**: 0 XP
 
-**Streak System Rules** (Consecutive Days of Activity):
-- **Same Day**: Maintains current streak (correct or incorrect doesn't matter)
-- **Consecutive Day + Correct Answer**: Increments streak by 1
-- **Consecutive Day + Incorrect Answer**: Maintains current streak (no penalty for mistakes)
-- **Missed Days (2+ days gap)**: Resets streak to 0
-- **Note**: Streaks encourage daily engagement, not perfection. You keep your streak as long as you show up every day, regardless of performance.
+**Streak System Rules** (Consecutive Days with Correct Answers + Freeze Protection):
+- **Correct Answer + Same Day**: Maintains current streak (already counted today)
+- **Correct Answer + Consecutive Day**: Increments streak by 1
+- **Correct Answer + Gap (with freezes available)**: Auto-applies freezes for missed days, increments streak
+- **Correct Answer + Gap (not enough freezes)**: Consumes ALL remaining freezes for the days they covered, then resets streak to 1 (today is day 1 of new streak)
+- **Incorrect Answer (any scenario)**: No effect - streak unchanged, `last_activity_date` unchanged
+- **Streak Freezes**: Users get 14 streak freezes per calendar year (reset January 1st)
+- **Note**: Streaks require getting at least one question correct each day. Incorrect answers are completely ignored for streak purposes - they don't help or hurt your streak. When a streak breaks due to an insufficient freeze balance, the remaining freezes are still consumed (they covered the first N missed days before the streak died).
 
 **Request Body:**
 ```json
 {
   "token": "session_token_string",
   "question_id": "uuid_of_question",
-  "answer_id": "uuid_of_selected_answer"
+  "answer_id": "uuid_of_selected_answer",
+  "time_spent_ms": 4500,
+  "session_id": "uuid_of_active_session",
+  "count_xp": true
 }
 ```
 
@@ -2514,6 +2830,9 @@ Record a user's answer to a question, update performance tracking metrics, and a
 - `token` (string, required): Valid session token
 - `question_id` (string, required): UUID of the question being answered
 - `answer_id` (string, required): UUID of the answer option selected by the user
+- `time_spent_ms` (integer, optional): Time spent on the question in milliseconds (capped at 300000ms = 5 minutes)
+- `session_id` (string, optional): UUID of an active study session. If provided and valid, the session's counters (questions_answered, questions_correct, xp_earned) are atomically incremented. If invalid or inactive, silently ignored — the answer is still recorded normally.
+- `count_xp` (boolean, optional): Default `true`. If `false`, the question is treated as a flashcard review and will not grant any XP or adjust streak logic related to XP (but will still update EMA accuracy and performance stats).
 
 **Success Response (200 OK):**
 ```json
@@ -2530,7 +2849,9 @@ Record a user's answer to a question, update performance tracking metrics, and a
       "times_correct": 4,
       "times_incorrect": 1,
       "ema_accuracy": 0.8723,
-      "last_seen_at": "2025-11-12T10:30:00Z"
+      "last_seen_at": "2025-11-12T10:30:00Z",
+      "total_time_spent_ms": 12500,
+      "recent_results": 1023
     }
   }
 }
@@ -2546,6 +2867,8 @@ Record a user's answer to a question, update performance tracking metrics, and a
 - `performance.times_incorrect` (integer): Number of incorrect attempts
 - `performance.ema_accuracy` (float): EMA accuracy (0.0 to 1.0, e.g., 0.85 = 85%)
 - `performance.last_seen_at` (string): ISO 8601 timestamp of this attempt
+- `performance.total_time_spent_ms` (integer): Cumulative time spent on this question in milliseconds
+- `performance.recent_results` (integer | null): Recent-N bitfield storing the last 16 attempts. Bit 0 = most recent (1=correct, 0=incorrect). `null` for rows predating the migration that have not yet been updated. Valid bit count = `min(times_seen, 16)`.
 
 **Error Responses:**
 - `400 Bad Request`: Missing required fields or invalid question/answer (question inactive)
@@ -2576,13 +2899,14 @@ console.log(`EMA Accuracy: ${(data.data.performance.ema_accuracy * 100).toFixed(
 ```
 
 ```bash
-# cURL: Record an answer
+# cURL: Record an answer (with optional time tracking)
 curl -X POST ${backend_url}/analytics/record_answer \
   -H "Content-Type: application/json" \
   -d '{
     "token": "your_session_token",
     "question_id": "question_uuid",
-    "answer_id": "answer_uuid"
+    "answer_id": "answer_uuid",
+    "time_spent_ms": 4500
   }'
 ```
 
@@ -2594,12 +2918,18 @@ curl -X POST ${backend_url}/analytics/record_answer \
 - Default EMA is 0.88 (88%), Result is 1 (correct) or 0 (incorrect)
 - XP is awarded immediately and added to user's total_xp
 - Daily XP tracking uses user_daily_xp table with composite key (user_id, date)
-- Streaks increment only when answering correctly on a new day
-- Streaks reset to 0 on incorrect answers or missed days
+- Streak logic only runs on CORRECT answers - incorrect answers are completely ignored
+- Streaks increment only when answering correctly on a consecutive day
+- Missing days auto-apply freezes if available; when freezes are exhausted the streak resets to 1 and ALL remaining freezes are consumed (they covered the days up to the point of streak death)
+- `last_activity_date` only updates on correct answers (tracks "last day with a correct answer")
+- Annual freeze reset: freezes reset to 14 on January 1st of each year
 - Records cascade delete when user or question is deleted
+- Time tracking: time_spent_ms is capped at 300000ms (5 minutes) per answer and accumulated per question
+- Daily time aggregates (time_spent_seconds) are stored in user_daily_xp for efficient reporting
+- Recent-N bitfield: each answer shifts `recent_results` left by 1 and ORs in the new result bit, then masks to 16 bits. `COALESCE(recent_results, 0)` handles pre-migration NULL rows.
 
 **Integration Note:**
-The `/fetch/questions` endpoint automatically includes user performance data for each question, including `ema_accuracy` (0.0-1.0). If `user_performance` is null, the user hasn't answered that question yet.
+The `/fetch/questions` endpoint automatically includes user performance data for each question, including `ema_accuracy` (0.0-1.0), `total_time_spent_ms` (cumulative time on the question), and `recent_results` (16-bit attempt history). If `user_performance` is null, the user hasn't answered that question yet. If `recent_results` is null within a non-null `user_performance`, the row predates the migration — fall back to `times_correct / times_seen` for accuracy.
 
 ---
 
@@ -2779,10 +3109,22 @@ Get comprehensive user statistics including XP, streaks, ranks, and question per
     "current_streak": 7,
     "longest_streak": 14,
     "global_rank": 15,
+    "weekly_rank": 8,
     "questions_answered": 125,
     "questions_correct": 98,
     "overall_accuracy": 78.4,
-    "last_activity_date": "2025-01-15"
+    "last_activity_date": "2025-01-15",
+    "total_time_seconds": 18500,
+    "time_today_seconds": 1200,
+    "time_this_week_seconds": 7500,
+    "total_sessions": 42,
+    "total_burst_sessions": 15,
+    "best_burst_xp": 210,
+    "avg_session_minutes": 12.5,
+    "sessions_this_week": 8,
+    "streak_freezes_remaining": 12,
+    "streak_freezes_used_this_year": 2,
+    "freeze_dates_this_month": ["2026-01-05", "2026-01-10"]
   }
 }
 ```
@@ -2790,9 +3132,21 @@ Get comprehensive user statistics including XP, streaks, ranks, and question per
 **Response Fields (inside `stats`):**
 - `total_xp`, `daily_xp`, `weekly_xp`
 - `current_streak`, `longest_streak`, `last_activity_date`
-- `global_rank`
+- `global_rank` (rank by total XP)
+- `weekly_rank` (rank by weekly XP - useful for weekly leaderboards)
 - `questions_answered`, `questions_correct`
 - `overall_accuracy` (percentage with one decimal place)
+- `total_time_seconds` (cumulative study time in seconds)
+- `time_today_seconds` (study time today in seconds)
+- `time_this_week_seconds` (study time this week in seconds)
+- `total_sessions` (total completed study sessions)
+- `total_burst_sessions` (total completed burst sessions)
+- `best_burst_xp` (highest XP earned in a single burst session)
+- `avg_session_minutes` (average session duration in minutes)
+- `sessions_this_week` (completed sessions in the last 7 days)
+- `streak_freezes_remaining` (effective real-time freeze count, 0-14 — decrements day-by-day during an active gap even before the next correct answer is recorded)
+- `streak_freezes_used_this_year` (freezes consumed this calendar year)
+- `freeze_dates_this_month` (array of dates in current month where freezes were used)
 
 **Error Responses:**
 - `400 Bad Request`: Missing token
@@ -2821,6 +3175,277 @@ console.log(`Accuracy: ${stats.overall_accuracy}%`);
 
 ---
 
+### POST /fetch/streak_freezes
+
+Get detailed streak freeze usage history for the streak screen.
+
+**Auth**: Required (valid session token)
+
+**Rate Limit**: 30 requests per minute
+
+**Description**: Returns the user's streak freeze allowance, remaining freezes, and usage history. Useful for displaying a calendar of freeze days and showing users their remaining vacation day protection.
+
+**Request Body:**
+```json
+{
+  "token": "session_token_string",
+  "days": 30
+}
+```
+
+**Parameters:**
+- `token` (string, required): Valid session token
+- `days` (integer, optional): Number of days of history to return (default: 30, max: 365)
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Streak freeze data fetched successfully",
+  "data": {
+    "freezes_remaining": 12,
+    "freezes_used_this_year": 2,
+    "freeze_allowance": 14,
+    "freeze_reset_date": "2027-01-01",
+    "usage_history": [
+      {
+        "date": "2026-01-05",
+        "was_auto_applied": true
+      },
+      {
+        "date": "2026-01-10",
+        "was_auto_applied": true
+      }
+    ]
+  }
+}
+```
+
+**Response Fields:**
+- `freezes_remaining` (integer): Number of freezes available (0-14)
+- `freezes_used_this_year` (integer): Freezes consumed this calendar year
+- `freeze_allowance` (integer): Total freezes per year (always 14)
+- `freeze_reset_date` (string): Date when freezes reset (January 1st of next year)
+- `usage_history` (array): List of freeze usage records within the requested period
+  - `date` (string): Date that was frozen (YYYY-MM-DD)
+  - `was_auto_applied` (boolean): True if system auto-applied, false if manually scheduled
+
+**Error Responses:**
+- `400 Bad Request`: Missing token
+- `401 Unauthorized`: Invalid or expired token
+- `500 Internal Server Error`: Database error
+
+**Usage Example:**
+```javascript
+const response = await fetch(`${backend_url}/fetch/streak_freezes`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: sessionToken, days: 30 })
+});
+
+const data = await response.json();
+console.log(`Freezes remaining: ${data.data.freezes_remaining}/14`);
+console.log(`Freeze dates:`, data.data.usage_history.map(f => f.date));
+```
+
+---
+
+### POST /fetch/performance_history
+
+Get daily performance history for progress tracking and analytics.
+
+**Auth**: Required (valid session token)
+
+**Description**: Returns daily performance records (XP earned, questions answered, accuracy, time spent) with optional filtering by course or topic. Useful for displaying progress charts and tracking improvement over time.
+
+**Request Body:**
+```json
+{
+  "token": "session_token_string",
+  "course_id": "optional_course_uuid",
+  "topic_id": "optional_topic_uuid",
+  "limit": 30
+}
+```
+
+**Parameters:**
+- `token` (string, required): Valid session token
+- `course_id` (string, optional): Filter to questions in a specific course
+- `topic_id` (string, optional): Filter to questions in a specific topic (overrides course_id)
+- `limit` (integer, optional): Maximum number of days to return (default: 30, max: 365)
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "history": [
+      {
+        "date": "2025-01-15",
+        "xp_earned": 45,
+        "questions_answered": 8,
+        "questions_correct": 6,
+        "accuracy": 75.0,
+        "time_spent_seconds": 720
+      },
+      {
+        "date": "2025-01-14",
+        "xp_earned": 60,
+        "questions_answered": 12,
+        "questions_correct": 10,
+        "accuracy": 83.3,
+        "time_spent_seconds": 1200
+      }
+    ],
+    "summary": {
+      "total_days": 14,
+      "total_xp": 450,
+      "total_questions": 85,
+      "total_correct": 68,
+      "average_accuracy": 80.0,
+      "total_time_seconds": 8500,
+      "improvement": 5.2
+    }
+  }
+}
+```
+
+**Response Fields:**
+- `history` (array): Daily performance records sorted by date (most recent first)
+  - `date` (string): Date in YYYY-MM-DD format
+  - `xp_earned` (integer): XP earned on this day
+  - `questions_answered` (integer): Number of questions answered
+  - `questions_correct` (integer): Number of correct answers
+  - `accuracy` (float): Accuracy percentage for this day
+  - `time_spent_seconds` (integer): Time spent studying on this day
+- `summary` (object): Aggregated statistics for the period
+  - `total_days` (integer): Number of days with activity
+  - `total_xp` (integer): Total XP earned in period
+  - `total_questions` (integer): Total questions answered
+  - `total_correct` (integer): Total correct answers
+  - `average_accuracy` (float): Average accuracy across all days
+  - `total_time_seconds` (integer): Total study time in period
+  - `improvement` (float): Accuracy change from first to last week (positive = improving)
+
+**Error Responses:**
+- `400 Bad Request`: Missing token or invalid course_id/topic_id
+- `401 Unauthorized`: Invalid or expired token
+- `404 Not Found`: Course or topic not found
+- `500 Internal Server Error`: Database error
+
+**Usage Examples:**
+```javascript
+// Get overall performance history
+const response = await fetch(`${backend_url}/fetch/performance_history`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: sessionToken, limit: 30 })
+});
+
+// Get course-specific performance
+const response = await fetch(`${backend_url}/fetch/performance_history`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: sessionToken, course_id: 'course_uuid', limit: 30 })
+});
+```
+
+---
+
+### POST /fetch/study_time
+
+Get detailed study time analytics with optional topic-level breakdown.
+
+**Auth**: Required (valid session token)
+
+**Description**: Returns comprehensive study time statistics including total time, daily/weekly/monthly breakdowns, and optionally a per-topic breakdown when filtering by course.
+
+**Request Body:**
+```json
+{
+  "token": "session_token_string",
+  "course_id": "optional_course_uuid",
+  "include_topics": true
+}
+```
+
+**Parameters:**
+- `token` (string, required): Valid session token
+- `course_id` (string, optional): Filter to a specific course for topic breakdown
+- `include_topics` (boolean, optional): Include per-topic breakdown (requires course_id)
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "total_time_seconds": 86400,
+    "time_today_seconds": 3600,
+    "time_this_week_seconds": 21600,
+    "time_this_month_seconds": 64800,
+    "average_session_seconds": 1200,
+    "by_topic": [
+      {
+        "topic_id": "uuid-1",
+        "topic_name": "Cell Structure",
+        "time_seconds": 3600,
+        "questions_answered": 25,
+        "percentage": 16.7
+      },
+      {
+        "topic_id": "uuid-2",
+        "topic_name": "Enzymes",
+        "time_seconds": 2400,
+        "questions_answered": 18,
+        "percentage": 11.1
+      }
+    ]
+  }
+}
+```
+
+**Response Fields:**
+- `total_time_seconds` (integer): Total cumulative study time
+- `time_today_seconds` (integer): Study time today
+- `time_this_week_seconds` (integer): Study time in the last 7 days
+- `time_this_month_seconds` (integer): Study time in the last 30 days
+- `average_session_seconds` (integer): Average daily study session duration
+- `by_topic` (array, optional): Per-topic breakdown (only when include_topics=true and course_id provided)
+  - `topic_id` (string): Topic UUID
+  - `topic_name` (string): Topic display name
+  - `time_seconds` (integer): Time spent on this topic
+  - `questions_answered` (integer): Questions answered in this topic
+  - `percentage` (float): Percentage of total time spent on this topic
+
+**Error Responses:**
+- `400 Bad Request`: Missing token or invalid course_id
+- `401 Unauthorized`: Invalid or expired token
+- `404 Not Found`: Course not found
+- `500 Internal Server Error`: Database error
+
+**Usage Examples:**
+```javascript
+// Get overall study time stats
+const response = await fetch(`${backend_url}/fetch/study_time`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ token: sessionToken })
+});
+
+// Get course-specific with topic breakdown
+const response = await fetch(`${backend_url}/fetch/study_time`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ 
+    token: sessionToken, 
+    course_id: 'course_uuid',
+    include_topics: true 
+  })
+});
+```
+
+---
+
 ## Security Features
 
 - **Password Security**: 
@@ -2838,4 +3463,632 @@ console.log(`Accuracy: ${stats.overall_accuracy}%`);
 - **Input Sanitization**: All user inputs sanitized before database operations
 - **SQL Injection Protection**: Parameterized queries throughout
 - **Account Linking**: Automatic linking of Google accounts to existing email-based accounts
-Intellectual Property of Hugisoft (hugisoft.com)
+
+---
+
+## Subscription System
+
+### Overview
+
+Lockin.tech uses a tiered subscription system that controls access to features and content. All users start with a Free tier that provides basic access, with paid tiers offering unlimited access.
+
+### Subscription Tiers
+
+| Tier | Code | Price | Questions/Day | Podcasts | Analytics | XP Earning | Leaderboards |
+|------|------|-------|---------------|----------|-----------|------------|--------------|
+| **Lockin Free** | `free` | £0 | 50 | 50% | Basic | 0.5x | Limited |
+| **Lockin Pro** | `pro` | £2.99 | Unlimited | 100% | Full | 1.0x | Full |
+| **Lockin Super** | `super` | £5.99 | Unlimited | 100% | Full | 1.0x | Full |
+
+### Feature Details
+
+**Questions Per Day (Quota)**:
+- Free tier: Limited to 50 questions per day (resets at midnight UTC)
+- Pro/Super: Unlimited questions
+- Quota enforced at `/analytics/record_answer` - returns `429 Too Many Requests` when exceeded
+
+**Podcast Access**:
+- Free tier: Access to ~50% of podcasts (deterministic per-topic)
+- Pro/Super: Access to 100% of podcasts
+- Access determined by: `(MD5(topic_id) % 100) < podcasts_percentage`
+- Same topic always returns same access result for a user
+
+**Analytics Level**:
+- Free tier: Basic stats only
+- Pro/Super: Full analytics including detailed performance history
+
+**XP Earning**:
+- Free tier: Earn XP at 0.5x rate
+- Pro/Super: Full 1.0x XP earning
+
+**Leaderboard Access**:
+- Free tier: Limited view (can see own rank, limited leaderboard data)
+- Pro/Super: Full leaderboard access
+
+### Subscription Data in API Responses
+
+Subscription information is included in various API responses:
+
+**Authentication Endpoints** (`/auth/signup`, `/auth/login`, `/auth/verify_token`, `/auth/google_signin`, `/auth/apple_signin`):
+```json
+{
+  "user": {
+    "id": "user_uuid",
+    "username": "john_doe",
+    "daily_questions_answered": 23,
+    "subscription": {
+      "tier_code": "free",
+      "tier_name": "Lockin Free",
+      "is_active": true,
+      "purchased_at": "2025-01-01T00:00:00Z",
+      "questions_per_day": 50,
+      "podcasts_percentage": 50,
+      "full_analytics": false,
+      "full_xp_earning": false,
+      "full_leaderboards": false
+    }
+  }
+}
+```
+
+**Profile Endpoint** (`/fetch/profile`):
+```json
+{
+  "data": {
+    "user": {
+      "daily_questions_answered": 23,
+      "subscription": { ... }
+    },
+    "quota": {
+      "limit": 50,
+      "remaining": 45,
+      "tier_code": "free"
+    }
+  }
+}
+```
+
+**Questions Endpoint** (`/fetch/questions`):
+```json
+{
+  "data": {
+    "questions": [...],
+    "quota": {
+      "limit": 50,
+      "remaining": 45,
+      "tier_code": "free"
+    }
+  }
+}
+```
+
+**Stats Endpoint** (`/fetch/stats`):
+```json
+{
+  "stats": { ... },
+  "subscription": { ... },
+  "quota": { ... },
+  "analytics_level": "basic"  // or "full"
+}
+```
+
+**Leaderboard Endpoints** (`/fetch/leaderboard/global`, `/fetch/leaderboard/weekly`):
+```json
+{
+  "leaderboard": [...],
+  "current_user": { ... },
+  "leaderboard_access": "limited"  // or "full"
+}
+```
+
+### Quota Enforcement
+
+**Question Quota** (Free tier only):
+- Enforced at `/analytics/record_answer`
+- When quota is exceeded, returns:
+```json
+{
+  "success": false,
+  "message": "Daily question quota exceeded. Upgrade to Pro for unlimited questions.",
+  "error_code": "quota_exceeded",
+  "quota": {
+    "limit": 50,
+    "used": 50,
+    "remaining": 0,
+    "resets_at": "2025-01-16T00:00:00Z"
+  }
+}
+```
+- HTTP Status: `429 Too Many Requests`
+
+**Podcast Access** (Free tier):
+- Enforced at `/fetch/podcast`
+- When podcast is not accessible, returns:
+```json
+{
+  "success": false,
+  "message": "This podcast requires a Pro or Super subscription",
+  "error_code": "subscription_required",
+  "upgrade_url": "https://lockin.tech/upgrade"
+}
+```
+- HTTP Status: `403 Forbidden`
+
+### Client Implementation
+
+**Check Quota Before Answering**:
+```javascript
+async function answerQuestion(token, questionId, answerId) {
+  const response = await fetch(`${backend_url}/analytics/record_answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, question_id: questionId, answer_id: answerId })
+  });
+  
+  const data = await response.json();
+  
+  if (response.status === 429) {
+    // Quota exceeded - show upgrade prompt
+    showUpgradeModal(data.quota);
+    return null;
+  }
+  
+  return data;
+}
+```
+
+**Check Podcast Access**:
+```javascript
+async function fetchPodcast(token, topicId) {
+  const response = await fetch(`${backend_url}/fetch/podcast`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, topic_id: topicId })
+  });
+  
+  const data = await response.json();
+  
+  if (response.status === 403 && data.error_code === 'subscription_required') {
+    // Podcast locked - show upgrade prompt
+    showUpgradeModal();
+    return null;
+  }
+  
+  return data;
+}
+```
+
+**Display Quota in UI**:
+```javascript
+// After fetching profile or questions
+const { quota } = profileData.data;
+console.log(`Questions: ${quota.remaining}/${quota.limit} remaining today`);
+
+// Show progress bar
+const progressPercent = ((quota.limit - quota.remaining) / quota.limit) * 100;
+renderQuotaBar(progressPercent);
+```
+
+---
+
+## Admin Subscription Endpoints
+
+> **Note**: These endpoints require admin authentication. See `backend_admin_documentation.txt` for details.
+
+### POST /admin/subscriptions/tiers
+
+List all subscription tiers with user counts.
+
+**Request Body**:
+```json
+{
+  "token": "admin_session_token"
+}
+```
+
+**Success Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "Subscription tiers fetched successfully",
+  "data": {
+    "tiers": [
+      {
+        "id": "tier_uuid",
+        "name": "Lockin Free",
+        "code": "free",
+        "price_gbp": "0.00",
+        "description": "Free tier with basic access",
+        "questions_per_day": 50,
+        "podcasts_percentage": 50,
+        "full_analytics": false,
+        "full_xp_earning": false,
+        "full_leaderboards": false,
+        "sort_order": 0,
+        "is_active": true,
+        "user_count": 1250,
+        "created_at": "2025-01-01T00:00:00Z"
+      }
+    ],
+    "count": 3
+  }
+}
+```
+
+### POST /admin/subscriptions/tiers/update
+
+Update a subscription tier's settings.
+
+**Request Body**:
+```json
+{
+  "token": "admin_session_token",
+  "tier_id": "tier_uuid",
+  "updates": {
+    "price_gbp": 3.99,
+    "questions_per_day": 100,
+    "podcasts_percentage": 75,
+    "description": "Updated description"
+  }
+}
+```
+
+**Updatable Fields**:
+- `name`, `price_gbp`, `description`
+- `questions_per_day`, `podcasts_percentage`
+- `full_analytics`, `full_xp_earning`, `full_leaderboards`
+- `sort_order`, `is_active`
+
+**Success Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "Subscription tier updated successfully",
+  "data": {
+    "tier": { ... }
+  }
+}
+```
+
+### POST /admin/subscriptions/assign
+
+Assign a subscription tier to a user.
+
+**Request Body**:
+```json
+{
+  "token": "admin_session_token",
+  "user_id": "user_uuid",
+  "tier_code": "pro",
+  "transaction_id": "txn_123",
+  "purchased_price_gbp": 2.99,
+  "payment_method": "admin_grant",
+  "notes": "Promotional grant"
+}
+```
+
+**Parameters**:
+- `user_id` (string, required): UUID of the user
+- `tier_code` (string, required): Tier code ('free', 'pro', 'super')
+- `transaction_id` (string, optional): External payment reference
+- `purchased_price_gbp` (decimal, optional): Override price recorded (defaults to tier price)
+- `payment_method` (string, optional): Payment method (defaults to 'admin_grant')
+- `notes` (string, optional): Reason for the assignment
+
+**Success Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "Subscription assigned successfully",
+  "data": {
+    "user_id": "user_uuid",
+    "username": "john_doe",
+    "tier_code": "pro",
+    "tier_name": "Lockin Pro",
+    "assigned_at": "2025-01-15T12:00:00Z"
+  }
+}
+```
+
+### POST /admin/subscriptions/revoke
+
+Revoke a user's subscription (revert to Free tier).
+
+**Request Body**:
+```json
+{
+  "token": "admin_session_token",
+  "user_id": "user_uuid",
+  "reason": "Refund requested"
+}
+```
+
+**Success Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "Subscription revoked successfully",
+  "data": {
+    "user_id": "user_uuid",
+    "username": "john_doe",
+    "previous_tier": "pro",
+    "new_tier": "free",
+    "revoked_at": "2025-01-15T12:00:00Z"
+  }
+}
+```
+
+---
+
+## RevenueCat Webhook Endpoint
+
+### POST /webhooks/revenuecat
+
+Server-to-server webhook endpoint called by RevenueCat when purchase events occur. Not called by the app client.
+
+**Authentication**: Shared secret via `Authorization` header (not session tokens).
+```
+Authorization: <REVENUECAT_WEBHOOK_SECRET>
+```
+
+**Rate Limit**: None (server-to-server, protected by shared secret).
+
+**Product ID → Tier Mapping**:
+| Product ID | Tier Code |
+|---|---|
+| `lockin_pro_onetime` | `pro` |
+| `lockin_super_onetime` | `super` |
+
+**Supported Events**:
+
+**INITIAL_PURCHASE**: Creates a new subscription for the user.
+1. Validates auth header
+2. Checks user exists (returns 200 if not found)
+3. Idempotency check via `transaction_id` (returns 200 if duplicate)
+4. Resolves tier UUID from product_id via config map
+5. Deactivates existing active subscription
+6. Inserts new subscription with `payment_method='revenuecat'`
+7. Records `purchased_price_gbp` only if `currency == 'GBP'`
+
+**CANCELLATION / EXPIRATION**: Deactivates the user's active subscription.
+
+**All other event types**: Returns 200 OK immediately (no DB writes).
+
+**Important**: Always returns 200 OK, even for errors (missing user, unknown product, etc.). RevenueCat retries on any non-2xx response.
+
+**Request Body** (sent by RevenueCat):
+```json
+{
+  "event": {
+    "type": "INITIAL_PURCHASE",
+    "app_user_id": "user_uuid",
+    "product_id": "lockin_pro_onetime",
+    "transaction_id": "GPA.1234-5678-9012",
+    "purchased_at_ms": 1713445200000,
+    "price": 2.99,
+    "currency": "GBP"
+  }
+}
+```
+
+**Success Response (200 OK)**:
+```json
+{
+  "success": true,
+  "message": "Purchase processed"
+}
+```
+
+---
+
+## daily_questions_answered Field
+
+All authentication and profile endpoints now include `daily_questions_answered` in the user object. This field returns the number of questions answered today (from `user_daily_xp.questions_answered`), or `0` if no activity today.
+
+**Included in responses of**:
+- `POST /auth/login` → `response.user.daily_questions_answered`
+- `POST /auth/signup` → `response.user.daily_questions_answered`
+- `POST /auth/verify_token` → `response.user.daily_questions_answered`
+- `POST /auth/google_signin` → `response.user.daily_questions_answered`
+- `POST /auth/apple_signin` → `response.user.daily_questions_answered`
+- `POST /fetch/profile` → `response.data.user.daily_questions_answered`
+
+Used by the Flutter app to enforce the free-tier daily question gate.
+
+---
+
+## Study Sessions Endpoints
+
+### POST /analytics/start_session
+
+Create a new study session when the user begins practicing.
+
+**Auth**: Required (valid session token)
+
+**Rate Limit**: 20 requests per minute
+
+**Description**: Creates a new study session entity. Supports two session types:
+- `regular`: Open-ended practice (no target duration)
+- `burst`: Timed challenge with a preset countdown (60–3600 seconds)
+
+If the user already has an active session, it is automatically abandoned before creating the new one.
+
+**Request Body:**
+```json
+{
+  "token": "session_token_string",
+  "course_id": "uuid (optional)",
+  "session_type": "regular | burst",
+  "target_duration_seconds": 600
+}
+```
+
+**Parameters:**
+- `token` (string, required): Valid session token
+- `session_type` (string, required): Either "regular" or "burst"
+- `course_id` (string, optional): UUID of the course. Must be a course the user is enrolled in.
+- `target_duration_seconds` (integer, required for burst): Pre-set countdown in seconds (60–3600). Must not be set for regular sessions.
+
+**Success Response (201 Created):**
+```json
+{
+  "success": true,
+  "message": "Session started",
+  "data": {
+    "session_id": "uuid",
+    "session_type": "burst",
+    "target_duration_seconds": 600,
+    "started_at": "2026-02-06T10:00:00Z",
+    "status": "active"
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Missing token, invalid session_type, burst missing duration, duration out of range, regular with duration, user not enrolled in course
+- `401 Unauthorized`: Invalid or expired token
+- `404 Not Found`: Course not found
+- `500 Internal Server Error`: Database error
+
+---
+
+### POST /analytics/end_session
+
+End an active study session with final stats.
+
+**Auth**: Required (valid session token)
+
+**Rate Limit**: 20 requests per minute
+
+**Description**: Ends an active study session. The backend calculates the actual duration from the time elapsed since the session started. Returns computed metrics like accuracy and XP per minute.
+
+**Request Body:**
+```json
+{
+  "token": "session_token_string",
+  "session_id": "uuid",
+  "xp_earned": 150,
+  "questions_answered": 12,
+  "questions_correct": 9
+}
+```
+
+**Parameters:**
+- `token` (string, required): Valid session token
+- `session_id` (string, required): UUID of the session to end
+- `xp_earned` (integer, required): Total XP earned during the session (non-negative)
+- `questions_answered` (integer, required): Total questions answered (non-negative)
+- `questions_correct` (integer, required): Correct answers (non-negative, must be <= questions_answered)
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Session completed",
+  "data": {
+    "session_id": "uuid",
+    "session_type": "burst",
+    "target_duration_seconds": 600,
+    "actual_duration_seconds": 605,
+    "xp_earned": 150,
+    "questions_answered": 12,
+    "questions_correct": 9,
+    "accuracy": 75.0,
+    "xp_per_minute": 14.9,
+    "started_at": "2026-02-06T10:00:00Z",
+    "completed_at": "2026-02-06T10:10:05Z",
+    "status": "completed"
+  }
+}
+```
+
+**Response Fields:**
+- `accuracy` (float): Percentage of correct answers (0.0–100.0)
+- `xp_per_minute` (float): XP earned per minute of session
+- `actual_duration_seconds` (integer): Wall-clock duration from start to end
+
+**Error Responses:**
+- `400 Bad Request`: Missing fields, invalid stats, session already completed/abandoned, questions_correct > questions_answered, negative values
+- `401 Unauthorized`: Invalid or expired token
+- `404 Not Found`: Session not found or doesn't belong to user
+- `500 Internal Server Error`: Database error
+
+---
+
+### POST /fetch/sessions
+
+Fetch the user's study session history with optional filters and summary stats.
+
+**Auth**: Required (valid session token)
+
+**Rate Limit**: 30 requests per minute
+
+**Description**: Returns a list of study sessions and an aggregated summary. Supports filtering by session type, course, and status.
+
+**Request Body:**
+```json
+{
+  "token": "session_token_string",
+  "session_type": "burst",
+  "course_id": "uuid",
+  "status": "completed",
+  "limit": 20
+}
+```
+
+**Parameters:**
+- `token` (string, required): Valid session token
+- `session_type` (string, optional): Filter by "regular" or "burst"
+- `course_id` (string, optional): Filter by course UUID
+- `status` (string, optional): Filter by "completed" or "abandoned"
+- `limit` (integer, optional): Max sessions to return (default: 20, max: 100)
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Sessions fetched successfully",
+  "data": {
+    "sessions": [
+      {
+        "id": "uuid",
+        "course_id": "uuid or null",
+        "session_type": "burst",
+        "target_duration_seconds": 600,
+        "actual_duration_seconds": 605,
+        "xp_earned": 150,
+        "questions_answered": 12,
+        "questions_correct": 9,
+        "accuracy": 75.0,
+        "xp_per_minute": 14.9,
+        "status": "completed",
+        "started_at": "2026-02-06T10:00:00Z",
+        "completed_at": "2026-02-06T10:10:05Z"
+      }
+    ],
+    "summary": {
+      "total_sessions": 15,
+      "total_xp": 1820,
+      "total_questions": 145,
+      "total_correct": 112,
+      "average_accuracy": 77.2,
+      "best_session_xp": 210,
+      "total_time_seconds": 9200,
+      "avg_session_seconds": 613.3
+    },
+    "count": 1
+  }
+}
+```
+
+**Response Fields:**
+- `sessions` (array): List of session objects ordered by started_at DESC
+- `summary` (object): Aggregated stats from all **completed** sessions matching filters
+- `count` (integer): Number of sessions returned in this response
+
+**Error Responses:**
+- `400 Bad Request`: Missing token, invalid filter values
+- `401 Unauthorized`: Invalid or expired token
+- `500 Internal Server Error`: Database error
+
+---

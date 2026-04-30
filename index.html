@@ -163,11 +163,13 @@
     <ul class="nav__links" role="list">
       <li><a href="#showcase" class="nav__link">How it works</a></li>
       <li><a href="#pricing"  class="nav__link">Pricing</a></li>
-      <li><a href="https://lockin.tech/resources/" class="nav__link">Resources</a></li>
-      <li><a href="https://lockin.tech/support/" class="nav__link">Support</a></li>
+      <li><a href="/resources/" class="nav__link">Resources</a></li>
+      <li><a href="/support/" class="nav__link">Support</a></li>
+      <li class="nav__auth-item"><a href="/account/login.html" class="nav__link" id="navLoginLink">Log in</a></li>
     </ul>
 
     <div class="nav__cta">
+      <a href="/account/" class="btn btn--outline btn--sm nav__account-btn js-auth-only" style="display: none;">Account</a>
       <button type="button" class="btn btn--primary btn--sm js-launch-app" aria-haspopup="dialog">Launch app →</button>
     </div>
 
@@ -180,10 +182,12 @@
     <ul role="list">
       <li><a href="#showcase" class="nav__drawer-link">How it works</a></li>
       <li><a href="#pricing"  class="nav__drawer-link">Pricing</a></li>
-      <li><a href="https://lockin.tech/resources/" class="nav__drawer-link">Resources</a></li>
-      <li><a href="https://lockin.tech/support/" class="nav__drawer-link">Support</a></li>
+      <li><a href="/resources/" class="nav__drawer-link">Resources</a></li>
+      <li><a href="/support/" class="nav__drawer-link">Support</a></li>
+      <li class="nav__auth-item"><a href="/account/login.html" class="nav__drawer-link" id="navDrawerLoginLink">Log in</a></li>
     </ul>
     <div class="nav__drawer-cta">
+      <a href="/account/" class="btn btn--outline btn--full btn--md js-auth-only" style="display: none; margin-bottom: 0.75rem;">Account</a>
       <button type="button" class="btn btn--primary btn--full btn--md js-launch-app" aria-haspopup="dialog">Launch app →</button>
     </div>
   </div>
@@ -228,7 +232,7 @@
             Start revising free
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </button>
-          <a href="#pricing" class="btn btn--ghost btn--xl">See pricing</a>
+          <a href="#pricing" class="btn btn--outline btn--xl">Get Lockin Pro</a>
         </div>
 
         <div class="hero__platforms">
@@ -828,11 +832,12 @@
           <li class="pricing__feature pricing__feature--yes"><span class="pricing__feature-icon">✓</span>Everything in Free</li>
           <li class="pricing__feature pricing__feature--yes"><span class="pricing__feature-icon">✓</span>Unlimited questions &amp; flashcards</li>
           <li class="pricing__feature pricing__feature--yes"><span class="pricing__feature-icon">✓</span>Unlimited podcast access</li>
-          <li class="pricing__feature pricing__feature--yes"><span class="pricing__feature-icon">✓</span>Lockin Pro leaderboard badge</li>
+
           <li class="pricing__feature pricing__feature--no"><span class="pricing__feature-icon">✕</span>Downloadable notes</li>
         </ul>
 
-        <a href="https://lockin.tech/online" class="btn btn--primary btn--full btn--md pricing__cta">Get Lockin Pro →</a>
+        <button type="button" class="btn btn--primary btn--full btn--md pricing__cta js-checkout-btn" data-tier="pro">Get Lockin Pro →</button>
+        <p class="pricing__footnote" id="error-pro" style="color: #EF4444; display: none; margin-bottom: 0;">Checkout failed. Try again.</p>
         <p class="pricing__footnote">One-time payment. No subscription. No renewal.</p>
       </div>
 
@@ -848,11 +853,11 @@
         <ul class="pricing__features" role="list">
           <li class="pricing__feature pricing__feature--yes"><span class="pricing__feature-icon">✓</span>Everything in Pro</li>
           <li class="pricing__feature pricing__feature--yes"><span class="pricing__feature-icon">✓</span>Printable &amp; downloadable notes</li>
-          <li class="pricing__feature pricing__feature--yes"><span class="pricing__feature-icon">✓</span>Lockin Super badge on leaderboard</li>
-          <li class="pricing__feature pricing__feature--yes"><span class="pricing__feature-icon">✓</span>Priority support access</li>
         </ul>
 
-        <a href="https://lockin.tech/online" class="btn btn--outline btn--full btn--md pricing__cta">Get Lockin Super →</a>
+        <button type="button" class="btn btn--primary btn--full btn--md pricing__cta js-checkout-btn" data-tier="super">Get Lockin Super →</button>
+        <p class="pricing__footnote" id="error-super" style="color: #EF4444; display: none; margin-bottom: 0;">Checkout failed. Try again.</p>
+        <p class="pricing__footnote">One-time payment. No subscription. No renewal.</p>
       </div>
 
     </div>
@@ -913,10 +918,10 @@
       <div class="footer__col">
         <h4 class="footer__col-title">Resources</h4>
         <ul class="footer__list" role="list">
-          <li><a class="footer__link" href="https://lockin.tech/resources/">Resources hub</a></li>
-          <li><a class="footer__link" href="https://lockin.tech/resources/articles/">Study articles</a></li>
-          <li><a class="footer__link" href="https://lockin.tech/resources/pass-rates/">Pass rates</a></li>
-          <li><a class="footer__link" href="https://lockin.tech/support/">Support</a></li>
+          <li><a class="footer__link" href="/resources/">Resources hub</a></li>
+          <li><a class="footer__link" href="/resources/articles/">Study articles</a></li>
+          <li><a class="footer__link" href="/resources/pass-rates/">Pass rates</a></li>
+          <li><a class="footer__link" href="/support/">Support</a></li>
         </ul>
       </div>
 
@@ -946,6 +951,6 @@
   </div>
 </footer>
 
-<script type="module" src="js/main.js"></script>
+<script type="module" src="js/main.js?v=5"></script>
 </body>
 </html>

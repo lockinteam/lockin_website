@@ -1,0 +1,166 @@
+'Entries: 6/999999 (Not Modified Often)'
+
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#060E1A">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex">
+
+  <title>Account — Lockin.tech</title>
+  <meta name="description" content="Manage your Lockin account and subscription.">
+
+  <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+  <link rel="apple-touch-icon" href="../assets/images/favicon.png">
+
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=cabinet-grotesk@400,500,700,800&display=swap">
+
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/reset.css">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <link rel="stylesheet" href="../css/nav.css">
+  <link rel="stylesheet" href="../css/footer.css">
+  <link rel="stylesheet" href="css/account.css">
+
+  <style>
+    .account-dashboard {
+      background: var(--c-bg-2);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-xl);
+      padding: var(--sp-8);
+      margin-top: var(--sp-6);
+      text-align: left;
+    }
+    .account-dashboard h2 {
+      font-family: var(--font-display);
+      font-size: var(--t-xl);
+      margin-bottom: var(--sp-4);
+      color: var(--c-dark);
+    }
+    .account-detail {
+        margin-bottom: var(--sp-4);
+        font-size: var(--t-sm);
+        color: var(--c-text);
+    }
+    .account-detail strong {
+        color: var(--c-dark);
+    }
+    .account-actions {
+      display: flex;
+      gap: var(--sp-4);
+      flex-wrap: wrap;
+      margin-top: var(--sp-6);
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: var(--r-full);
+      font-size: var(--t-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge--free { background: rgba(255, 255, 255, 0.1); color: var(--c-text); }
+    .badge--pro { background: rgba(var(--c-primary-rgb), 0.2); color: var(--c-primary-light); }
+    .badge--super { background: rgba(var(--c-accent-rgb), 0.2); color: var(--c-accent); }
+    
+    #loadingState { text-align: center; padding: 2rem 0; }
+    #contentState { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ────────────────────────────────────────────────────── -->
+<nav class="nav" id="nav" role="navigation" aria-label="Main">
+  <div class="container nav__inner">
+    <a href="/" class="nav__logo" aria-label="Lockin home">
+      <img src="../assets/images/logo-full.png" alt="Lockin">
+    </a>
+    <ul class="nav__links" role="list">
+      <li><a href="/#showcase"  class="nav__link">How it works</a></li>
+      <li><a href="/#pricing"   class="nav__link">Pricing</a></li>
+      <li><a href="/resources/" class="nav__link">Resources</a></li>
+      <li><a href="/support/"   class="nav__link">Support</a></li>
+      <li class="nav__auth-item"><a href="/account/login.html" class="nav__link">Log in</a></li>
+    </ul>
+    <div class="nav__cta">
+      <a href="/account/" class="btn btn--outline btn--sm nav__account-btn js-auth-only" style="display: none;">Account</a>
+      <button type="button" class="btn btn--primary btn--sm js-launch-app" aria-haspopup="dialog">Launch app →</button>
+    </div>
+    <button class="nav__burger" id="navBurger" aria-label="Toggle menu" aria-expanded="false" aria-controls="navDrawer">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ── Page ───────────────────────────────────────────────────────────── -->
+<div class="auth-wrap">
+  <main class="auth-main" style="align-items: flex-start; padding-top: 140px;">
+    <div class="auth-bg" aria-hidden="true">
+      <div class="auth-bg__blob auth-bg__blob--1"></div>
+    </div>
+
+    <div class="auth-card" style="max-width: 600px; margin: 0 auto;">
+      <a href="/" class="auth-back">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Back to home
+      </a>
+
+      <h1 class="auth-title">Your Account</h1>
+      
+      <div id="loadingState">
+        <div class="auth-icon auth-icon--loading" aria-hidden="true" style="margin: 0 auto;">
+          <svg class="spinner-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        </div>
+        <p class="auth-subtitle" style="margin-top: 1rem;">Loading your details...</p>
+      </div>
+
+      <div id="contentState" class="account-dashboard">
+        <h2>Profile overview</h2>
+        
+        <div class="account-detail">
+            <strong>Username:</strong> <span id="accUsername">...</span>
+        </div>
+        <div class="account-detail">
+            <strong>Email:</strong> <span id="accEmail">...</span>
+        </div>
+        <div class="account-detail" style="margin-bottom: 0;">
+            <strong>Subscription:</strong> <span id="accTierBadge" class="badge">Loading</span>
+        </div>
+        
+        <p id="portalError" class="auth-notice"></p>
+
+        <div class="account-actions">
+            <a href="/#pricing" id="upgradeBtn" class="btn btn--primary btn--sm" style="display: none;">Upgrade Plan</a>
+            <button id="logoutBtn" class="btn btn--outline btn--sm">Log out</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ── Footer ────────────────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer__bottom">
+      <p class="footer__copyright">
+        © <span id="footerYear"></span> <strong>Lockin.tech</strong>. All rights reserved.
+      </p>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="../js/nav.js?v=5"></script>
+<script src="js/account.js?v=5"></script>
+<script>
+  import('../js/nav.js?v=5').then(m => m.initNav());
+  document.getElementById('footerYear').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>

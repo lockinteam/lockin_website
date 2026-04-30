@@ -1,0 +1,182 @@
+'Entries: 4/999999 (Not Modified Often)'
+
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#060E1A">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex">
+
+  <title>Log in — Lockin.tech</title>
+  <meta name="description" content="Log in to your Lockin account to manage your subscription.">
+
+  <link rel="icon" type="image/png" href="../assets/images/favicon.png">
+  <link rel="apple-touch-icon" href="../assets/images/favicon.png">
+
+  <!-- Google Sign-In Script -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=cabinet-grotesk@400,500,700,800&display=swap">
+
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/reset.css">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <link rel="stylesheet" href="../css/nav.css">
+  <link rel="stylesheet" href="../css/footer.css">
+  <link rel="stylesheet" href="css/account.css">
+</head>
+<body>
+
+<!-- ── Navigation ────────────────────────────────────────────────────── -->
+<nav class="nav" id="nav" role="navigation" aria-label="Main">
+  <div class="container nav__inner">
+    <a href="/" class="nav__logo" aria-label="Lockin home">
+      <img src="../assets/images/logo-full.png" alt="Lockin">
+    </a>
+    <ul class="nav__links" role="list">
+      <li><a href="/#showcase"  class="nav__link">How it works</a></li>
+      <li><a href="/#pricing"   class="nav__link">Pricing</a></li>
+      <li><a href="/resources/" class="nav__link">Resources</a></li>
+      <li><a href="/support/"   class="nav__link">Support</a></li>
+      <li class="nav__auth-item"><a href="/account/login.html" class="nav__link">Log in</a></li>
+    </ul>
+    <div class="nav__cta">
+      <button type="button" class="btn btn--primary btn--sm js-launch-app" aria-haspopup="dialog">Launch app →</button>
+    </div>
+    <button class="nav__burger" id="navBurger" aria-label="Toggle menu" aria-expanded="false" aria-controls="navDrawer">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="nav__drawer" id="navDrawer" aria-hidden="true">
+    <ul role="list">
+      <li><a href="/#showcase"  class="nav__drawer-link">How it works</a></li>
+      <li><a href="/#pricing"   class="nav__drawer-link">Pricing</a></li>
+      <li><a href="/resources/" class="nav__drawer-link">Resources</a></li>
+      <li><a href="/support/"   class="nav__drawer-link">Support</a></li>
+      <li class="nav__auth-item"><a href="/account/login.html" class="nav__drawer-link">Log in</a></li>
+    </ul>
+    <div class="nav__drawer-cta">
+      <button type="button" class="btn btn--primary btn--full btn--md js-launch-app" aria-haspopup="dialog">Launch app →</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Page ───────────────────────────────────────────────────────────── -->
+<div class="auth-wrap">
+  <main class="auth-main">
+    <div class="auth-bg" aria-hidden="true">
+      <div class="auth-bg__blob auth-bg__blob--1"></div>
+      <div class="auth-bg__blob auth-bg__blob--2"></div>
+    </div>
+
+    <div class="auth-card">
+      <a href="/" class="auth-back">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Back to home
+      </a>
+
+      <!-- Login View -->
+      <div id="loginView" class="verify-view" style="display: flex;">
+        <h1 class="auth-title" id="formTitle">Log in wrapper</h1>
+        <p class="auth-subtitle" id="formSubtitle">Manage your Lockin subscription directly on the web.</p>
+        
+        <form id="authForm" class="auth-form">
+          <div id="signupFields" style="display:none; width: 100%; flex-direction: column; gap: var(--sp-4);">
+              <div class="auth-form__group">
+                <label for="username" class="auth-form__label">Username</label>
+                <input type="text" id="username" class="auth-form__input" placeholder="e.g. thebestreviser" autocomplete="username">
+              </div>
+          </div>
+          <div class="auth-form__group">
+            <label for="email" class="auth-form__label" id="emailLabel">Username or Email</label>
+            <input type="text" id="email" name="email" class="auth-form__input" required autocomplete="email" placeholder="example@gmail.com">
+          </div>
+          <div class="auth-form__group">
+            <label for="password" class="auth-form__label">Password</label>
+            <input type="password" id="password" name="password" class="auth-form__input" required autocomplete="current-password" placeholder="••••••••">
+          </div>
+          <p id="authError" class="auth-notice"></p>
+          <button type="submit" class="btn-auth" id="submitBtn">Log in</button>
+        </form>
+
+        <p class="auth-toggle">
+          <span id="toggleText">Don't have an account?</span>
+          <a id="toggleBtn">Sign up</a>
+        </p>
+
+        <div class="auth-or">OR</div>
+        
+        <div id="g_id_onload"
+             data-client_id="233104118674-jrqmv0eihmdnrpdkqlkssl6t93gknurk.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse">
+        </div>
+        <div class="google-btn-wrapper">
+            <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="continue_with" data-shape="rectangular" data-logo_alignment="left"></div>
+        </div>
+      </div>
+      
+    </div>
+  </main>
+</div>
+
+<!-- ── Footer ────────────────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer__grid">
+      <div class="footer__brand-col">
+        <a href="/" class="footer__brand-mark">
+          <img src="../assets/images/logo-mark.png" alt="" aria-hidden="true">
+          <span class="footer__brand-mark-text">Lockin<span>.</span>tech</span>
+        </a>
+        <p class="footer__tagline">The all-in-one revision platform for UK GCSE and A-Level students.</p>
+      </div>
+      <div class="footer__col">
+        <h4 class="footer__col-title">Product</h4>
+        <ul class="footer__list" role="list">
+          <li><a class="footer__link" href="/#showcase">How it works</a></li>
+          <li><a class="footer__link" href="/#pricing">Pricing</a></li>
+          <li><a class="footer__link" href="/online">Launch web app</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4 class="footer__col-title">Resources</h4>
+        <ul class="footer__list" role="list">
+          <li><a class="footer__link" href="/resources/">Resources hub</a></li>
+          <li><a class="footer__link" href="/support/">Support</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4 class="footer__col-title">Company</h4>
+        <ul class="footer__list" role="list">
+          <li><a class="footer__link" href="mailto:support@lockin.tech">support@lockin.tech</a></li>
+          <li><a class="footer__link" href="/tos/">Terms &amp; Privacy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p class="footer__copyright">
+        © <span id="footerYear"></span> <strong>Lockin.tech</strong>. All rights reserved.
+      </p>
+      <div class="footer__legal">
+        <a href="/tos/">Terms</a>
+        <a href="/tos/#privacy">Privacy</a>
+        <a href="mailto:support@lockin.tech">Contact</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="../js/nav.js?v=4"></script>
+<script src="js/login.js?v=4"></script>
+<script>
+  // Quick hack to init nav from module
+  import('../js/nav.js?v=4').then(m => m.initNav());
+  document.getElementById('footerYear').textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
